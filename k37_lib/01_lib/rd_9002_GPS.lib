@@ -1,0 +1,68 @@
+
+/*** BeginHeader */
+#ifndef rd_9002_GPS_lib
+#define rd_9002_GPS_lib
+/*** EndHeader */
+
+
+/*******************************************************
+读取GPS信息的接口函数
+com_f[0]    纬度  com_f[2]=1北纬，2=南纬
+com_f[1]    经度  com_f[3]=1东经，2=西经
+com_sec     GPS时间
+*******************************************************/
+
+/*** BeginHeader rd_GPS */
+#use "gps.lib"
+int rd_GPS( char port );
+/*** EndHeader */
+int rd_GPS( char port )
+{
+   static int status;
+   static unsigned long tmpt;
+
+   auto GPSPosition current_pos;
+   auto struct tm current_time;
+
+   costate
+   {
+      status = 0;
+      tmpt = SEC_TIMER;
+      while(SEC_TIMER < (tmpt + 30))
+      {
+         waitfor(DelayMs(2000));
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if(com_rlen >= 60) break;
+      }
+
+      if(gps_get_position(&current_pos, com_rbuf) == 0)
+      {
+         com_f[0] = current_pos.lat_degrees + current_pos.lat_minutes/100;
+         if(current_pos.lat_direction == 'N') com_f[2] = 1; //1-North
+         else com_f[2] = 2;                                 //2-South
+
+         com_f[1] = current_pos.lon_degrees + current_pos.lon_minutes/100;
+         if(current_pos.lon_direction == 'W') com_f[3] = 2; //2-West
+         else com_f[3] = 1;                                 //1-East
+
+         if(gps_get_utc(&current_time, com_rbuf) == 0)      //GPS time
+         {
+            com_sec = mktime(&current_time);
+         }
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_sec = read_rtc();
+         status = 2;
+      }
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

@@ -1,0 +1,120 @@
+
+/*** BeginHeader */
+#ifndef rd_6010_metal_dianchuang_lib
+#define rd_6010_metal_dianchuang_lib
+/*** EndHeader */
+
+
+
+
+/*** BeginHeader rd_metal_dianchuang*/
+int rd_metal_dianchuang( char port );
+/*** EndHeader */
+/*******************************************************************************
+无锡点创重金属设备协议
+发送：
+      01   03   10   9A   00    08   60    E3
+
+回复：
+
+（1）仪器测量数据为0.782mg/L，测量时间是2010年8月5日13时2分7秒
+
+      01   03   10
+03（测量结果高位）          0E（测量结果低位）    00（测量结果高位）    00（测量结果低位）
+20（测量时间年高位）    10（测量时间年低位）    00（测量时间月高位）    08（测量时间月低位）
+00（测量时间日高位）    05（测量时间日低位）    00（测量时间时高位）    13（测量时间时低位）
+00（测量时间分高位）    02（测量时间分低位）    00（测量时间秒高位）    07（测量时间秒低位）    A8    D2
+
+*******************************************************************************/
+int rd_metal_dianchuang( char port )
+{
+   static int status;
+   auto struct tm rtc;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      //01   03   10   9A   00    08   60    E3
+      pack_modbus_cmd(0x01, 0x03, 0x109a, 0x08);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 20)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         f.f = f.l;
+         f.f /= 1000.0;
+         com_f[0] = f.f;         //即时值
+
+
+         rtc.tm_year = hex2dec(com_rbuf[7]) * 100 + hex2dec(com_rbuf[8]) - 1900;
+         rtc.tm_mon = hex2dec(com_rbuf[10]);
+         rtc.tm_mday = hex2dec(com_rbuf[12]);
+         rtc.tm_hour = hex2dec(com_rbuf[14]);
+         rtc.tm_min = hex2dec(com_rbuf[16]);
+         rtc.tm_sec = hex2dec(com_rbuf[18]);
+         com_sec = mktime(&rtc);
+
+         #ifdef DEBUG_PRINTF
+         printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+            rtc.tm_year+1900, rtc.tm_mon, rtc.tm_mday, rtc.tm_hour, rtc.tm_min, rtc.tm_sec);
+         #endif
+
+         //01   03   02   2E   00    01   E5    BB
+         pack_modbus_cmd(0x01, 0x03, 0x022e, 0x01);
+         com_write(port);
+         waitfor(DelayMs(1000));
+
+/*******************************************************************************
+仪器正常工作无报警：
+01   03   02    00    00
+（00：仪器工作正常；1：温度异常；2：无测量样品；3：无清洗水；4：无试剂一；5：无试剂二；6：无试剂四；7：无试剂三；
+8：冷却风扇故障；9：液位高信号故障；A：液位中信号故障；B：液位低信号故障；C：测量信号故障）    B8    44
+*******************************************************************************/
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if( (com_rlen >= 7)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+         {
+            if(com_rbuf[4] == 0x00)
+            {
+               status = 1;
+            }
+            else
+            {
+               status = 2;
+            }
+         }
+         else
+         {
+            status = 2;
+         }
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+

@@ -1,0 +1,186 @@
+/*** BeginHeader */
+#ifndef rd_8035_umb_lib
+#define rd_8035_umb_lib
+
+/*** EndHeader */
+
+/*** BeginHeader calc_crc*/
+unsigned short calc_crc(unsigned short crc_buff, unsigned char input);
+/*** EndHeader */
+unsigned short calc_crc(unsigned short crc_buff, unsigned char input)
+{
+	unsigned char i;
+	unsigned short x16; // we'll use this to hold the XOR mask
+
+	for (i=0; i<8; i++)
+	{
+		// XOR current D0 and next input bit to determine x16 value
+		if( (crc_buff & 0x0001) ^ (input & 0x01) )
+      {
+			x16 = 0x8408;
+      }
+		else
+      {
+			x16 = 0x0000;
+      }
+		// shift crc buffer
+		crc_buff = crc_buff >> 1;
+		// XOR in the x16 value
+		crc_buff ^= x16;
+		// shift input for next iteration
+		input = input >> 1;
+	}
+
+	return(crc_buff);
+}
+
+/*** BeginHeader checkCRC*/
+unsigned short checkCRC(char *buffer, int len);
+/*** EndHeader */
+unsigned short checkCRC(char *buffer, int len)
+{
+	// initialise startvalue FFFFh
+	auto unsigned short crc;
+   auto int n;
+   crc = 0xFFFF;
+	// calculation
+	for(n = 0; n < len; n++)
+	{
+		crc = calc_crc(crc, buffer[n]);
+	}
+
+	return crc;
+}
+
+/*** BeginHeader umbPacket*/
+void umbPacket(unsigned int reg, char port);
+/*** EndHeader */
+void umbPacket(unsigned int reg, char port)
+{
+	CHARTOINTTY data;
+   //发送：01h 	10h 	01h 	70h	01h	F0h	04h 	02h	23h 	10h 	64h 	00h 	03h 	61h	D9h	04h
+	//01h 	10h 	01h 	70h	01h	F0h	04h 	02h	23h 	10h 	64h 	00h 	03h 	61h	D9h	04h
+   com_tbuf[0] = 0x01;
+   com_tbuf[1] = 0x10;
+   com_tbuf[2] = 0x01;
+   com_tbuf[3] = 0x70;
+   com_tbuf[4] = 0x01;
+   com_tbuf[5] = 0xf0;
+   com_tbuf[6] = 0x04;
+   com_tbuf[7] = 0x02;
+   com_tbuf[8] = 0x23;
+   com_tbuf[9] = 0x10;
+   data.i = reg;
+   com_tbuf[10] = data.c[0];
+   com_tbuf[11] = data.c[1];
+   com_tbuf[12] = 0x03;
+
+   data.i = checkCRC(com_tbuf, 13);
+   com_tbuf[13] = data.c[0];
+   com_tbuf[14] = data.c[1];
+   com_tbuf[15] = 0x04;
+   com_tlen = 16;
+   com_write(port);
+}
+
+
+/*** BeginHeader parseUmbPacket*/
+int parseUmbPacket(float *fval, char port);
+/*** EndHeader */
+int parseUmbPacket(float *fval, char port)
+{
+	auto int result;
+   auto union uf data;
+//发送：01h 	10h 	01h 	70h	01h	F0h	04h 	02h	23h 	10h 	64h 	00h 	03h 	61h	D9h	04h
+//应答：01h 	10h 	01h 	F0h	01h	70h	0Ah 	02h	23h 	10h 	00h 	64h 	00h	16h   00h 	00h 	B4h 	41h 	03h	C6h	22h	04h
+    //<value> = 浮点数41B40000h 相当于22.5温度是22.5°C
+
+   //01h 	10h 	01h 	F0h	01h	70h	0Ah 	02h	23h 	10h 	00h 	64h 	00h	16h
+   //00h 	00h 	B4h 	41h 	03h	C6h	22h	04h
+   result = 0;
+
+   memset(com_rbuf, 0x00, sizeof(com_rbuf));
+   com_read(port);
+   if(com_rlen > 0 && com_rbuf[0] == 0x01 && com_rbuf[com_rlen - 1] == 0x04)
+   {
+   	data.ch[0] = com_rbuf[14];
+   	data.ch[1] = com_rbuf[15];
+   	data.ch[2] = com_rbuf[16];
+   	data.ch[3] = com_rbuf[17];
+
+      *fval = data.f;
+      result = 1;
+   }
+
+   return result;
+}
+
+
+
+
+/*** BeginHeader rd_umb*/
+int rd_umb( char port );
+/*** EndHeader */
+int rd_umb( char port )
+{
+	static int status;
+   auto char *p;
+
+   costate
+   {
+   	status = 0;
+
+      umbPacket(100, port);
+      waitfor(DelayMs(2000));
+
+      if(!parseUmbPacket(&com_f[0], port))//温度
+      {
+      	com_f[0] = 0.0;
+      }
+
+      umbPacket(200, port);
+      waitfor(DelayMs(2000));
+
+      if(!parseUmbPacket(&com_f[1], port))//湿度
+      {
+      	com_f[1] = 0.0;
+      }
+
+      umbPacket(300, port);
+      waitfor(DelayMs(2000));
+
+      if(!parseUmbPacket(&com_f[2], port))//压力
+      {
+      	com_f[2] = 0.0;
+      }
+
+      umbPacket(400, port);
+      waitfor(DelayMs(2000));
+
+      if(!parseUmbPacket(&com_f[3], port))//风速
+      {
+      	com_f[3] = 0.0;
+      }
+
+      umbPacket(500, port);
+      waitfor(DelayMs(2000));
+
+      if(!parseUmbPacket(&com_f[4], port))//风向
+      {
+      	com_f[4] = 0.0;
+      }
+
+      status = 1;
+
+      com_sec = read_rtc();
+   }
+
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

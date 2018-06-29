@@ -1,0 +1,381 @@
+/*** BeginHeader */
+#ifndef BOCON_K37_DEVICEPROTOCOLENABLEMACRODEFINE_LIB
+#define BOCON_K37_DEVICEPROTOCOLENABLEMACRODEFINE_LIB
+/*** EndHeader */
+
+/*** BeginHeader */
+
+/********仪表驱动头文件**********/
+/*
+#use "rd_flux_jiubo.lib"				//九波流量计
+#use "rd_flux_huanke.lib"				//青岛环科
+#use "rd_flux_qiuxin.lib"				//无锡求信
+#use "rd_flux_lanshen.lib"				//沈阳兰申，上海光华
+#use "rd_flux_xigema.lib"				//大连西格玛
+#use "rd_flux_huazheng.lib"				//重庆华正
+#use "rd_flux_huanke_hb.lib"			//北京环科 HB
+#use "rd_flux_chongqing_shuiwen.lib"	//重庆水文
+#use "rd_flux_sanquan.lib"				//西安三全
+#use "rd_cod_hach.lib"					//哈希COD
+#use "rd_cod_yiwen.lib"					//广州怡文
+#use "rd_cod_yiwen_1.lib"				//广州怡文 通信方式1
+#use "rd_cod_yiwen_BJ.lib"				//广州怡文 北京地区协议
+#use "rd_cod_yiwen_v1.lib"				//广州怡文 两位小数
+#use "rd_cod_daojin.lib"				//日本岛津
+#use "rd_cod_xianhe.lib"				//河北先河
+#use "rd_cod_puxi.lib"					//北京普析
+#use "rd_cod_lianhua.lib"				//兰州连华
+#use "rd_cod_huanke.lib"				//北京环科 COD
+#use "rd_cod_hongkai.lib"				//南京鸿恺
+#use "rd_cod_zemei.lib"					//泽美
+#use "rd_cod_aihua.lib"					//爱华
+#use "rd_cod_tianyuan.lib"				//世纪天源
+#use "rd_cod_jhc.lib"					//河南乾正
+#use "rd_cod_YSM_C.lib"					//怡杉环保
+#use "rd_cod_tethys.lib"				//TETHYS环保设备
+#use "rd_num_huashijie.lib"				//华时捷
+#use "rd_cod_xuedilong.lib"				//雪迪龙
+#use "rd_device_kete.lib"				//苏州科特
+#use "rd_device_gangneng.lib"			//南京港能
+#use "rd_cod_houtian.lib"				//厚天
+#use "rd_fluxcod_huitong_v20.lib"		//攀钢汇同2代
+#use "rd_fluxcod_huitong_v25.lib"		//攀钢汇同2.5代
+#use "rd_device_xongxia.lib"			//松下
+ */
+
+#use "rd_1001_flux_jiubo.lib"
+#use "rd_1003_flux_huanke.lib"
+#use "rd_1004_flux_qiuxin.lib"
+#use "rd_1005_flux_lanshen.lib"
+#use "rd_1008_flux_xigema.lib"
+#use "rd_1009_flux_huazheng.lib"
+#use "rd_1010_flux_shenghua.lib"
+#use "rd_1011_flux_huigu.lib"
+#use "rd_1012_flux_jinyuan.lib"
+#use "rd_1013_flux_huanke_hb.lib"
+#use "rd_1014_flux_chongqing_shuiwen.lib"
+#use "rd_1015_flux_sanquan.lib"
+#use "rd_1016_flux_taicang.lib"
+#use "rd_1017_flux_boersi.lib"
+#use "rd_1017_flux_folang.lib"
+#use "rd_1018_flux_boersi_v2.lib"
+#use "rd_1021_cod_multiranger.lib"
+#use "rd_1022_flux_jiangsu.lib"
+#use "rd_1023_flux_changtian.lib"
+#use "rd_1024_flux_ph_bokesi.lib"
+#use "rd_1024_flux_yuzhiFM.lib"
+#use "rd_1025_flux_hongkai.lib"
+#use "rd_1026_flux_tianxin.lib"
+#use "rd_1027_flux_zhubiao.lib"
+#use "rd_1028_flux_nancun.lib"
+#use "rd_1029_flux_dianci.lib"
+#use "rd_1030_flux_lvjie.lib"
+#use "rd_1031_flux_weichuang.lib"
+#use "rd_1032_flux_zhongbi.lib"
+#use "rd_10321_flux_bokesi_v2.lib"
+#use "rd_1033_flux_qili.lib"
+#use "rd_1034_flux_xinhang.lib"
+#use "rd_1035_flux_qining.lib"
+#use "rd_1036_flux_dongwei_v1.lib"
+#use "rd_1037_flux_mbmag.lib"
+#use "rd_1038_flux_FYCS_2000.lib"
+#use "rd_1039_flux_mingqu_noname.lib"
+#use "rd_1043_flux_jinhujinnuo.lib"
+#use "rd_1044_fulx_IFC050.lib"
+#use "rd_1512_flux_E_H.lib"
+#use "rd_1514_flux_kesheng.lib"
+#use "rd_18014_guobiao_2011_1.lib"
+#use "rd_1998_weishui_andan.lib"
+#use "rd_1999_weishui_cod_andan.lib"
+#use "rd_2001_cod_hach.lib"
+//#use "rd_20010_cod_andan_flux.lib"
+//#use "rd_20011_cod_andan_hach.lib"
+//#use "rd_20012_cod_andan_hach.lib"
+#use "rd_2002_cod_yiwen.lib"
+#use "rd_20020_cod_yiwen_1.lib"
+#use "rd_20021_cod_yiwen_BJ.lib"
+#use "rd_20022_cod_yiwen_v1.lib"
+#use "rd_2003_cod_daojin.lib"
+#use "rd_2004_cod_xianhe.lib"
+#use "rd_2005_cod_puxi.lib"
+#use "rd_2008_cod_lianhua.lib"
+#use "rd_2009_cod_huanke.lib"
+#use "rd_2010_cod_hongkai.lib"
+#use "rd_20101_cod_hongkai_new.lib"
+#use "rd_2011_cod_zemei.lib"
+#use "rd_2012_cod_dalujidian.lib"
+#use "rd_2013_cod_ruiquan.lib"
+#use "rd_2014_cod_yuxing.lib"
+#use "rd_2015_cod_delai.lib"
+#use "rd_2016_cod_aihua.lib"
+#use "rd_2017_cod_tianyuan.lib"
+#use "rd_2018_cod_jhc.lib"
+#use "rd_2019_cod_YSM_C.lib"
+#use "rd_2020_cod_tethys.lib"
+//#use "rd_20201_cod_tethys_v1.lib"
+#use "rd_2021_ahong2hao.lib"
+#use "rd_2022_cod_delin.lib"
+#use "rd_20221_cod_delin_x10.lib"
+#use "rd_2023_cod_delin_short.lib"
+#use "rd_2024_cod_xianhe_9005.lib"
+#use "rd_2025_cod_dianchuang.lib"
+#use "rd_2029_num_huashijie.lib"
+#use "rd_20291_num_huashijie1.lib"
+#use "rd_20292_num_huashijie2.lib"
+#use "rd_20293_num_huashijie3.lib"
+#use "rd_20294_num_huashijie4.lib"
+#use "rd_20295_num_huashijie5.lib"
+#use "rd_2030_cod_wumingCOD.lib"
+#use "rd_2031_cod_wumingAndan.lib"
+#use "rd_2032_cod_xuedilong.lib"
+#use "rd_20331_device_kete.lib"
+#use "rd_2034_device_gangneng.lib"
+#use "rd_2035_cod_houtian.lib"
+#use "rd_2040_some_huashijie.lib"
+#use "rd_2050_some_huashijie_modbus.lib"
+#use "rd_2051_cod_huachen.lib"
+#use "rd_2052_cod_houtian.lib"
+#use "rd_2063_device_modbus_03.lib"
+#use "rd_2064_cod_zhuhai.lib"
+#use "rd_2066_cod_zhonghexintai.lib"
+#use "rd_28014_guobiao_2011_2.lib"
+#use "rd_2070_single_metal_yingsi.lib"
+#use "rd_3001_amm_yiwen.lib"
+//#use "rd_3002_device_xianhe.lib"
+//#use "rd_3003_cod_lianhua.lib"
+#use "rd_3004_andan_YSM_C.lib"
+#use "rd_3005_tp_yiwen.lib"
+//#use "rd_3006_device_gangneng.lib"
+#use "rd_3007_cod_elox100.lib"
+#use "rd_3008_andan_ppm.lib"
+#use "rd_3009_andan_ruiquan.lib"
+#use "rd_3010_andan_daojin.lib"
+#use "rd_3105_andan_xiongmao.lib"
+#use "rd_3106_adam_4117.lib"
+#use "rd_3502_andan_weizhi.lib"
+#use "rd_3503_andan_jiuhuan.lib"
+#use "rd_3506_ZE_C310.lib"
+#use "rd_3507_VOCS.lib"
+//#use "rd_4004_cod_daojin.lib"
+#use "rd_4006_ph_p60.lib"
+#use "rd_4007_ph_fuming.lib"
+#use "rd_4008_ph_lvjie.lib"
+#use "rd_4009_ph_v400_bokesi.lib"
+#use "rd_4010_ph_dongyuan.lib"
+#use "rd_4011_ph_better_elph2010.lib"
+#use "rd_4012_bocon_k27f.lib"
+#use "rd_4013_ph_PHG_210.lib"
+#use "rd_4017.lib"
+#use "rd_5001_metal_keze.lib"
+#use "rd_6006_metal_lihe.lib"
+#use "rd_6007_andan_dwg.lib"
+#use "rd_6008_metal_powermon.lib"
+#use "rd_6009_rongjieyang_duomei.lib"
+#use "rd_6010_metal_dianchuang.lib"
+#use "rd_6011_hangzhou_fuming.lib"
+#use "rd_6016_xuanfuwu_dianchuang.lib"
+#use "rd_6017_anfang_shandong.lib"
+#use "rd_6020_ph_liangsen.lib"
+#use "rd_6021_cu_yiwen.lib"
+#use "rd_6022_langshi_PhotoTek_6000.lib"
+#use "rd_7017.lib"
+#use "rd_8001_xuedilong_cems.lib"
+#use "rd_8002_laoshandianzi_cems.lib"
+#use "rd_8004_bocon_cems.lib"
+#use "rd_8005_xianxi.lib"
+#use "rd_8006_devicedriver_xianxi.lib"
+#use "rd_8008_fluxcod_huitong_v20.lib"
+#use "rd_8009_fluxcod_huitong_v25.lib"
+#use "rd_8010_weihedianchang.lib"
+#use "rd_8011_qingheZs.lib"
+#use "rd_8012_qingheB02.lib"
+#use "rd_8013_qingheS02.lib"
+#use "rd_8014_guobiao_2011.lib"
+#use "rd_8014_guobiao_2011_TCP.lib"
+#use "rd_8014_9014_guobiao2017_2011.lib"
+#use "rd_8015_qingheB02_sec.lib"
+#use "rd_8016_daojin_cems.lib"
+#use "rd_8017_xuedilong_cems1.lib"
+#use "rd_8019_cmes_baoying.lib"
+#use "rd_8019_guobiao_2011_8019.lib"
+#use "rd_8020_guobiao_2011_8020.lib"
+#use "rd_8020_water_modbus.lib"
+#use "rd_8021_device_mewtocol_task.lib"
+#use "rd_8022_qingheZs_wet.lib"
+#use "rd_8023_qingheZs_0203.lib"
+#use "rd_8024_cya_systea.lib"
+#use "rd_8024_laoshan_cems.lib"
+#use "rd_8025_cems_huapeng.lib"
+//#use "rd_8025_jiaming_jmhm.lib"
+#use "rd_8026_cmes_iii.lib"
+#use "rd_8031_device_xongxia.lib"
+#use "rd_8031_pm10_redian.lib"
+#use "rd_8032_tsp.lib"
+#use "rd_8033_belfort.lib"
+//#use "rd_8034_sws200.lib"
+#use "rd_8035_umb.lib"
+#use "rd_8042_qingheZs_03.lib"
+#use "rd_8044_qingheZs_dust.lib"
+#use "rd_8045_cems_wanyi_v2.lib"
+#use "rd_8052_qingheB02_S.lib"
+#use "rd_8053_qingheS02_S.lib"
+#use "rd_8055_qingheB02_sec_S.lib"
+#use "rd_8056_hebei_V2.lib"
+#use "rd_8060_cems_tianjin316.lib"
+#use "rd_8061_VOC1000.lib"
+#use "rd_8062_qijue_CEMS.lib"
+#use "rd_8063_guobiao_2011_v1.lib"
+#use "rd_8066_xinjiang.lib"
+#use "rd_8067_EMR_AI08.lib"
+#use "rd_8068_modbus_slave.lib"
+#use "rd_8069_wenyaliu.lib"
+#use "rd_8070_fenxiyi_zetian.lib"
+#use "rd_8072_qingheZs_01.lib"
+#use "rd_9001_kunlun_amps.lib"
+#use "rd_9002_GPS.lib"
+#use "rd_9006_ph_lianhua.lib"
+#use "rd_9007_ph_taicang.lib"
+#use "rd_9008_devicedriver_lihe.lib"
+#use "rd_9009_devicedriver_lihe_cod.lib"
+#use "rd_9100_hebei_cems_lib.lib"
+#use "rd_9101_6_hebei_feishui_lib.lib"
+
+
+
+/*******************************************************************************
+										*****流量计*****
+*******************************************************************************/
+//九波声迪-->>1001 1002
+#define rd_flux_jiubo_lib_enable		(1)
+
+//青岛环科 SWC-->>1003
+#define rd_flux_huanke_lib_enable	(1)
+
+//无锡求信流量计-->>1004
+#define rd_flux_qiuxin_lib_enable	(1)
+
+//沈阳兰申流量计-->>1005
+//上海光华流量计-->>1006
+//#define rd_flux_lanshen_lib_enable	(1)
+
+//大连西格玛流量计-->>1008
+//#define rd_flux_xigema_lib_enable	(1)
+
+//重庆华正流量计-->>1009
+//#define rd_flux_huazheng_lib_enable	(1)
+
+//北京环科 HBML-3型流量计-->>1013
+//#define rd_flux_huanke_hb_lib_enable	(1)
+
+//重庆水文流量计-->>1014
+//#define rd_flux_chongqing_shuiwen_lib_enable	(1)
+
+//西安三全流量计-->>1015
+//#define rd_flux_sanquan_lib_enable	(1)
+
+
+/*******************************************************************************
+										*****COD*****
+*******************************************************************************/
+
+
+//哈希COD-->>2001 20012 20013
+#define rd_cod_hach_lib_enable	(1)
+
+//怡文COD-->>2002
+#define rd_cod_yiwen_lib_enable	(1)
+
+//怡文COD通信方式1-->>20020
+//#define rd_cod_yiwen_1_lib_enable	(1)
+
+//怡文COD北京地区协议-->>20021
+//#define rd_cod_yiwen_BJ_lib_enable	(1)
+
+//怡文COD有两位小数点-->>20022
+//#define rd_cod_yiwen_v1_lib_enable	(1)
+
+//岛津COD-->>2003
+//#define rd_cod_daojin_lib_enable	(1)
+
+//河北先河COD-->>2003
+//#define rd_cod_xianhe_lib_enable	(1)
+
+//北京普析COD-->>2004
+#define rd_cod_puxi_lib_enable	(1)
+//连华COD-->>2008
+//#define rd_cod_lianhua_lib_enable	(1)
+
+//北京环科COD-->>2009
+#define rd_cod_huanke_lib_enable	(1)
+
+//南京鸿恺COD-->>2010
+#define rd_cod_hongkai_lib_enable	(1)
+
+//泽美COD-->>2011
+//#define rd_cod_zemei_lib_enable	(1)
+
+//爱华COD-->>2016
+//#define rd_cod_aihua_lib_enable	(1)
+
+
+//世纪天源COD-->>2016
+//#define rd_cod_tianyuan_lib_enable	(1)
+
+
+
+//河南乾正COD-->>2018 20181 20182
+//#define rd_cod_jhc_lib_enable	(1)
+
+
+//YSM  COD-->>2019
+//#define rd_cod_YSM__C_lib_enable (1)
+
+//TETHYS环保设备-->>2020 20201
+
+//#define rd_cod_tethys_lib_enable (1)
+
+//华时捷在线监测仪-->>2006
+
+#define rd_cod_huashijie_lib_enable (1)
+
+//雪迪龙cod-->>2032
+
+//#define rd_cod_xuedilong_lib_enable (1)
+
+
+
+//科特在线检测仪-->>2033 20331-20333
+
+//#define rd_device_kete_lib_enable (1)
+
+//南京港能-->>2034	20342-20349
+
+//#define rd_device_gangneng_lib_enable (1)
+
+//厚天cod-->>2035	20350-20359
+
+#define rd_cod_houtian_lib_enable (1)
+
+
+//攀钢汇同-->>8008
+
+//#define rd_fluxcod_huitongV20_lib_enable (1)
+
+//攀钢汇同-->>8009
+
+//#define rd_fluxcod_huitongV25_lib_enable (1)
+
+
+//松下-->>8031 - 8034
+
+//#define rd_device_xongxia_lib_enable (1)
+
+
+
+
+
+/*** EndHeader */
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

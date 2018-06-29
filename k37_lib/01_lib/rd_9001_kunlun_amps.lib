@@ -1,0 +1,84 @@
+
+/*** BeginHeader */
+#ifndef rd_9001_kunlun_amps_lib
+#define rd_9001_kunlun_amps_lib
+/*** EndHeader */
+
+
+/*******************************************************
+昆仑工控  读三相电流                      
+发送:#0101\d
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_kunlun_amps */
+int rd_kunlun_amps( char port );
+/*** EndHeader */
+int rd_kunlun_amps( char port )
+{
+   static int status;
+   auto char tempBuf[32]; //临时变量
+   auto char * temptr;
+   auto char * temptr1;
+   costate
+   {
+      status = 0;
+      strcpy(com_tbuf, "#0101");
+      //com_tbuf[0] = '#';
+      //com_tbuf[1] = '0';
+      //com_tbuf[2] = '1';
+      //com_tbuf[3] = '0';
+      //com_tbuf[4] = '1';//0读电压 ， 1读电流
+      com_tbuf[5] = 0x0d;
+      com_tlen = 6;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, '\0', sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 2)///////////////////////////////////////////// 还应该 (com_rbuf[0] == '=')
+      {
+         temptr = &com_rbuf[0];
+         temptr1 = strchr(temptr, '+');
+         if(temptr1 != NULL)
+         {
+            temptr = temptr1 + 1;
+            temptr1 = strchr(temptr, '+');
+            if(temptr1 != NULL)
+            {
+               memset(tempBuf, '\0', sizeof(tempBuf));
+               strncpy(tempBuf, temptr, (int)(temptr1 - temptr));
+               com_f[0] = atof(tempBuf);           //-------
+
+               temptr = temptr1 + 1;
+               temptr1 = strchr(temptr, '+');
+               if(temptr1 != NULL)
+               {
+                  memset(tempBuf, '\0', sizeof(tempBuf));
+                  strncpy(tempBuf, temptr, (int)(temptr1 - temptr));
+                  com_f[1] = atof(tempBuf);           //-------
+
+                  temptr = temptr1 + 1;
+                  com_f[2] = atof(temptr);            //-------
+                  status = 1;
+               }
+            }
+         }
+      }
+      if(status == 0)
+      {
+         //printf("KunLun Error = (dev:9900  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

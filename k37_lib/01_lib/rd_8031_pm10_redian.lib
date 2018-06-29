@@ -1,0 +1,70 @@
+/*** BeginHeader */
+#ifndef rd_8031_pm10_redian_lib
+#define rd_8031_pm10_redian_lib
+
+/*** EndHeader */
+
+
+/*** BeginHeader rd_pm10_redian*/
+int rd_pm10_redian( char port );
+/*** EndHeader */
+int rd_pm10_redian( char port )
+{
+	static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+   	status = 0;
+
+      //02 34 41 52 45 47 20 4B 30 20 30 35 38 03
+      com_tbuf[0] = 0x02;
+      com_tbuf[1] = 0x34;
+      com_tbuf[2] = 0x41;
+      com_tbuf[3] = 0x52;
+      com_tbuf[4] = 0x45;
+      com_tbuf[5] = 0x47;
+      com_tbuf[6] = 0x20;
+      com_tbuf[7] = 0x4b;
+      com_tbuf[8] = 0x30;
+      com_tbuf[9] = 0x20;
+      com_tbuf[10] = 0x30;
+      com_tbuf[11] = 0x35;
+      com_tbuf[12] = 0x38;
+      com_tbuf[13] = 0x03;
+      com_tlen = 14;
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      //02 34 41 52 45 47 20 30 20 35 38 20 31 34 2E 36 03 0D 0A
+		if( (com_rlen >= 5)&&(com_rbuf[0] == 0x02)&&(com_rbuf[com_rlen-3] == 0x03) )
+      {
+         if(offsetChar(com_rbuf, 0x20, 3, &com_f[0]))
+         {
+         	com_f[0] /= 1000.0;
+         	status = 1;
+         }
+         else
+         {
+         	status = 2;
+         }
+      }
+      else
+      {
+	   	status = 2;
+	      com_f[0] = 0.0;
+      }
+
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

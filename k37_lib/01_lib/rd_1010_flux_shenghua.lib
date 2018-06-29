@@ -1,0 +1,62 @@
+/*** BeginHeader */
+#ifndef rd_1010_flux_shenghua_lib
+#define rd_1010_flux_shenghua_lib
+/*** EndHeader */
+
+
+/*******************************************************
+	盛華 流量计
+命令：AB00BC
+数据格式：  报头+数据内容+报尾(2byte+5byte+11byte+8byte+8byte+2byte)
+返回：AB132.0012345678.3210000000000000000BA
+*******************************************************/
+/*** BeginHeader rd_flux_shenghua */
+int rd_flux_shenghua( char port );
+/*** EndHeader */
+int rd_flux_shenghua( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto char str[12];
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "AB00BC");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 5)&&(com_rbuf[0]=='A')&&(com_rbuf[1]=='B')&&
+        (com_rbuf[com_rlen-2]=='B')&&(com_rbuf[com_rlen-1]=='A'))
+      {
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[2], 5);
+         com_f[0] = atof(str); //即时值
+
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[8], 11);
+         com_f[1] = atof(str); //累計值
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

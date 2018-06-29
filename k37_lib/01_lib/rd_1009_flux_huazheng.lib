@@ -1,0 +1,79 @@
+/*** BeginHeader */
+#ifndef rd_1009_flux_huazheng_lib
+#define rd_1009_flux_huazheng_lib
+
+/*** EndHeader */
+
+/*******************************************************************************
+重庆华正水文仪器有限公司
+数据包：052.641,02020727.225FFFFF
+瞬时流量：052.641
+累计流量：02020727.225
+结束符：FFFFF
+*******************************************************************************/
+/*** BeginHeader rd_flux_huazheng */
+int rd_flux_huazheng( char port );
+/*** EndHeader */
+int rd_flux_huazheng( char port )
+{
+   static int status;
+   auto  char *temptr, *p;
+   auto unsigned long total;
+   auto char str[16];
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      waitfor(DelayMs(1500));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if(com_rlen >= 16)                         //接收数据的长度
+      {
+         #ifdef DEBUG_PRINTF
+         printf("%s \n", com_rbuf);
+         #endif
+         temptr = strchr(com_rbuf, ',');
+         if(temptr != NULL)
+         {
+            memset(str, 0x00, sizeof(str));
+            strncpy(str, com_rbuf, (int)(temptr-com_rbuf));
+            com_f[0] = atof(str);      //瞬时流量
+         }
+         else
+         {
+            com_f[0] = 0.0;
+            status ++;
+         }
+
+         temptr++;
+         p = strstr(temptr, "FFFFF");
+         if((temptr != NULL) && (p != NULL))
+         {
+            memset(str, 0x00, sizeof(str));
+            strncpy(str, temptr, (int)(p-temptr));
+            total = atol(str);         //累计流量
+            com_f[1] = total;      
+         }
+         else
+         {
+            com_f[1] = 0.0;
+            status ++;
+         }
+      }
+      else
+      {
+      	status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

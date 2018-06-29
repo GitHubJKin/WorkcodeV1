@@ -1,0 +1,71 @@
+/*** BeginHeader */
+#ifndef rd_2008_cod_lianhua_lib
+#define rd_2008_cod_lianhua_lib
+/*** EndHeader */
+
+/*     兰州连华                                                      2005 OK
+主控设备向在线监测设备发送采集数据命令如下：
+05 A0 C8 11 00 03 00 00 00 81 50 0A
+在线设备回复如下数据：
+05 A0 C8 11 00 00 00 01 2C AB 50 0A         COD的值为300mg/L
+*/
+/*** BeginHeader rd_cod_lianhua */
+int rd_cod_lianhua( char port );
+/*** EndHeader */
+int rd_cod_lianhua( char port )
+{
+   auto char i, flag;
+   static int status;
+   auto long templ;
+
+   costate
+   {
+      status = 0;
+
+      com_tbuf[0] = 0x05;
+      com_tbuf[1] = 0xA0;
+      com_tbuf[2] = 0xC8;
+      com_tbuf[3] = 0x11;
+      com_tbuf[4] = 0x00;
+      com_tbuf[5] = 0x03;
+      com_tbuf[6] = 0x00;
+      com_tbuf[7] = 0x00;
+      com_tbuf[8] = 0x00;
+      com_tbuf[9] = 0x81;
+      com_tbuf[10] = 0x50;
+      com_tbuf[11] = 0x0A;
+
+      com_tlen = 12;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+
+      if(com_rlen >= 12 && com_rbuf[0] == 0x05 && com_rbuf[1] == 0xA0)
+      {
+         templ = 0;
+         templ = templ | ((long)(com_rbuf[5]))<<25;
+         templ = templ | ((long)(com_rbuf[6]))<<16;
+         templ = templ | ((long)(com_rbuf[7]))<<8;
+         templ = templ | ((long)(com_rbuf[8]))<<0;
+
+         com_f[0] = (float)templ;   //值
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2005  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0;
+      }
+      com_sec = read_rtc();      //时间
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

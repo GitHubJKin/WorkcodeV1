@@ -1,0 +1,104 @@
+
+/*** BeginHeader */
+#ifndef rd_2034_device_gangneng_lib
+#define rd_2034_device_gangneng_lib
+/*** EndHeader */
+
+
+/*********************************
+南京港能
+1.读当前值命令：
+
+十进制：%01#RDD0152101525**回车换行
+十六进制：25 30 31 23 52 44 44 30 31 35 32 31 30 31 35 32 35 2A 2A 0D 0A
+2.返回值：
+十进制：%01$RD0803271521260000040718回车(换行)
+十六进制：25 30 31 24 52 44 30 38 30 33 32 37 31 35 32 31 32 36 30 30 30 30 30 34 30 37 31 38 0D (0A)
+意义：
+COD值为08年03月27日15时21分26秒COD值为40.7(小数点在从后往前数的第4位)
+COD仪与氨氮仪、总磷仪的通讯基本相同,只是污染物的返回值有差异,COD为一位小数,氨氮、总磷为两位小数，若为氨氮/总磷值：08年03月27日15时21分26秒 氨氮值为4.07(小数点在从后往前数的第5位)
+
+*********************************/
+
+
+
+/*** BeginHeader rd_device_gangneng_songxia_zhonglv */
+int rd_device_gangneng_songxia_zhonglv(char port, int addr, Rate rate);
+/*** EndHeader */
+int rd_device_gangneng_songxia_zhonglv(char port, int addr, Rate rate)
+{
+    static int status;
+    auto char i;
+    auto struct tm comTime;
+
+    costate
+    {
+	status = 0;
+	memset(com_tbuf, 0x00, sizeof(com_tbuf));
+	sprintf(com_tbuf, " %02d#RDD0152101525**\r\n", addr);
+	com_tbuf[0] = '%';
+	com_tlen = strlen(com_tbuf);
+	com_write(port);
+	waitfor(DelayMs(1000));
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);   //%01$RD0903271521260000040718
+	if ((com_rlen >= 22) && (strstr(com_rbuf, "$RD") != NULL))
+	{
+	    //是有效数据
+	    comTime.tm_year = HexCharToDec(com_rbuf[6]) * 10 + HexCharToDec(com_rbuf[7]) + 100;
+	    comTime.tm_mon = HexCharToDec(com_rbuf[8]) * 10 + HexCharToDec(com_rbuf[9]);
+	    comTime.tm_mday = HexCharToDec(com_rbuf[10]) * 10 + HexCharToDec(com_rbuf[11]);
+	    comTime.tm_hour = HexCharToDec(com_rbuf[12]) * 10 + HexCharToDec(com_rbuf[13]);
+	    comTime.tm_min = HexCharToDec(com_rbuf[14]) * 10 + HexCharToDec(com_rbuf[15]);
+	    comTime.tm_sec = HexCharToDec(com_rbuf[16]) * 10 + HexCharToDec(com_rbuf[17]);
+	    com_sec = mktime(&comTime);         //时间
+
+	    memset(com_tbuf, 0x00, sizeof(com_tbuf));
+	    strncpy(com_tbuf, &com_rbuf[18], 8);
+	    com_f[0] = atol(com_tbuf);
+
+	    switch (rate)
+	    {
+	    case RATE_10:
+		com_f[0] *= 10;
+		break;
+	    case RATE_100:
+		com_f[0] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[0] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[0] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[0] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[0] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[0] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[0] /= 10000;
+		break;
+	    default:
+		break;
+	    }
+	    status = 1;
+	}
+	else
+	{
+	    com_f[0] = 0;
+	    com_sec = read_rtc();      //时间
+	    status = 2;
+	}
+
+    }
+    return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

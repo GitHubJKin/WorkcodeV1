@@ -1,0 +1,134 @@
+
+/*** BeginHeader */
+#ifndef rd_8031_device_xongxia_lib
+#define rd_8031_device_xongxia_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+松下通讯协议:波特率9600
+decimal:多少个小数位
+数采仪给设备发送的命令：%01#RDD0152101525**回车
+设备返回的指令：
+%01$RD0601081923220000450716     （COD值：450.7mg/l）8031
+%01$RD1202020621400000000612     （氨氮值：0.06mg/l）8032
+%01$RD120627210000000048341E     （总磷值：4.834mg/l）8033
+
+
+数采仪发送：%01#RDD0152 1 01525**<回车>
+数采仪发送：%01#RDD0152 0 01525**<回车>new
+COD等设备返回：%01$RD      080327 152126 0000040718<回车>
+COD等设备返回：%01$RD 0000 120725 021509 000012341E<回车>new
+*******************************************************************************/
+/*** BeginHeader rd_device_xongxia_new*/
+int rd_device_xongxia_new( char port, char decimal);
+/*** EndHeader */
+int rd_device_xongxia_new( char port, char decimal)
+{
+	static int status;
+	auto char str[9];
+	auto union uf f;
+
+   auto struct tm comTime;
+   auto char tmpc[5];
+
+   
+	costate
+	{
+		status = 0;
+
+		memset(com_tbuf, 0x00, sizeof(com_tbuf));
+		strcpy(com_tbuf, "%01#RDD0152001525**\r\n");
+		com_tlen = strlen(com_tbuf);
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if( (com_rlen >= 28)&&(com_rbuf[0] == '%')) {
+			memset(str, 0x00, sizeof(str));
+
+			strncpy(str, &com_rbuf[6], 4);
+			devflag[0]=(char)atoi(str);
+			switch(devflag[0])
+			{
+				case 1:
+				case 3:
+					devflag[0] = 'M';
+					break;
+				case 2:
+					devflag[0] = 'D';
+					break;
+				case 0:
+					devflag[0] = 'N';
+					break;
+				default:
+					devflag[0] = 'B';
+					break;
+			}
+			
+			strncpy(str, &com_rbuf[22], 8);
+			com_f[0] = atof(str);
+
+	         switch (decimal)
+	         {
+	           case 1:
+	                     com_f[0] /= 10.0;
+	                     break;
+	           case 2:
+	                     com_f[0] /= 100.0;
+	                     break;
+	           case 3:
+	                     com_f[0] /= 1000.0;
+	                     break;
+	           case 4:
+	                     com_f[0] /= 10000.0;
+	                     break;
+			   case 5:
+	                     com_f[0] /= 100000.0;
+	                     break;
+	           case 6:
+	                     com_f[0] /= 1000000.0;
+	                     break;
+	           default: ;
+	         }
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+			devflag[0] = 'B';
+		}
+		//com_sec = read_rtc();
+		memset(tmpc, 0x00, sizeof(tmpc));
+		tmpc[0] = com_rbuf[10];
+		tmpc[1] = com_rbuf[11];
+		comTime.tm_year = atoi(tmpc);
+		comTime.tm_year += 100;
+		memset(tmpc, 0x00, sizeof(tmpc));
+		tmpc[0] = com_rbuf[12];
+		tmpc[1] = com_rbuf[13];
+		comTime.tm_mon  = atoi(tmpc);//月
+		memset(tmpc, 0x00, sizeof(tmpc));
+		tmpc[0] = com_rbuf[14];
+		tmpc[1] = com_rbuf[15];
+		comTime.tm_mday = atoi(tmpc);//日
+		memset(tmpc, 0x00, sizeof(tmpc));
+		tmpc[0] = com_rbuf[16];
+		tmpc[1] = com_rbuf[17];
+		comTime.tm_hour = atoi(tmpc);//时
+		memset(tmpc, 0x00, sizeof(tmpc));
+		tmpc[0] = com_rbuf[18];
+		tmpc[1] = com_rbuf[19];
+		comTime.tm_min  = atoi(tmpc);//分
+		comTime.tm_sec  = 0;//秒
+
+         com_sec = mktime(&comTime);
+	}
+	return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

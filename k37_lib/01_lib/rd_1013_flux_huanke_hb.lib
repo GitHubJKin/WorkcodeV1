@@ -1,0 +1,78 @@
+/*** BeginHeader */
+#ifndef rd_1013_flux_huanke_hb_lib
+#define rd_1013_flux_huanke_hb_lib
+/*** EndHeader */ 
+
+/*******************************************************
+HBML-3型流量计数据接口协议
+上位机以 "EB 4D 90 01"为请求命令，向流量计请求发送数据
+*******************************************************/
+/*** BeginHeader rd_flow_hb */
+int rd_flow_hb( char port );
+/*** EndHeader */
+int rd_flow_hb( char port )
+{
+   static int status;
+   //auto FLOATTOCHARTY value;
+   auto int i;
+   auto char str[9], str1[3], str2[3], str3[3];
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      //EB 4D 90 01
+      com_tbuf[0] = 0xEB;
+      com_tbuf[1] = 0x4D;
+      com_tbuf[2] = 0x90;
+      com_tbuf[3] = 0x01;
+      com_tlen = 4;
+      com_write(port);
+      waitfor(DelaySec(1));
+
+      //EA 4D  90  01 X1 X2 X3 Y1 Y2 Y3 Y4
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 11 && com_rbuf[0] == 0xEA && com_rbuf[1] == 0x4D
+      && com_rbuf[2] == 0x90 && com_rbuf[3] == 0x01 )
+      {
+         memset(str, 0x00, sizeof(str));
+         if(com_rbuf[4] < 0x40)
+         {
+            sprintf(str, "%02x%02x", com_rbuf[5], com_rbuf[6]);
+            com_f[0] = ((float)atoi(str) / 10000.0) * pow10((float)com_rbuf[4]);
+//            com_f[0] /= 3.60;
+         }
+         else
+         {
+            sprintf(str, "%02x%02x", com_rbuf[5], com_rbuf[6]);
+            com_f[0] = ((float)atoi(str) / 10000.0) / pow10((float)(0x80 - com_rbuf[4]));
+//            com_f[0] /= 3.60;
+         }
+         memset(str, 0x00, sizeof(str));
+         sprintf(str, "%02x", com_rbuf[7]);
+         memset(str1, 0x00, sizeof(str1));
+         sprintf(str1, "%02x", com_rbuf[8]);
+         memset(str2, 0x00, sizeof(str2));
+         sprintf(str2, "%02x", com_rbuf[9]);
+         memset(str3, 0x00, sizeof(str3));
+         sprintf(str3, "%02x", com_rbuf[10]);
+         com_f[1] = (float)atoi(str) + (float)atoi(str1) * 100 + (float)atoi(str2) * 10000 +
+                  (float)atoi(str3) * 1000000;
+
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();               //时间--------
+      if(status == 0)status = 1;
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

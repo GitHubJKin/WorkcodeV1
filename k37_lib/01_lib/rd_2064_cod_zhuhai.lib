@@ -1,0 +1,105 @@
+
+
+/*** BeginHeader */
+#ifndef rd_2064_cod_zhuhai_lib
+#define rd_2064_cod_zhuhai_lib
+/*** EndHeader */
+
+
+
+/*******************************************************
+珠海知本知能 COD驱动.
+*******************************************************/
+/*** BeginHeader rd_cod_zhuhai */
+int rd_cod_zhuhai( char port );
+/*** EndHeader */
+int rd_cod_zhuhai( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto char *p;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      com_tbuf[0] = 'D';
+      com_tlen = 1;
+      com_write(port);
+      waitfor(DelayMs(4000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 50)
+      {
+      	//p=com_rbuf;
+		if((p=strchr(com_rbuf,';'))!=NULL)
+      	{
+      		p++;
+			if((p=strchr(p,';'))!=NULL)
+			{
+				p++;
+				if((p=strchr(p,';'))!=NULL)
+				{
+					p++;
+					if((p=strchr(p,';'))!=NULL)
+					{
+						p++;
+						com_f[0] = atof(p);
+					}
+					else
+					{
+						com_f[0] = 0.0;
+					}
+				}
+				else
+				{
+					com_f[0] = 0.0;
+				}
+			}
+			else
+			{
+				com_f[0] = 0.0;
+			}
+			status =1;
+  		}
+      	else
+      	{
+      		status = 2;
+      		com_f[0] = 0.0;
+		}
+
+      }
+      else
+      {
+            status = 2;
+            com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+

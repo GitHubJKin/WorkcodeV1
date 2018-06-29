@@ -1,0 +1,1717 @@
+/*******************************************************************************
+Nand Flash存储及查找的接口函数，数据结构等
+存储方式：每页存一条记录
+按照指定的时间间隔存储记录，每个小时结束时计算这个小时的统计数据并独立保存一条
+每天结束时计算这天的统计数据，并独立保存一条
+每条记录里有本时间段的总量和历史总量，方便统计
+如小时记录里会保存这个小时的总量，均值，最大最小值，折算值等
+小时记录为统计本小时的所有分钟记录所得
+日记录为统计本日内的所有小时记录所得
+月记录为统计本月内的所有日记录所得
+
+分钟记录 -- 分钟记录 -- 小时记录 -- 分钟记录 -- 分钟记录 -- 小时记录 -- 日记录
+小时记录的时间标记为小时最大值，即：XX-XX-XX XX:59:59
+日记录的时间标记为日最大值，即：XX-XX-XX 23:59:59
+月记录的时间标记为月最大值，即：XX-XX-31 23:59:59
+
+请求用户的定义：	0-TCP0, 1-TCP1, 2-TCP2, 3-KEY, 4-SMP task
+2010-01-06
+*******************************************************************************/
+/*** BeginHeader */
+#ifndef _BOCON_RECORD_1G_LIB
+#define _BOCON_RECORD_1G_LIB
+
+//#define EN_PRINTF
+
+#ifndef DBG_PRINTF
+#define DBG_PRINTF
+	#ifdef EN_PRINTF
+		#define DBG(CODE) CODE
+	#else
+		#define DBG(CODE) ;
+	#endif
+#endif
+
+#define RED					"\x1b[31m"
+#define BLACK					"\x1b[30m"
+/*** EndHeader */
+
+
+/*** BeginHeader */
+
+#use "bocon_nf1g.elib"
+
+unsigned long onemsg_buf[SOCKET_NUMBER+2];		//共定义5个xmem缓冲区，LCD和3个TCP各一个
+unsigned long user_rd_page[SOCKET_NUMBER+2];	//记录每个用户当前读取的Flash页号
+typedef struct
+{
+	unsigned long ptr[SOCKET_NUMBER];			//没有上传的纪录的起始页，断线重连后需要补发的记录
+   unsigned int crc;
+}UN_TX_PTR;
+UN_TX_PTR un_tx_page;
+
+protected nf_device nandFlash;	//定义一个flash的设备的结构变量
+unsigned long myMainBuffer;   	//开辟一个页大小空间的起始物理地址
+unsigned long nf_pages;				//存储器的总页数
+long nf_page_size;					//存储器每页的大小
+
+unsigned long eldest_page;			//最老的记录所在页号
+unsigned long valid_start_page;	//整个Flash空间开始有数据的起始页
+unsigned long bad_page_start;		//坏区的起始页面
+unsigned long bad_page_end;		//坏区的结束页面
+
+unsigned long wrPtr;					//文件写指针
+unsigned long rdPtr;					//读页指针
+char lastUser;							//记录上一次请求查询的用户，0-TCP0，1-TCP1，2-TCP2，3-KEY
+
+long nandflash_id;//NAND FLASH ID   ID= 0xD7AD  可以给4整除，但是不能给256整除，该页不进行读写
+
+char nandflash_init_flag;//1-已经初始化
+/*** EndHeader */
+
+/*** BeginHeader _nf_readPage*/
+int _nf_readPage(nf_device *dev, long buffer, long page);
+/*** EndHeader */
+int _nf_readPage(nf_device *dev, long buffer, long page)
+{
+	int rc;
+
+	rc = nf_readPage(dev, buffer, page);
+/*
+   if(page >= 50L && page <= 260L)
+   {
+   	rc = -5;
+   }
+
+   if(page >= 550L && page <= 760L)
+   {
+   	rc = -5;
+   }
+
+
+   if(page >= 850L && page <= 1160L)
+   {
+   	rc = -5;
+   }
+
+   if(page >= 1250L && page <= 1460L)
+   {
+   	rc = -5;
+   }
+*/
+
+   return rc;
+}
+
+/*** BeginHeader check_un_tx_page_crc*/
+void check_un_tx_page_crc(void);
+/*** EndHeader */
+/*******************************************************************************
+函数功能：判断un_tx_page的crc值，是否正确，如果不正确，将指针指向wrPtr
+*******************************************************************************/
+void check_un_tx_page_crc(void)
+{
+	auto int i;
+   if(CRC16((char *)&un_tx_page, (sizeof(UN_TX_PTR)-2)) != un_tx_page.crc)
+   {	//如果校验错，则复位，标记为没有需补发的记录
+   	for(i = 0; i < SOCKET_NUMBER; i++)
+      {
+      	un_tx_page.ptr[i] = wrPtr;
+      }
+   	un_tx_page.ptr[0] = wrPtr;	//标记为无未上传记录
+      un_tx_page.ptr[1] = wrPtr;
+      un_tx_page.ptr[2] = wrPtr;
+      un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR)-2);
+
+      #ifdef DEBUG_PRINTF
+      printf("un_tx_page CRC false \n");
+      #endif
+   }
+}
+
+/*** BeginHeader wrPtr_init*/
+void wrPtr_init(void);
+/*** EndHeader */
+void wrPtr_init(void)
+{
+   auto char c;
+   auto char valid_start_page_flag;//0-没有查询到，1-已经查询到
+
+   if(nandflash_init_flag == 0) return;
+
+   tm_rd(&back_rtc);
+
+   lastUser = 0;						//记录最后一次请求记录的用户
+   rdPtr = 0L;
+   valid_start_page_flag = 0;
+
+   //ver 4
+   while(1)//这里应该是考虑FLASH开始有坏区
+   {
+   	if(rdPtr >= nf_pages)		//空的Flash，会耗费很长时间，可能需要改进
+      {
+      	rdPtr = 0L;
+         break;
+      }
+
+   	if(read_nf_page(&onemsg_rd, rdPtr, 3) == 0)
+      {
+         valid_start_page_flag = 1;
+      	break;
+      }
+      rdPtr += 128L;
+
+      if(rdPtr > 1280L)
+      {//为了在空页的时候，减少查询时间，只需要查询开始的前十页就可以了
+       	break;
+      }
+   }
+
+   if(valid_start_page_flag == 0)
+   {
+      rdPtr = nf_pages - 1280L;
+      while(1)
+      {
+         if(rdPtr >= nf_pages)		//空的Flash，会耗费很长时间，可能需要改进
+      	{
+      		rdPtr = 0L;
+         	break;
+      	}
+
+   		if(read_nf_page(&onemsg_rd, rdPtr, 3) == 0)
+      	{
+         	valid_start_page_flag = 1;
+      		break;
+      	}
+      	rdPtr += 128L;
+      }
+   }
+
+   valid_start_page = rdPtr;		//搜索有效的起始页
+   rdPtr = 0L;							//读指针的备份，记录了最后一次读的页号
+   wrPtr = 0L;							//初始化为没有记录
+   eldest_page = 0L;
+   getHisData(&onemsg_rd, 1, 0L, nf_pages - 1, read_rtc() + 30, 1, 3);
+   if(user_rd_page[3] < nf_pages)
+   {
+		wrPtr = user_rd_page[3];
+      for(c=0;c<6;c++)				//刚好在尾部有统计记录，几条记录的时间相同
+      {
+      	bad_page_end = onemsg_rd.Btime;
+   		if(read_nf_page(&onemsg_rd, wrPtr, 3) == 0)
+      	{
+      		if(onemsg_rd.Btime >= bad_page_end)
+            {
+            	bad_page_end = onemsg_rd.Btime;
+            	if(++ wrPtr >= nf_pages) wrPtr = 0L;
+            }
+      	}
+         else break;
+      }
+   }
+   //覆盖式的空间，wrPtr和后面的记录之间可能有很大的空间，需要保存其起始页号
+   eldest_page = chk_page_before(&onemsg_rd, nf_pages - 1, 3);//定位到最后
+   if(eldest_page != nf_pages)
+   {
+   	if(read_nf_page(&onemsg_rd, eldest_page, 3) == 0)//最后有效页有记录
+      {
+      	eldest_page = wrPtr / 128;
+         eldest_page *= 128;
+         eldest_page += 128;
+         while((eldest_page < nf_pages) &&
+         		(read_nf_page(&onemsg_rd, eldest_page, 3) == 1))
+         {
+         	eldest_page +=128;
+         }
+         if(eldest_page >= nf_pages) eldest_page = 0L;
+      }
+      else eldest_page = 0L;
+   }
+   else eldest_page = 0L;
+   DBG(printf("Flash: %ld x %ld, %ld, %ld\n\n", nf_pages, nf_page_size, wrPtr, eldest_page);)
+
+   //check_un_tx_page_crc();//ver 4
+
+   #ifdef DEBUG_PRINTF
+   printf("rdPtr %ld %ld %ld \n",
+   	un_tx_page.ptr[0], un_tx_page.ptr[1], un_tx_page.ptr[2]);
+   #endif
+
+	bad_page_start = 0L;
+	bad_page_end = 0L;
+}
+
+/*******************************************************************************
+调用flash读写数据函数前需初始化的函数,本函数能且只能执行一次
+注意本函数如果执行多次会耗尽内存 ,能且只能执行一次
+*******************************************************************************/
+/*** BeginHeader nf_operate_init */
+void nf_operate_init(void);
+/*** EndHeader */
+void nf_operate_init(void)
+{
+   auto char c;
+
+   if (nf_initDevice(&nandFlash)) //初始化FLASH失败
+   {
+      nf_pages = 524288L;
+      nf_page_size = 2048L;
+      DBG(printf("\nFlash Fail\n");)
+      nandflash_id = 0;
+   }
+	else //初始化FLASH成功
+   {
+   	nf_pages = nf_getPageCount(&nandFlash);    //获取一共有多少页
+	   nf_page_size = nf_getPageSize(&nandFlash); //获取每页有多大
+
+      //NAND FLASH ID: d3ec 三星1G
+
+      //Hynix H27UBG8T2BTR 4G bytes
+		//ID= 0xD7AD
+      nandflash_id = _nf_deviceID(&nandFlash);
+
+      //nf_pages = 1280L;
+   }
+
+   printf("NAND FLASH ID: %x\r\n", nandflash_id);
+
+   //nf_pages = 16384L;	//测试覆盖式的保存和查找
+
+   myMainBuffer = xalloc(nf_page_size);
+	for(c=0;c<SOCKET_NUMBER+2;c++)
+   {
+   	onemsg_buf[c] = xalloc(nf_page_size);
+      user_rd_page[c] = nf_pages;
+   }
+   nandflash_init_flag = 0;
+
+   _check_rtc();						//检查实时时间是否正常
+   nandflash_init_flag = 1;
+   wrPtr_init();
+}
+
+/*******************************************************************************
+将秒数值调整到指定月的最大值：XX-XX-31 23:59:59
+目的：方便搜索时查找，因存储时的统计记录的时间就是统计时间段的最大值
+t			需要调整的秒数
+dir		0 - 当前月的最大值，1 - 下月的最大值，2 - 上月的最大值
+返回值	调整后的秒数，总是时间所在月的最后一秒
+*******************************************************************************/
+/*** Beginheader adj_month_sec */
+unsigned long adj_month_sec(unsigned long t, char dir);
+/*** endheader */
+unsigned long adj_month_sec(unsigned long t, char dir)
+{
+   mktm(&rtc1, t);
+   rtc1.tm_mday = 1;
+   rtc1.tm_hour = 0;
+   rtc1.tm_min = 0;
+   rtc1.tm_sec = 0;
+   if(dir == 0) rtc1.tm_mon ++;			//指向下个月
+   else if(dir == 1) rtc1.tm_mon += 2;
+   if(rtc1.tm_mon > 12)
+   {
+   	rtc1.tm_mon -= 12;
+      rtc1.tm_year ++;
+   }
+   else if(rtc1.tm_mon == 0)
+   {
+      rtc1.tm_mon = 12;
+      rtc1.tm_year --;
+   }
+   return (mktime(&rtc1) - 1);	//所在月的最后一秒
+}
+
+/*******************************************************************************
+检查读出的历史记录的时间标记，判断是否正常，返回0表示有效
+时间范围：2006-5-2-9-22-00		2099-12-31-00-00-00
+*******************************************************************************/
+/*** BeginHeader _check_Btime */
+char _check_Btime(unsigned long t);
+/*** EndHeader */
+char _check_Btime(unsigned long t)
+{
+	if((t > 0x31888000) && (t < 0xE1B66000)) return 0;
+   else return 1;
+}
+
+/*******************************************************************************
+读指定页的数据到缓冲区
+返回值：<0	读页出错
+		  =1	空页
+        =2	数据无效
+        =0	读到有效数据
+*******************************************************************************/
+/*** BeginHeader read_nf_page */
+int read_nf_page(ONEMSG_struct *dst, unsigned long page, char user);
+/*** EndHeader */
+int read_nf_page(ONEMSG_struct *dst, unsigned long page, char user)
+{
+	auto int rc;
+   auto unsigned long sum;
+
+	if(check_wr_page(page))
+   {//该页不能读
+    	return -3;
+   }
+
+   rc = _nf_readPage(&nandFlash, onemsg_buf[user], page);
+   //if(rc != 0) return rc;		//<0为出错，=1为空页，=0为读到数据
+   if(rc == 0)
+   {
+   	xmem2root(dst, onemsg_buf[user], MSGSIZE);	//数据读出
+		if(_check_Btime(dst->Btime))	rc = 3;	//时间是否有效
+		else	//为提高效率，先判断时间是否正常，如正常才判断校验是否正确
+   	{		//这样包含不正确时间的页就不用校验了
+   		//disp_data_struct(dst);
+   		//if(dst->sum != sampleSUM((char *)dst, MSGSIZE-4)) rc = 2;
+      	sum = sampleSUM((char *)dst, MSGSIZE-4);
+      	if(dst->sum != sum)
+      	{
+      		rc = 2;
+      		printf("dst->sum=%ld sum=%ld\r\n", dst->sum, sum);
+            //disp_data_struct(dst);
+      	}
+		}
+   }
+   else
+   {
+      rc = _nf_readPage(&nandFlash, onemsg_buf[user], page);
+   	if(rc != 0) return rc;		//<0为出错，=1为空页，=0为读到数据
+
+   	xmem2root(dst, onemsg_buf[user], MSGSIZE);	//数据读出
+		if(_check_Btime(dst->Btime))	rc = 3;	//时间是否有效
+		else	//为提高效率，先判断时间是否正常，如正常才判断校验是否正确
+   	{		//这样包含不正确时间的页就不用校验了
+   		//disp_data_struct(dst);
+   		//if(dst->sum != sampleSUM((char *)dst, MSGSIZE-4)) rc = 2;
+      	sum = sampleSUM((char *)dst, MSGSIZE-4);
+      	if(dst->sum != sum)
+      	{
+      		rc = 2;
+      		//printf("dst->sum=%ld sum=%ld\r\n", dst->sum, sum);
+      	}
+		}
+   }
+
+   //printf("rc = %d\r\n", rc);
+
+	return rc;
+}
+
+//搜索从指定页开始往后的首个有效页，返回有效页的页号，未找到返回nf_pages
+/*** BeginHeader chk_page_after */
+unsigned long chk_page_after(ONEMSG_struct *dst, unsigned long page, char user);
+/*** EndHeader */
+unsigned long chk_page_after(ONEMSG_struct *dst, unsigned long page, char user)
+{
+	auto unsigned long k;
+   auto int i, rc;
+   //数据已经覆盖          查找数据在wrP左边
+   if((eldest_page > 0) && (page < eldest_page) && (page >= wrPtr)) k = eldest_page;
+   else if(page >= nf_pages) k = nf_pages - 1;//防止越界
+   else if(page >= valid_start_page) k = page;//读取Flash的起始页数据的时间
+   else k = valid_start_page;			//从有效的起始页开始
+   for(i=0;i<300;i++)					//限读次数，最少包含一个Block
+   {
+   	rc = read_nf_page(dst, k, user);
+      if(rc == 0) return k;			//找到有效的页，返回
+      else if(++k >= nf_pages) break;
+   }
+	DBG(printf("No Record\n");)
+	return nf_pages;
+}
+
+//搜索从指定页开始往前的首个有效页，返回有效页的页号，未找到返回nf_pages
+/*** BeginHeader chk_page_before */
+unsigned long chk_page_before(ONEMSG_struct *dst, unsigned long page, char user);
+/*** EndHeader */
+unsigned long chk_page_before(ONEMSG_struct *dst, unsigned long page, char user)
+{
+	auto unsigned long k;
+   auto int i, rc;
+
+   if((eldest_page > 0) && (page < eldest_page) && (page >= wrPtr)) k = wrPtr;
+   else if(page >= nf_pages) k = nf_pages - 1;
+   else if(page < valid_start_page) k = valid_start_page;
+   else k = page;
+   for(i=0;i<300;i++)
+   {
+   	rc = read_nf_page(dst, k, user);	//读取Flash的结束页数据的时间
+      if(rc >= 0) return k;				//读正常，但是可能没有有效数据
+      else if((-- k < valid_start_page) || (k >= nf_pages)) break;
+   }
+	DBG(printf("Flash error\n");)
+	return nf_pages;
+}
+
+/*******************************************************************************
+函数功能：	按照指定的时间读取数据，会自动搜索整个Flash
+tabel		1	-	分钟
+			2	-	小时
+			3	-	日
+         4	-	月
+         5	-	分钟报警
+
+如果flag=0，则查找指定时间的页号，如找到就返回页号，如没找到就返回（nf_pages）
+
+如果flag=1，就表示查找最接近值，返回结果如下：
+如果给定一个很大的时间值，超过Flash上所有的可能时间，则返回最大时间的页号
+如果给定一个正常的时间值没有找到，则返回最接近指定时间值的页号
+*******************************************************************************/
+/*** BeginHeader read_page_by_time */
+unsigned long read_page_by_time(ONEMSG_struct *dst,
+				  							unsigned long start_page, unsigned long end_page,
+                                 unsigned long rtime, char flag, char user);
+/*** EndHeader */
+unsigned long read_page_by_time(ONEMSG_struct *dst,
+											unsigned long start_page, unsigned long end_page,
+                                 unsigned long rtime, char flag, char user)
+{
+   auto unsigned long k;					//记录页号的临时变量
+   auto int rc, rc1;
+
+	auto unsigned long tmp_div2;			//用于调整指针折半查找法. //(二分法)
+   auto unsigned long t_begin;			//首地址读出的时间,
+   auto unsigned long t_end;				//尾地址读出的时间,
+
+	auto char dir;								//查找数据时的查找方向,为0时负方向,为1时正方向
+   auto unsigned long err_cnt;							//读Flash出错的次数，超过10次就返回
+   auto char empty_flag;					//尾部为空页的标志
+   auto char abnormalFlag;					//读取Flash出现异常的原因
+   auto int queryStatus;               //0-退出查找  1-继续查找
+   auto unsigned long queryTimeOut;		//查找超时退出
+   auto struct tm rtcL;
+   auto unsigned long dst_Btime;
+
+   mktm(&rtcL, rtime);
+   #ifdef DEBUG_PRINTF
+   printf("query time is %04d-%02d-%02d %02d:%02d:%02d \n",
+   	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+   #endif
+
+   if(_check_Btime(rtime))	//指定的时间是否正常
+   {
+      DBG(printf("Time error\n");)
+      return nf_pages;
+   }
+//读取Flash的起始页数据的时间
+   k = chk_page_after(dst, start_page, user);
+   if(k == nf_pages) return k;	//未找到有效的起始页，返回出错标志
+   //disp_data_struct(dst);
+	t_begin = dst->Btime;	//获得首页时间值，首页的纪录必须是有效的
+   if((t_begin >= rtime) && (t_begin < (rtime + sampleInterval)))
+   {
+   	return k;						//在首页就找到，直接返回
+   }
+   if(t_begin >= SEC_TIMER) t_begin = 0L;
+
+//读取Flash的结束页数据的时间
+   k = chk_page_before(dst, end_page, user);
+   if(k == nf_pages) return k;	//未找到有效的结束页，返回出错标志
+   rc = read_nf_page(dst, k, user);
+   if(rc == 0)		//尾页有有效数据
+   {
+   	//disp_data_struct(dst);
+   	t_end = dst->Btime;	//获得尾页时间值
+      if((t_end >= rtime) && (t_end < (rtime + sampleInterval)))
+   		return k;//在尾页找到，直接返回
+      if(t_end >= SEC_TIMER) t_end = SEC_TIMER;
+      empty_flag = 0;
+   }
+   else				//尾页没有有效数据, 等同于空页
+   {
+		t_end = read_rtc() + sampleInterval;	//置为大于当前时间的值
+      empty_flag = 1;
+   }
+
+//开始查找式读
+	err_cnt = 0;
+	tmp_div2 = (end_page - start_page + 1) / 2;
+   k = start_page + tmp_div2;
+   dir = 1;			//数据的查找方向，初始为1正方向
+   abnormalFlag = 0;
+   queryStatus = 0;
+   queryTimeOut = read_rtc();
+   while(1)
+   {
+   	if((read_rtc()) >= queryTimeOut + 120L ||
+      	queryTimeOut >= (read_rtc()) + 120L)
+      {
+      	DBG(printf("read_page_by_time query time out\n");)
+      	return nf_pages;//超时退出
+      }
+
+      if(check_wr_page(k))
+      {
+      	k--;
+      }
+
+      //printf("read specify page %ld\r\n", k);
+      rc = read_nf_page(dst, k, user);		//读取指定的页面
+    /*
+      if(rc == 0)
+      {
+      	disp_data_struct(dst);
+      }   */
+
+      //读取失败
+      //查找的区域已经写满了，所以如果正常应该每页都有数据的，但是出现读取异常
+      //虽然查找的区域，还没有写满，但是k是在有数据的地方，读取异常
+      //数据CRC校验错误
+      //数据时间出错
+      if( (rc < 0) || ((rc > 0) && (empty_flag == 0))	//坏页、错页和应该有数据但是没读到的页
+      	|| ((rc > 0) && (empty_flag == 1) && (k < wrPtr))
+         || (rc == 2) || (rc == 3))
+      {
+      	if((eldest_page > 0) && (k < eldest_page) && (k >= wrPtr))//刚好在wrPtr后面的空区间里
+         {
+         	bad_page_start = wrPtr - 1;
+            bad_page_end = eldest_page;
+         	return (0xeeeeeeee + tmp_div2);	//返回重新搜索的标志
+         }
+
+         if(((rc != 0) && (empty_flag == 0))
+      	|| ((rc != 0) && (empty_flag == 1) && (k < wrPtr)))
+         {
+         	abnormalFlag = 1;  //查找的区域正常来说，应该是有数据的，所以出现没有正确读取到数据的页也应该过滤丢
+         }
+         else
+         {
+         	abnormalFlag = 0;  //只需要过滤丢读取失败的页就可以了
+         }
+
+      	err_cnt = 1;
+         bad_page_end = k + 1;
+         queryStatus = 1;
+         while(queryStatus)			//向后统计坏区
+      	{
+	         rc = read_nf_page(dst, bad_page_end, user);
+            if(rc == 0)
+            {
+               if((dst->Btime >= rtime) && (dst->Btime < (rtime + sampleInterval)))
+	      		{	//判断坏区后的第一个好页是否刚好是要找的
+	      			return bad_page_end;		//找到，直接返回
+	      		}
+            	break;
+            }
+
+            rc1 = read_nf_page(dst, ((long)(bad_page_end/128))*128+127, user);
+
+            switch(abnormalFlag)
+            {
+            	case 0:  //只需要过滤丢读取失败的页就可以了
+               			if(rc == 1)
+                        {
+                        	queryStatus = 0;
+                        }
+                        ///else if((rc!=1) && (rc1 < 0 || rc1 > 1))
+            				///{ //从起始页开始到Block的尾页都是异常的
+               			///	err_cnt += 128L;
+               		  ///		bad_page_end = ((long)(bad_page_end / 128)) * 128 + 128;
+            			  ///	}
+                        else
+                        {
+                        	bad_page_end ++;
+            					err_cnt ++;
+                        }
+               			break;
+               case 1:  //查找的区域正常来说，应该是有数据的，所以出现没有正确读取到数据的页也应该过滤丢
+                        //if((rc>=1) && (read_nf_page(dst, ((long)(bad_page_end/128))*128+127, user)>=1))
+
+                        ///if((rc!=1) && (rc1 != 0))
+            				///{	//从起始页开始到Block的尾页都是空页
+               			///	err_cnt += 128L;
+               			///	bad_page_end = ((long)(bad_page_end / 128)) * 128 + 128;
+            				///}
+            				///else
+            				///{
+               				bad_page_end ++;
+            					err_cnt ++;
+            				///}
+               			break;
+               default :
+               			break;
+            }
+
+            if((bad_page_end < start_page) || (bad_page_end >= end_page)) break;
+	      }
+         printf("bad_page_end=%ld\r\n", bad_page_end);
+
+         bad_page_start = k - 1;
+         rc = 1;
+         queryStatus = 1;
+         while(queryStatus) 		//向前统计坏区
+      	{
+            rc = read_nf_page(dst, bad_page_start, user);
+            if(rc == 0)
+            {
+               if((dst->Btime >= rtime) && (dst->Btime < (rtime + sampleInterval)))
+	      		{	//判断坏区前的第一个好页是否刚好是要找的
+	      			return bad_page_start;	//找到，直接返回
+	      		}
+
+            	break;
+            }
+
+            rc1 = read_nf_page(dst, bad_page_start - 127, user);
+
+            switch(abnormalFlag)
+            {
+            	case 0:  //只需要过滤丢读取失败的页就可以了
+               			if(rc == 1)
+                        {
+                        	queryStatus = 0;
+                        }
+                        ///else if(((bad_page_start % 128) == 127) && (rc!=1)//Block的首尾页都为空页
+            				///	&& (rc1 < 0 || rc1 > 1))
+                        ///{
+                        ///   bad_page_start -= 128;			//则判断为整个Block为空页
+               			///	err_cnt += 128;
+                        ///}
+                        else
+                        {
+                        	bad_page_start --;
+            					err_cnt ++;
+                        }
+               			break;
+               case 1:  //查找的区域正常来说，应该是有数据的，所以出现没有正确读取到数据的页也应该过滤丢
+                        ///if(((bad_page_start % 128) == 127) && (rc>=1)//Block的首尾页都为空页
+            				//	&& (rc1 != 0))
+            				///{
+            				///	bad_page_start -= 128;			//则判断为整个Block为空页
+               			///	err_cnt += 128;
+            				///}
+            				///else
+            				///{
+               				bad_page_start --;
+            					err_cnt ++;
+            				///}
+               			break;
+               default :
+               			break;
+            }
+
+            if((bad_page_start < start_page) || (bad_page_start >= end_page)) break;
+	      }
+         printf("bad_page_start=%ld\r\n", bad_page_start);
+
+         //err_cnt --;			//坏区里包含的页数
+
+         if(err_cnt > 1)	//遇到连续多个页面出错，需要记录此区间
+         {
+            //printf("Bad %ld to %ld\n", bad_page_start, bad_page_end);
+	         return (0xeeeeeeee + tmp_div2);	//返回重新搜索的标志
+			}
+         //else k += err_cnt;//如果只有1-2页有问题，直接跳过就可以了
+         else k ++;
+      }
+      else			//读Flash正常
+      {
+         if((rc > 0) && (empty_flag == 1) && (k >= wrPtr))//Flash尾部的空页，需要往回找
+      	{
+	         dir = 0;
+	      }
+      	else 				//rc = 0, 数据读取正常
+	      {
+	         if(((dst->Btime >= rtime) && (dst->Btime < (rtime + sampleInterval))) ||
+               (dst->Btime == t_begin && dst->Btime == t_end))
+	         {                 //判断本页的记录是否有效
+	            return k;		//找到，直接返回
+	         }
+
+            if(dst->type == 4)
+            {
+            	dst->Btime = dst->Btime + 1;
+            }
+           /* else
+            {
+            	dst_Btime = dst->Btime;
+            }  */
+
+            if(dst->Btime > SEC_TIMER) dir = 0;//写指针在改时间时向前调整过，写指针之后的记录是无效的
+	         else if(t_end > t_begin)        //正常排序的区间
+	         {
+	            if(dst->Btime < rtime) dir = 1;  //在本区间，向正方向找
+	            else dir = 0;                    //不在本区间，往负方向找前一个区间
+	         }
+	         else								//前面区间的数据大，后面区间的数据小，都是排序的
+	         {
+	            if(rtime > t_begin)     //要找的数在前面
+	            {
+	               if((dst->Btime > t_begin) && (dst->Btime < rtime)) dir = 1;
+	               else dir = 0;
+	            }
+	            else                    //要找的数在后面
+	            {
+	               if((dst->Btime > rtime) && (dst->Btime < t_end)) dir = 0;//找过头了，往回找
+	               else dir = 1;
+	            }
+	         }
+	      }
+
+         if((tmp_div2 > 1) && (tmp_div2 % 2)) tmp_div2 ++;
+      	tmp_div2 /= 2;
+
+
+
+
+	      if(dir)  //向前找，调整下次查找的页面号和起始区间的时间
+	      {
+	         k += tmp_div2;
+            if(k > end_page) k = end_page;
+	         if((rc == 0) && (dst->Btime < SEC_TIMER)) t_begin = dst->Btime;
+	      }
+	      else     //向后找
+	      {
+	         if(k >= tmp_div2) k -= tmp_div2;
+            else k --;
+            if(k < start_page) k = start_page;
+	         if((rc == 0) && (dst->Btime < SEC_TIMER)) t_end = dst->Btime;
+	      }
+         //printf("T=%ld, %d, %ld\n", dst->Btime, dst->type, k);
+      }
+      //首页和尾页都已经查过了，如果还是搜索到了首页或尾页，则表示没找到
+      if((k < 0) || (k > (nf_pages-1)) || (tmp_div2 == 0L))	//已经到了无效页
+   	{	//k可能为0xffffffff
+      	if((k < 0) || (k > (nf_pages-1))) k = 0L;
+         if(flag) return k;		//返回最大时间值的页号
+   		else return nf_pages;	//找不到的话，在这里返回
+      }
+   }
+	return nf_pages;			//找不到有效数据，返回，不会执行这条语句
+}
+
+
+/*******************************************************************************
+功能：当查找后已定位到某个位置，但是没有确定具体页号时，调用本函数定位
+结果：得到具体的有效页号，存放到user_rd_page[user]中
+返回1表示成功，0表示失败
+*******************************************************************************/
+/*** BeginHeader chk_next_page */
+char chk_next_page(ONEMSG_struct *dst, char table, char user, unsigned long t,
+							char dir, unsigned long start, unsigned long end);
+/*** EndHeader */
+char chk_next_page(ONEMSG_struct *dst, char table, char user, unsigned long t,
+							char dir, unsigned long start, unsigned long end)
+{
+	auto int j;
+   auto int rc;
+   auto unsigned long p1, p2;
+   auto unsigned long t1, t2;
+
+   t1 = 0L;
+   for(j=1;j<257;j++)  //搜索后3页
+	{	//可能搜索到小时、日、月的记录处，所以优先向前搜索
+   	p1 = user_rd_page[user] + j;
+	   if(p1 > (nf_pages - 1)) p1 -= nf_pages;
+      if(p1 > end) break;
+
+	   rc = read_nf_page(dst, p1, user);
+      if((rc == 0) && ((dst->type == table) || ((table == 1) && (dst->type == 5))) )
+	   {
+         t1 = dst->Btime;
+	      break;
+	   }
+   }
+
+   t2 = 0L;
+   for(j=1;j<257;j++)  //搜索前3页
+	{
+      if(user_rd_page[user] >= j) p2 = user_rd_page[user] - j;
+	   else p2 = nf_pages - (j - user_rd_page[user]);
+      if(p2 < start) break;
+
+	   rc = read_nf_page(dst, p2, user);
+      if((rc == 0) && ((dst->type == table) || ((table == 1) && (dst->type == 5))) )
+	   {
+         t2 = dst->Btime;
+	      break;
+	   }
+   }
+   if((t1 == 0L) && (t2 == 0L))		//没有匹配的页
+   {
+   	if(dir == 1) user_rd_page[user] = chk_page_after(dst, user_rd_page[user], user);
+      else if(dir == 2) user_rd_page[user] = chk_page_before(dst, user_rd_page[user], user);
+		////p1 = chk_page_after(dst, user_rd_page[user], user);
+      ////t1 = dst->Btime;
+      ////p2 = chk_page_before(dst, user_rd_page[user], user);
+      ////t2 = dst->Btime;
+      ////if(t > t1) t1 = t - t1;			//前后都有，看哪个的时间比较接近要求的时间
+   	////else t1 = t1 - t;					//只能根据方向调整，不能比较时间
+   	////if(t > t2) t2 = t - t2;
+   	////else t2 = t2 - t;
+      ////if(t1 > t2) user_rd_page[user] = p2;
+      ////else user_rd_page[user] = p1;
+   	return 0;
+   }
+   if( ((t1 == 0L) && (t2 > 0L)) || (t == t2))	//前面有，后面没有，取前面的
+   {
+   	user_rd_page[user] = p2;
+      return 1;
+   }
+	if( ((t1 > 0L) && (t2 == 0L)) || (t == t1))	//前面没有，后面有，取后面的
+   {
+   	read_nf_page(dst, p1, user);
+      user_rd_page[user] = p1;
+   	return 1;
+   }
+
+   if(t > t1) t1 = t - t1;			//前后都有，看哪个的时间比较接近要求的时间
+   else t1 = t1 - t;
+   if(t > t2) t2 = t - t2;
+   else t2 = t2 - t;
+   if((t1 < 3600L) && (t2 < 3600L))	//时间是连续的
+   {
+   	if(t1 > t2)                   //后面的时间间隔大，取前面的
+	   {
+	      user_rd_page[user] = p2;
+	   }
+	   else
+	   {
+	      read_nf_page(dst, p1, user);
+	      user_rd_page[user] = p1;
+	   }
+      return 1;
+   }
+   else		//此处的记录在时间上有断点，只能根据搜索方向判断
+   {
+      if(dir == 1)
+   	{
+	      read_nf_page(dst, p1, user);
+	      user_rd_page[user] = p1;
+	      return 1;
+	   }
+	   else if(dir == 2)
+	   {
+	      user_rd_page[user] = p2;
+	      return 1;
+	   }
+	   else return 0;
+   }
+}
+
+/*******************************************************************************
+查找数据库的统一接口函数，需要搜索时都是调用这个函数
+搜索历史数据库，查找指定时间的历史记录，可以区分各种统计记录
+table		1	-	分钟
+			2	-	小时
+			3	-	日
+         4	-	月
+t			需要的时间
+start_page	起始页号
+end_page	结束页号
+rdPtr		记录上次读取的有效页号，如果当前读取的页号还是一样，
+			则搜索到一个时间中断点，可能需要自动调整
+dir		读记录的时间方向，1-向后，2-向前，0-只读一条
+user		0-TCP0, 1-TCP1, 2-TCP2, 3-KEY, 4-SMP task
+
+找到的页号存放在user_rd_page[user]中，如为nf_pages表示无效
+返回值：2-找到指定的记录，1-找到记录，但记录的时间不符合要求，0失败
+
+只有分钟记录在第一次搜索到后，可以连续向前和向后查找，需要记录此时的页号
+其他都是需要每次搜索，记录的页号用来界定下次搜索的区间
+
+*******************************************************************************/
+/*** BeginHeader getHisData */
+char getHisData(ONEMSG_struct *dst, char table,
+						unsigned long start_page, unsigned long end_page,
+                  unsigned long t, char dir, char user);
+/*** EndHeader */
+char getHisData(ONEMSG_struct *dst, char table,
+						unsigned long start_page, unsigned long end_page,
+                  unsigned long t, char dir, char user)
+{
+	auto char ok_flag;
+   auto int i;
+   auto unsigned long p1, p2;
+   auto unsigned long timm, t1, t2;
+   auto int rc1, rc2;//读取FLASH时，坏区的开始页和结束页返回读取状态
+   auto char bad_page_positon;//坏区在查找区域的位置
+   auto unsigned long last_begin_page, last_end_page;//上次查找时开始页和结束页
+   auto unsigned long t_begin;           //查询区域开始页的时间
+   auto unsigned long t_end;             //查询区域结束页的时间
+   auto int rc_begin;                    //查询区域开始页的读取状态
+   auto int rc_end;                      //查询区域结束页的读取状态
+   auto unsigned long k;					//记录页号的临时变量
+   auto unsigned long queryTimeOut;		//查询超时
+
+   timm = t;
+   if(table == 2)		//读小时统计数据
+   {
+		timm /= 3600L;  //取小时整数
+	   timm ++;
+	   timm *= 3600L;  //本小时尾
+      timm -= 1;
+	}
+	else if(table == 3)  //读日统计数据
+	{
+		timm /= 86400L; //取日整数
+	   timm ++;
+	   timm *= 86400L; //指向本日尾
+      timm -= 1;
+	}
+   else if(table == 4)
+   {
+		timm = adj_month_sec(t, 0);
+   }
+
+   p1 = start_page;
+   p2 = end_page;
+   last_begin_page = p1;
+   last_end_page = p2;
+   user_rd_page[user] = read_page_by_time(dst, p1, p2, timm, 1, user);//搜索指定时间的页号
+   queryTimeOut = read_rtc();
+   while((user_rd_page[user] >= 0xeeeeeeee) && (user_rd_page[user] < 0xeef6eeee))
+   {	//有坏区，需要重新搜索的标志
+      if((read_rtc()) >= queryTimeOut + 120L ||
+      	queryTimeOut >= (read_rtc()) + 120L)
+      {
+      	DBG(printf("getHisData query time out\n");)
+      	return 0;//超时退出
+      }
+
+      user_rd_page[user] -= 0xeeeeeeee;	//为新的待搜索区间的长度
+      rc1 = read_nf_page(dst, bad_page_start, user);//上一次的搜索遇到连续的坏区返回
+      if(rc1 == 0)
+      {
+      	t1 = dst->Btime;
+      	//if(t1 == timm)
+         if((dst->Btime >= timm) && (dst->Btime < (timm + sampleInterval)))
+      	{
+      		user_rd_page[user] = bad_page_start;
+         	break;
+      	}
+      }
+
+      rc2 = read_nf_page(dst, bad_page_end, user);
+      if(rc2 == 0)
+      {
+      	t2 = dst->Btime;
+      	//if(t2 == timm)
+         if((dst->Btime >= timm) && (dst->Btime < (timm + sampleInterval)))
+      	{
+      		user_rd_page[user] = bad_page_end;
+         	break;
+      	}
+      }
+
+
+      bad_page_positon = 0;
+   	if(bad_page_end >= end_page && start_page <= bad_page_start)
+      {//需要查找的区域已经被坏区覆盖了
+      	return 0;
+      }
+      else if(bad_page_end > end_page)
+      {//需要查找的区域的右边已经被坏区覆盖了
+      	bad_page_positon = 1;
+      }
+      else if(start_page > bad_page_start)
+      {//需要查找的区域的左边已经被坏区覆盖了
+      	bad_page_positon = 2;
+      }
+      else
+      {//坏区在查找区域的中间
+      	bad_page_positon = 0;
+      }
+
+
+
+      //读取Flash的起始页数据的时间
+   	k = chk_page_after(dst, last_begin_page, user);
+   	if(k < nf_pages)
+      {
+      	rc_begin = read_nf_page(dst, k, user);
+         if(rc_begin == 0)
+         {
+         	t_begin = dst->Btime;	//获得首页时间值，首页的纪录必须是有效的
+         }
+      }
+      else
+      {
+      	rc_begin = -3;
+      }
+
+		//读取Flash的结束页数据的时间
+   	k = chk_page_before(dst, last_end_page, user);
+      if(k < nf_pages)
+      {
+      	rc_end = read_nf_page(dst, k, user);
+         if(rc_end == 0)
+         {
+         	t_end = dst->Btime;	//获得首页时间值，首页的纪录必须是有效的
+         }
+      }
+      else
+      {
+      	rc_end = -3;
+      }
+
+      if(rc_begin == 0 && rc_end == 0 && t_end > t2 && t_begin > t_end && timm > t_begin)
+      {
+         p2 = bad_page_start;
+	      p1 = last_begin_page;
+      }
+      else if(rc1 == 0 && rc2 == 0 && t1 > t2)				//覆盖写到这里了，t1就是已保存的最大时间
+      {
+      	if(timm >= t1)		//不可能有记录的时间，向前，用于定位wrPtr  在开机时，用于查找wrPtr在什么位置
+         {
+            p2 = bad_page_start;
+	         p1 = last_begin_page;
+         }
+         else
+         {
+         	p2 = chk_page_before(dst, nf_pages - 1, user);	//定位到尾页
+         	if(p2 < nf_pages) i = read_nf_page(dst, p2, user);	//读尾页
+         	else i = 1;//尾页无效
+            if((i == 0) && (dst->Btime > timm))
+	         {//查找的数据在没有被覆盖那部分，也就是右边
+	            p1 = bad_page_end;
+	            p2 = last_end_page;
+	         }
+            else
+            {//查找的数据在覆盖那部分，也就是左边
+               p1 = last_begin_page;
+            	p2 = bad_page_start;
+            }
+         }
+      }
+		else	//正常的区间
+      {
+         if(rc2 != 0)//坏区的结束页是空页
+         {//查找的数据在左边
+            if(bad_page_positon == 2)
+            {//需要查找的区域的左边已经被坏区覆盖了
+            	user_rd_page[user] = nf_pages;
+               break;
+            }
+            else
+            {
+         		p1 = last_begin_page;
+            	p2 = bad_page_start;
+            }
+         }
+         else
+         {
+         	if(timm > t2)
+            {//查找的数据在右边
+            	if(bad_page_positon == 1)
+               {//需要查找的区域的右边已经被坏区覆盖了
+                  user_rd_page[user] = nf_pages;
+               	break;
+               }
+               else
+               {
+            		p1 = bad_page_end;
+               	p2 = last_end_page;
+               }
+            }
+            else
+            {//查找的数据在左边
+               if(bad_page_positon == 2)
+            	{//需要查找的区域的左边已经被坏区覆盖了
+                  user_rd_page[user] = nf_pages;
+               	break;
+            	}
+            	else
+               {
+               	p1 = last_begin_page;
+            		p2 = bad_page_start;
+               }
+            }
+         }
+      }
+      if((p1 < 0) || (p1 >= nf_pages)) p1 = 0L;
+      if(p2 >= nf_pages) p2 = nf_pages - 1;
+      last_begin_page = p1;
+   	last_end_page = p2;
+		user_rd_page[user] = read_page_by_time(dst, p1, p2, timm, 1, user);
+   }
+
+   ok_flag = 0;
+   if(user_rd_page[user] != nf_pages)
+   {
+		if((dst->type == table) || ((dst->type == 5) && (table == 1))) ok_flag = 1;	//直接找到了
+		else		//未找到有效的记录，需要在附近查找
+   	{
+         ok_flag = chk_next_page(dst, table, user, timm, dir, p1, p2);
+      }
+	}
+
+   if(ok_flag == 1)		//得到一条有效数据，判断一下是否是严格匹配的记录
+   {
+      if(table == 2)		//读小时统计数据
+   	{
+      	if( (dst->Btime <= timm) && (dst->Btime > (timm - 3600L)) )
+         {
+         	ok_flag = 2;	//真正是指定时间的记录
+         }
+	   }
+	   else if(table == 3)  //读日统计数据
+	   {
+         if( (dst->Btime <= timm) && (dst->Btime > (timm - 86400L)) )
+         {
+         	ok_flag = 2;	//真正是指定时间的记录
+         }
+	   }
+	   else if(table == 4)
+	   {
+      	if( (dst->Btime <= timm) && (dst->Btime > adj_month_sec(timm, 2)) )
+	      {
+         	ok_flag = 2;
+         }
+	   }
+      else ok_flag = 2;
+   }
+
+   DBG(
+   if(ok_flag > 0)
+	{
+		printf("Seek %ld, get %ld in %ld(%ld -- %ld)\n", t, dst->Btime, user_rd_page[user], start_page, end_page);
+	}
+	else
+	{
+		printf("Seek %ld, none, %ld(%ld -- %ld)\n", t, user_rd_page[user], start_page, end_page);
+	})
+   return ok_flag;
+}
+
+
+/*******************************************************************************
+功能说明：从指定的页号起，读取下一条有效记录
+table			1-分钟，2-小时，3-日，4-月
+t				当前时间
+dir			读记录的时间方向，1-向后(时间增加)，2-向前
+user			请求的用户，0-TCP0, 1-TCP1, 2-TCP2, 3-KEY, 4-SMP task
+
+读缓冲区固定使用onemsg_rd
+当前页号存放在user_rd_page[user]中
+找到的页号也存放在user_rd_page[user]中，如为nf_pages表示无效
+搜索时已优化搜索区间，可减少搜索范围，提高效率
+返回值：2-找到指定的记录，1-找到记录，但记录的时间不符合要求，0-失败
+*******************************************************************************/
+/*** BeginHeader getNextData */
+char getNextData(char table, unsigned long t, char dir, char user);
+/*** EndHeader */
+char getNextData(char table, unsigned long t, char dir, char user)
+{
+	auto unsigned char k, d;
+   auto unsigned long p, q;
+   auto unsigned long tim;
+   auto int rc, j;
+
+   d = 0;
+   if((table == 1) || (table == 5) || (table == 6))	//单条记录，直接在附近查找
+   {
+   	for(j=0;j<300;j++)	//滤掉小时、日和月记录以及可能的坏区
+      {
+	   	if(dir == 1)
+         {
+         	user_rd_page[user] ++;
+            if(user_rd_page[user] > (nf_pages - 1)) user_rd_page[user] = 0L;
+            else if(user_rd_page[user] == wrPtr) return 0;
+         }
+         else if(dir == 2)
+         {
+         	user_rd_page[user] --;
+            if((eldest_page > 0) && (user_rd_page[user] < eldest_page)
+            && (user_rd_page[user] >= wrPtr))	//往回查，已到了边界
+            {
+            	return 0;
+            }
+            if( (user_rd_page[user] < 0L) || (user_rd_page[user] > (nf_pages - 1)) )
+	         {
+               p = chk_page_before(&onemsg_rd, nf_pages - 1, user);//定位到尾页
+               user_rd_page[user] = p;
+               rc = read_nf_page(&onemsg_rd, user_rd_page[user], user);
+               if(rc != 0) return 0;	//尾页没有记录，确实没有了，返回
+            }
+            else if(user_rd_page[user] == (wrPtr - 1)) return 0;
+         }
+         memset(&onemsg_rd, 0x00, MSGSIZE);	//缓冲区清空
+         rc = read_nf_page(&onemsg_rd, user_rd_page[user], user);
+         if( (rc == 0) && ((onemsg_rd.type == table) || (onemsg_rd.type == 5)) )
+         {
+         	rdPtr = user_rd_page[user];
+            lastUser = user;
+            return 2;	//找到了，不需要判断时间是否有效
+         }
+      }
+   }
+
+   else if((table > 1) && (table < 5))	//统计记录，需要搜索
+   {
+   	tim = t;
+   	for(k=0;k<3;k++)		//如果这个时间点缺失最少6条记录，则不能连续查
+      {
+      	//tim = t;
+	      for(j=0;j<4;j++)	//取邻近页的时间
+	      {
+	         if(dir == 1)
+            {
+            	if(++ user_rd_page[user] > (nf_pages - 1)) user_rd_page[user] = 0L;
+            }
+	         else if(dir == 2)
+            {
+            	-- user_rd_page[user];
+               if((user_rd_page[user] < 0) || (user_rd_page[user] > (nf_pages -1)))
+               {
+               	user_rd_page[user] = nf_pages - 1;
+               }
+            }
+	         rc = read_nf_page(&onemsg_rd, user_rd_page[user], user);
+	         //if( (rc == 0) && ((onemsg_rd.type == 1) || (onemsg_rd.type == 5)) )
+            if(rc == 0)
+	         {
+            	if(((dir == 1) && (onemsg_rd.Btime > tim))
+               || ((dir == 2) && (onemsg_rd.Btime < tim)))
+               {
+	         		tim = onemsg_rd.Btime;
+	            	break;
+               }
+	         }
+	      }
+			//以下代码格式化时间，便于准确定位
+         if(table == 2)		//读小时统计数据
+   	   {
+	         tim /= 3600L;  //取小时整数
+	         if(dir == 1) tim ++;	//如果向回找，则时间先要调整回一条记录
+	         tim *= 3600L;  //本小时尾
+	         tim -= 1;
+	      }
+	      else if(table == 3)  //读日统计数据
+	      {
+	         tim /= 86400L; //取日整数
+	         if(dir == 1) tim ++;
+	         tim *= 86400L; //指向本日尾
+	         tim -= 1;
+	      }
+         else if(table == 4)
+	      {
+         	if(dir == 2) tim = adj_month_sec(tim, 2);
+	         else if(dir == 1)tim = adj_month_sec(t, 1);
+            else adj_month_sec(t, 0);
+            //tim = adj_month_sec(tim, 2);
+	      }
+	      /*else if(table == 4)
+	      {
+         	if(dir == 2) tim = adj_month_sec(tim, 2);
+	         else tim = adj_month_sec(t, 0);
+	      }*/
+
+         p = chk_page_before(&onemsg_rd, nf_pages - 1, user);		//定位到尾页
+         if(p < nf_pages) rc = read_nf_page(&onemsg_rd, p, user);	//读尾页
+         else rc = 1;//尾页无效
+
+         p = valid_start_page;
+         q = nf_pages - 1;		//定位准备搜索的区间的起止页
+         if(dir == 1)			//以下代码进一步缩窄搜索区间
+         {
+            if((rc == 0) && (user_rd_page[user] >= wrPtr))
+            {	//覆盖区间，当前页在后面，但需要的记录可能在后面，也可能会在前面
+            	if(onemsg_rd.Btime >= tim)	//尾页的时间大于需要的时间，数据在后面
+               {
+                  p = user_rd_page[user];
+                  //q = nf_pages - 1;
+               }
+               else	//否则数据在前面
+               {
+                  //p = valid_start_page;
+                  q = wrPtr - 1;
+               }
+            }
+            else		//还没有覆盖的正常区间，以及覆盖区间的前面部分
+            {
+               p = user_rd_page[user];
+               q = wrPtr - 1;
+            }
+         }
+         else if(dir == 2)
+         {
+         	if(rc != 0)	//无覆盖的正常区间
+            {
+               //p = valid_start_page;
+               q = user_rd_page[user];
+            }
+            else			//覆盖的区间
+            {
+            	if(user_rd_page[user] >= wrPtr)	//在后面的区间
+               {
+                  p = wrPtr;
+                  q = user_rd_page[user];
+               }
+               else		//当前页在覆盖区间的前面，但需要的记录可能在前面，也可能在后面
+               {
+               	if(onemsg_rd.Btime >= tim)	//尾页的时间大于需要的时间，数据在后面
+                  {
+                     p = wrPtr;
+                     //q = nf_pages - 1;
+                  }
+                  else
+                  {
+                     //p = valid_start_page;
+                     q = user_rd_page[user];
+                  }
+               }
+            }
+         }
+         d = getHisData(&onemsg_rd, table, p, q, tim, dir, user);
+
+         if(d > 0)	//读到有效记录，在断点处时间不一定符合要求
+         {				//如果第二次查到的页号与前次相同，则此处无记录
+         	//if((lastUser == user) && (rdPtr == user_rd_page[user])
+            //&& ((user_rd_page[user] < 3) || (abs((int)(wrPtr - user_rd_page[user])) < 3))) d = 0;
+            if((lastUser == user) && (rdPtr == user_rd_page[user])) d = 0;
+            break;
+         }
+         else if((user_rd_page[user] == (wrPtr - 1))	//未找到，已到写指针处
+         		|| (user_rd_page[user] == wrPtr)
+         		|| (user_rd_page[user] == nf_pages))	//或者最后，退出搜索
+			{
+         	break;
+         }
+      }
+   }
+   rdPtr = user_rd_page[user];
+   lastUser = user;
+   return d;
+}
+
+//把一页的数据写入flash，每页保存一条数据
+//返回1表示成功，返回0表示失败
+/*** BeginHeader saveRecord */
+int saveRecord(ONEMSG_struct *dst);
+/*** EndHeader */
+int saveRecord(ONEMSG_struct *dst)
+{
+   auto int status;
+   auto unsigned short c;
+   auto long buflen;
+
+   wrPtr %= nf_pages;					//将页号置于有效范围内
+   c = 0;
+	buflen = myMainBuffer + nf_page_size;	//清空myMainBuffer缓冲区
+	while (buflen > myMainBuffer)
+   {
+		--buflen;									//从高到低清空
+		root2xmem(buflen, &c, sizeof(char));
+	}
+
+  // disp_data_struct(dst);
+
+   root2xmem(myMainBuffer, dst, MSGSIZE);	//把即将要保存的数据存入缓冲区  <src即 (char *)src =地址>
+
+   while(c < 513) //ver 4
+   {
+   	if(check_wr_page(wrPtr))//判断这页是否可以写
+      {
+         if(++wrPtr >= nf_pages) //不能，写下一页
+      	{
+      		wrPtr = 0L;
+         	eldest_page = 0L;
+      	}
+      	else if(wrPtr >= eldest_page)
+      	{
+      		eldest_page = wrPtr + 128;
+         	if(eldest_page >= nf_pages) eldest_page = 0L;
+      	}
+      }
+
+		status = nf_writePage(&nandFlash, myMainBuffer, wrPtr);	//写入FLASH  返回0成功
+      if(status == 0)
+      {
+      	msDelay(10);
+         status = _nf_readPage(&nandFlash, onemsg_buf[4], wrPtr);//由于写小时记录可能不成功，需要读回校验确认
+      }
+      DBG(
+      if(status == 0) printf("Write %ld OK, %ld\n", wrPtr, dst->Btime);//成功写入
+      else printf("Write %ld Fail %d\n", wrPtr, status);)
+      if(++wrPtr >= nf_pages)
+      {
+      	wrPtr = 0L;
+         eldest_page = 0L;
+      }
+      else if(wrPtr >= eldest_page)
+      {
+      	eldest_page = wrPtr + 128;
+         if(eldest_page >= nf_pages) eldest_page = 0L;
+      }
+      c ++;
+      if(status == 0) return 1;
+   }
+	return 0;
+}
+
+
+/*******************************************************************************
+更新一个Block的空间，将page开始的页初始化为可用
+当向前调整wrPtr时需要删除新时间后面的数据，wrPtr可能在一个Block的中间
+结果：page页所在的Block里，从page页开始的页都是新可用的了
+*******************************************************************************/
+/*** BeginHeader update_1block */
+void update_1block(unsigned long page);
+/*** EndHeader */
+void update_1block(unsigned long page)
+{
+   auto char c;
+   auto unsigned long p1, p2;
+
+   p1 = page / 128;
+   p1 *= 128;			//指向本Block的第一页
+   p2 = p1 + 128;		//指向下Block的第一页
+
+   nf_eraseBlock(&nandFlash, p2);	//先删除下一块
+   for(c=0; c<128; c++)					//将本Block的页备份到下Block
+   {
+   	if((p1 + c) == page) break;	//备份的数据取回
+		_nf_readPage(&nandFlash, myMainBuffer, p1 + c);
+		nf_writePage(&nandFlash, myMainBuffer, p2 + c);
+	}
+
+	nf_eraseBlock(&nandFlash, p1);	//再删除本块
+	for(c=0; c<128; c++)
+	{
+   	if((p1 + c) == page) break;	//备份的数据取回
+		_nf_readPage(&nandFlash, myMainBuffer, p2 + c);
+		nf_writePage(&nandFlash, myMainBuffer, p1 + c);
+   }
+	nf_eraseBlock(&nandFlash, p2);	//再删除下一块,清空刚才的缓存数据
+   if(p2 == eldest_page) eldest_page = p2 + 128;
+}
+
+/*******************************************************************************
+当设置时间时，需要重新定位Flash的写指针，如果是向回调整，还需要
+删除已保存的在新指针之后的历史记录，保证Flash空间是连续有序的
+*******************************************************************************/
+/*** BeginHeader update_nf_ptr */
+void update_nf_ptr(void);
+/*** EndHeader */
+void update_nf_ptr(void)
+{
+   auto unsigned long p;
+   auto int rc;
+
+   if(_check_Btime(SEC_TIMER) == 1) return;	//无效的时间
+
+   getHisData(&onemsg_rd, 1, 0L, nf_pages - 1, SEC_TIMER, 1, 4);
+   /*
+   if(user_rd_page[4] == nf_pages)
+   {
+   	getHisData(&onemsg_rd, 1, 0L, nf_pages - 1, SEC_TIMER, 1, 4);
+   }
+   */
+   if(user_rd_page[4] != nf_pages)//查找到数据
+   {
+   	rc = read_nf_page(&onemsg_rd, user_rd_page[4], 4);    //将相应页的数据读取出来
+   	if((rc == 0) && (onemsg_rd.Btime > (read_rtc())))  //数据的时间大于当前系统时间
+   	{
+   		p = user_rd_page[4];
+  	 		while(1)
+   		{
+      		rc = read_nf_page(&onemsg_rd, p, 4);
+            if((rc == 0) && (onemsg_rd.Btime > (read_rtc())))
+            {
+            	printf("%ld--%ld\r\n", onemsg_rd.Btime, read_rtc());
+             	if(p == 0L) //如果已经读取到第一页，指向最后那一页
+               {
+               	p = nf_pages - 1L;
+               }
+               else
+               {
+               	p--;
+               }
+            }
+            else  //数据已经正常
+            {
+            	if(p == nf_pages - 1L)
+               {
+               	user_rd_page[4] = 0L;
+               }
+               else
+               {
+               	user_rd_page[4] = p;
+               }
+            	break;
+            }
+   		}
+   	}
+   }
+
+
+   if(user_rd_page[4] == nf_pages) p = 0L;
+   else p = user_rd_page[4];	//指向新的起始页面
+   if(p == wrPtr) return;		//不需调整
+
+	update_1block(p);				//更新所在的Block
+
+	p = p / 128L;
+   if(wrPtr / 128L != p)			//调整后不在同一个Block里
+   {
+   	p ++;
+	   p *= 128L;                  //指向下一个Block的首页，可能是nf_pages，不过没关系
+	   if(p < wrPtr)              //是正常的连续区间往回调整
+	   {
+	      while(p <= wrPtr)       //删除回调的范围内的记录
+	      {
+	         nf_eraseBlock(&nandFlash, p);
+	         p += 128L;            //指向下个Block
+	      }
+	   }
+	   else                       //是覆盖的区间，指针从前面调整到后面
+	   {
+	      while(p < nf_pages)     //首先删除新指针到Flash尾部之间的记录
+	      {
+	         nf_eraseBlock(&nandFlash, p);
+	         p += 128L;            //指向下个Block
+	      }
+
+	      p = 0L;
+	      while(p <= wrPtr)       //再删除原指针到Flash头部之间的记录
+	      {                       //此时会在Flash的0-wrPtr之间留下空页，搜索时要处理
+	         nf_eraseBlock(&nandFlash, p);
+	         p += 128L;
+	      }
+	      valid_start_page = p;   //Flash开始有数据的页号
+	   }
+   }
+
+   wrPtr = user_rd_page[4];
+   wrPtr_init();
+   if(un_tx_page.ptr[0] > wrPtr) un_tx_page.ptr[0] = wrPtr;	//标记为无未上传记录
+   if(un_tx_page.ptr[1] > wrPtr) un_tx_page.ptr[1] = wrPtr;
+   if(un_tx_page.ptr[2] > wrPtr) un_tx_page.ptr[2] = wrPtr;
+   if(un_tx_page.ptr[SOCKET_NUMBER-1] > wrPtr) un_tx_page.ptr[SOCKET_NUMBER-1] = wrPtr;
+   un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR)-2);
+	DBG(printf("wrPtr = %ld\n",wrPtr);)
+}
+
+/*** BeginHeader printfRecord*/
+void printfRecord(void);
+/*** EndHeader */
+void printfRecord(void)
+{
+	auto unsigned long i;
+   auto struct tm rtc;
+
+   i = 0;
+	while(i < nf_pages)
+   {
+   	if(read_nf_page(&onemsg_rd, i, 3) == 0)
+      {
+      	mktm(&rtc, onemsg_rd.Btime);
+         printf("%ld  %04d-%02d-%02d %02d:%02d:%02d\r\n", i,
+         	rtc.tm_year+1900, rtc.tm_mon, rtc.tm_mday, rtc.tm_hour, rtc.tm_min, rtc.tm_sec);
+      }
+
+      i++;
+   }
+}
+
+/*** BeginHeader check_wr_page*/
+int check_wr_page(unsigned long page);
+/*** EndHeader */
+/*******************************************************************************
+函数功能：判断该页是否可以读写
+参数一：第几页
+返回：1-不能读写，0-可以读写
+*******************************************************************************/
+int check_wr_page(unsigned long page)
+{
+	auto int status;
+
+   status = 0;
+   if(nandflash_id != 0xD7AD)
+   {
+   	return status;
+   }
+
+   if(page % 4 == 0 && page % 256 != 0)
+   { //现代的4G Flash，由于芯片出现问题，在底层驱动里面做了可以给4整除的，但是又不是每块的第一页，不进行读写
+      	status = 1;
+   }
+
+   return status;
+}
+
+
+/*** BeginHeader comExportHistory*/
+void comExportHistory(void);
+/*** EndHeader */
+void comExportHistory(void)
+{
+	auto unsigned long page;
+   auto struct tm rtc;
+   auto int rc;
+   auto unsigned long exitTime;
+   auto int i;
+
+   rtc.tm_year = (2013-1900);
+   rtc.tm_mon = 9;
+   rtc.tm_mday = 19;
+   rtc.tm_hour = 0;
+   rtc.tm_min = 0;
+   rtc.tm_sec = 0;
+   exitTime = read_rtc();//mktime(&rtc);
+
+	com_open(0, 115200L);//用指定的波特率打开串口
+   msDelay(20);
+   page = 0;
+   while(page < nf_pages)
+   {
+   	rc = read_nf_page(&onemsg_rd, page, 3);
+      memset(deal_buf, 0x00, sizeof(deal_buf));
+      if(rc == 0 && onemsg_rd.Btime < exitTime)
+      {
+         mktm(&rtc, onemsg_rd.Btime);
+         sprintf(deal_buf, "%ld %04d-%02d-%02d %02d:%02d:%02d", page,
+            rtc.tm_year+1900, rtc.tm_mon, rtc.tm_mday, rtc.tm_hour, rtc.tm_min, rtc.tm_sec);
+
+         for(i=0; i<ALLADCHANNELS; i++)
+			{
+   			if((onemsg_rd.AI_Val[i].polIndex >= 0) && (onemsg_rd.AI_Val[i].polIndex < BOCON_NO_OF_POL / 2))
+      		{
+            	memset(com_tbuf, 0x00, sizeof(com_tbuf));
+               sprintf(com_tbuf, ";%s;%.2f",
+               	PolCode[onemsg_rd.AI_Val[i].polIndex],
+                  onemsg_rd.AI_Val[i].Avg);
+               strcat(deal_buf, com_tbuf);
+         	}
+   		}
+      }
+      else
+      {
+         if(onemsg_rd.Btime >= exitTime)
+         {
+         	break;
+         }
+         else if(rc != 0)
+         {
+         	sprintf(deal_buf, "%ld--error=%d", page, rc);
+         }
+      }
+      com_tlen = strlen(deal_buf);
+      if(com_tlen)
+      {
+      	strcat(deal_buf, "\r\n");
+     		ser0write(deal_buf, com_tlen+2);
+      }
+
+      page++;
+      /*if(page >= wrPtr)
+      {
+      	break;
+      } */
+      if(keyGet() == 'C')
+      {
+      	break;
+      }
+      msDelay(20);
+   }
+
+   msDelay(200);
+   com_close(0);
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

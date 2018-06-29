@@ -1,0 +1,77 @@
+
+/*** BeginHeader */
+#ifndef rd_10321_flux_bokesi_v2_lib
+#define rd_10321_flux_bokesi_v2_lib
+/*** EndHeader */
+
+/***
+江苏博克斯流量计V2版  Modbus-RTU，(2016-08-04)
+*/
+
+
+/*** BeginHeader rd_flux_bokesi_V2 */
+int rd_flux_bokesi_V2( char port );
+/*** EndHeader */
+int rd_flux_bokesi_V2(char port)
+{
+    static int status;
+    auto union uf f;
+
+    costate
+    {
+    	status = 0;
+
+   	  pack_modbus_cmd(0x01,0x03,0x02,0x04);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+    	com_read(port);
+      if((com_rlen >= 10) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+      {
+      	f.ch[3] = com_rbuf[3];
+   		f.ch[2] = com_rbuf[4];
+   		f.ch[1] = com_rbuf[5];
+   		f.ch[0] = com_rbuf[6];
+   		com_f[0] = (float)f.l;
+   		com_f[0] /= 10.0;                 //瞬时流量，单位m3/h
+   		//com_f[0] /= 3.6;			//采集单位m3/h,显示单位L/s
+
+        f.ch[3] = com_rbuf[7];
+        f.ch[2] = com_rbuf[8];
+        f.ch[1] = com_rbuf[9];
+        f.ch[0] = com_rbuf[10];
+        com_f[1] = (float)f.l;       //累计流量,m3
+
+		status = 1;
+      }
+      else
+      {
+         status =2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+

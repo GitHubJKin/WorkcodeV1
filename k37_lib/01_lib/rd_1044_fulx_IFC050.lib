@@ -1,0 +1,57 @@
+
+/*** BeginHeader */
+#ifndef rd_1044_fulx_IFC050_lib
+#define rd_1044_fulx_IFC050_lib
+/*** EndHeader */
+
+
+//IFC050驱动
+
+/*** BeginHeader rd_fulx_IFC050*/
+int rd_fulx_IFC050( char port );
+/*** EndHeader */
+int rd_fulx_IFC050( char port )
+{
+	static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto char i;
+   costate
+   {
+   	 status = 0;
+
+      pack_modbus_cmd(0x01, 0x04, 30002, 2);
+      com_write(port);
+
+      waitfor(DelaySec(2));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 2*2+5 && com_rbuf[0] == 0x01 && com_rbuf[1] == 0x04)
+      {
+		f.ch[3] = com_rbuf[3];
+		f.ch[2] = com_rbuf[4];
+		f.ch[1] = com_rbuf[5];
+		f.ch[0] = com_rbuf[6];
+		com_f[0] = f.f*1000;	//瞬时流量
+		
+        status = 1;
+      }
+      else
+      {
+      	status = 2;
+		com_f[0] = 0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

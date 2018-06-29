@@ -1,0 +1,833 @@
+/*** BeginHeader */
+#ifndef __BOCON_NEW_CODE_NAME_BMP_LIB
+#define __BOCON_NEW_CODE_NAME_BMP_LIB
+/*** EndHeader */
+
+/*** BeginHeader boconLuJaGe_bmp */
+extern unsigned long boconLuJaGe_bmp;
+/*** EndHeader */
+
+// Bitmap : boconLuJaGe_bmp
+// Buffer Size : 96
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 47 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,47,16,boconLuJaGe_bmp);
+
+xdata boconLuJaGe_bmp {
+'\x04','\x00','\x08','\x40','\x10','\x81',
+'\x03','\x00','\x0C','\x40','\x10','\x81',
+'\x01','\x80','\x18','\xA0','\x20','\xFD',
+'\x01','\x00','\x11','\x10','\x3D','\x05',
+'\xFF','\xFE','\x32','\x18','\x41','\x89',
+'\x00','\x00','\x64','\x0E','\x7E','\x51',
+'\x00','\x00','\xA9','\x14','\x90','\x21',
+'\x04','\x80','\x21','\x10','\x10','\x51',
+'\x06','\x40','\x21','\x10','\xFC','\x8F',
+'\x04','\x20','\x21','\x10','\x13','\x05',
+'\x08','\x10','\x21','\x10','\x11','\xF9',
+'\x08','\x18','\x22','\x10','\x11','\x09',
+'\x10','\x0C','\x22','\x10','\x15','\x09',
+'\x20','\x0C','\x24','\x10','\x19','\x09',
+'\x40','\x08','\x24','\x10','\x11','\xF9',
+'\x00','\x00','\x28','\x10','\x00','\x01'
+};
+
+
+/*** BeginHeader boconZongLin_bmp */
+extern unsigned long boconZongLin_bmp;
+/*** EndHeader */
+
+// Bitmap : boconZongLin_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,boconZongLin_bmp);
+
+xdata boconZongLin_bmp {
+'\x10','\x40','\x00','\x43',
+'\x08','\x40','\xFA','\x4B',
+'\x08','\x80','\x21','\x53',
+'\x3F','\xE0','\x27','\xFF',
+'\x20','\x20','\x21','\x63',
+'\x20','\x20','\x42','\x53',
+'\x20','\x20','\x7C','\x4F',
+'\x3F','\xE0','\xD2','\x53',
+'\x00','\x01','\x57','\xBF',
+'\x02','\x00','\x58','\x93',
+'\x11','\x10','\x55','\x53',
+'\x51','\x08','\x73','\x7F',
+'\x50','\x2C','\x52','\x53',
+'\xD0','\x24','\x44','\x13',
+'\x0F','\xE0','\x08','\x13',
+'\x00','\x00','\x10','\x13'
+};
+
+
+/*** BeginHeader boconZongNie_bmp */
+extern unsigned long boconZongNie_bmp;
+/*** EndHeader */
+
+// Bitmap : boconZongNie_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,boconZongNie_bmp);
+
+xdata boconZongNie_bmp {
+'\x10','\x40','\x40','\x43',
+'\x08','\x40','\x43','\xFB',
+'\x08','\x80','\x7A','\x0B',
+'\x3F','\xE0','\x43','\xFB',
+'\x20','\x20','\x82','\x0B',
+'\x20','\x20','\xFB','\xFB',
+'\x20','\x21','\x22','\x0B',
+'\x3F','\xE0','\x23','\xFB',
+'\x00','\x01','\xF8','\x43',
+'\x02','\x00','\x27','\xFF',
+'\x11','\x10','\x20','\xC3',
+'\x51','\x08','\x21','\x63',
+'\x50','\x2C','\x29','\x53',
+'\xD0','\x24','\x32','\x4F',
+'\x0F','\xE0','\x24','\x43',
+'\x00','\x00','\x00','\x43'
+};
+
+
+/*** BeginHeader boconZongTong_bmp */
+extern unsigned long boconZongTong_bmp;
+/*** EndHeader */
+
+// Bitmap : boconZongTong_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,boconZongTong_bmp);
+
+xdata boconZongTong_bmp {
+'\x10','\x40','\x40','\x03',
+'\x08','\x40','\x43','\xFF',
+'\x08','\x80','\x7A','\x07',
+'\x3F','\xE0','\x42','\x07',
+'\x20','\x20','\x83','\xF7',
+'\x20','\x20','\xFA','\x07',
+'\x20','\x21','\x42','\xF7',
+'\x3F','\xE0','\x42','\x97',
+'\x00','\x01','\xFA','\x97',
+'\x02','\x00','\x42','\x97',
+'\x11','\x10','\x42','\xF7',
+'\x51','\x08','\x42','\x07',
+'\x50','\x2C','\x4A','\x07',
+'\xD0','\x24','\x52','\x07',
+'\x0F','\xE0','\x62','\x17',
+'\x00','\x00','\x42','\x0B'
+};
+
+
+/*** BeginHeader boconZongXin_bmp */
+extern unsigned long boconZongXin_bmp;
+/*** EndHeader */
+
+// Bitmap : boconZongXin_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,boconZongXin_bmp);
+
+xdata boconZongXin_bmp {
+'\x10','\x40','\x40','\x83',
+'\x08','\x40','\x40','\x43',
+'\x08','\x80','\x7B','\xFB',
+'\x3F','\xE0','\x40','\x13',
+'\x20','\x20','\x81','\x13',
+'\x20','\x20','\xF8','\xA3',
+'\x20','\x21','\x20','\x43',
+'\x3F','\xE0','\x27','\xFF',
+'\x00','\x01','\xF8','\x43',
+'\x02','\x00','\x20','\x43',
+'\x11','\x10','\x23','\xFB',
+'\x51','\x08','\x20','\x43',
+'\x50','\x2C','\x28','\x43',
+'\xD0','\x24','\x30','\x43',
+'\x0F','\xE0','\x20','\x43',
+'\x00','\x00','\x00','\x43'
+};
+
+
+/*** BeginHeader zonggong_bmp */
+extern unsigned long zonggong_bmp;
+/*** EndHeader */
+
+// Bitmap : zonggong_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,zonggong_bmp);
+
+xdata zonggong_bmp {
+'\x10','\x40','\x00','\x03',
+'\x08','\x40','\x7F','\xF3',
+'\x08','\x80','\x02','\x03',
+'\x3F','\xE0','\x02','\x03',
+'\x20','\x20','\xFF','\xFB',
+'\x20','\x20','\x02','\x03',
+'\x20','\x20','\x02','\x23',
+'\x3F','\xE0','\xFA','\x43',
+'\x00','\x00','\x0B','\x83',
+'\x02','\x00','\x12','\x83',
+'\x11','\x10','\x12','\x43',
+'\x51','\x08','\x22','\x33',
+'\x50','\x2C','\x42','\x1F',
+'\xD0','\x25','\x82','\x0B',
+'\x0F','\xE0','\x0A','\x03',
+'\x00','\x00','\x04','\x03'
+};
+
+
+/*** BeginHeader wanjigong_bmp */
+extern unsigned long wanjigong_bmp;
+/*** EndHeader */
+
+// Bitmap : wanjigong_bmp
+// Buffer Size : 96
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 47 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,47,16,wanjigong_bmp);
+
+xdata wanjigong_bmp {
+'\x10','\x40','\x08','\x20','\x00','\x01',
+'\x10','\x20','\x08','\x20','\x3F','\xF9',
+'\x13','\xFE','\x7F','\xFC','\x01','\x01',
+'\x12','\x02','\x08','\x20','\x01','\x01',
+'\x14','\x04','\x0F','\xE0','\x7F','\xFD',
+'\x59','\xF0','\x08','\x20','\x01','\x01',
+'\x50','\x00','\x0F','\xE0','\x01','\x11',
+'\x90','\x00','\x08','\x20','\x7D','\x21',
+'\x17','\xFC','\xFF','\xFE','\x05','\xC1',
+'\x29','\x20','\x08','\x20','\x09','\x41',
+'\x25','\x20','\x11','\x18','\x09','\x21',
+'\x25','\x20','\x3F','\xEE','\x11','\x19',
+'\x42','\x22','\xC1','\x04','\x21','\x0F',
+'\x84','\x22','\x01','\x00','\xC1','\x05',
+'\x08','\x1E','\x7F','\xFC','\x05','\x01',
+'\x10','\x00','\x00','\x00','\x02','\x01'
+};
+
+
+/*** BeginHeader shangjiage_bmp */
+extern unsigned long shangjiage_bmp;
+/*** EndHeader */
+
+// Bitmap : shangjiage_bmp
+// Buffer Size : 96
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 46 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,46,16,shangjiage_bmp);
+
+xdata shangjiage_bmp {
+'\x00','\x00','\x10','\x80','\x21','\x03',
+'\x00','\x00','\x18','\x80','\x21','\x03',
+'\xFF','\xF8','\x31','\x40','\x23','\xF3',
+'\x00','\x00','\x22','\x21','\xFA','\x13',
+'\x00','\x00','\x64','\x30','\x25','\x23',
+'\x00','\x00','\xC8','\x1C','\x68','\xA3',
+'\x00','\x01','\x52','\x28','\x70','\x43',
+'\x7F','\xF0','\x42','\x20','\xA9','\xB3',
+'\x00','\x00','\x42','\x20','\xAE','\x0F',
+'\x00','\x00','\x42','\x21','\x23','\xF3',
+'\x00','\x00','\x42','\x20','\x22','\x13',
+'\x00','\x00','\x44','\x20','\x22','\x13',
+'\x00','\x00','\x44','\x20','\x22','\x13',
+'\xFF','\xFC','\x48','\x20','\x22','\x13',
+'\x00','\x00','\x48','\x20','\x23','\xF3',
+'\x00','\x00','\x50','\x20','\x22','\x13'
+};
+
+
+/*** BeginHeader youjidan_bmp */
+extern unsigned long youjidan_bmp;
+/*** EndHeader */
+
+// Bitmap : youjidan_bmp
+// Buffer Size : 96
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 47 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,47,16,youjidan_bmp);
+
+xdata youjidan_bmp {
+'\x01','\x00','\x10','\x00','\x10','\x01',
+'\x01','\x00','\x10','\xF8','\x1F','\xFD',
+'\x7F','\xFE','\x10','\x88','\x20','\x01',
+'\x02','\x00','\xFE','\x88','\x5F','\xF9',
+'\x04','\x00','\x10','\x88','\x00','\x01',
+'\x0F','\xF0','\x10','\x88','\x7F','\xF1',
+'\x18','\x10','\x38','\x88','\x02','\x11',
+'\x28','\x10','\x34','\x88','\x12','\xD1',
+'\x4F','\xF0','\x54','\x88','\x0B','\x11',
+'\x88','\x10','\x50','\x88','\x04','\x91',
+'\x08','\x10','\x91','\x08','\x3A','\x51',
+'\x0F','\xF0','\x11','\x0A','\x12','\x91',
+'\x08','\x10','\x12','\x0A','\x0B','\x0B',
+'\x08','\x90','\x12','\x0A','\x05','\x0B',
+'\x08','\x70','\x14','\x06','\x18','\x87',
+'\x08','\x20','\x10','\x00','\xE0','\x63'
+};
+
+
+/*** BeginHeader zongdan_bmp */
+extern unsigned long zongdan_bmp;
+/*** EndHeader */
+
+// Bitmap : zongdan_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,zongdan_bmp);
+
+xdata zongdan_bmp {
+'\x10','\x40','\x20','\x03',
+'\x08','\x40','\x3F','\xFB',
+'\x08','\x80','\x40','\x03',
+'\x3F','\xE0','\xBF','\xF3',
+'\x20','\x20','\x00','\x03',
+'\x20','\x20','\xFF','\xE3',
+'\x20','\x20','\x04','\x23',
+'\x3F','\xE0','\x25','\xA3',
+'\x00','\x00','\x16','\x23',
+'\x02','\x00','\x09','\x23',
+'\x11','\x10','\x74','\xA3',
+'\x51','\x08','\x25','\x23',
+'\x50','\x2C','\x16','\x17',
+'\xD0','\x24','\x0A','\x17',
+'\x0F','\xE0','\x31','\x0F',
+'\x00','\x01','\xC0','\xC7'
+};
+
+
+/*** BeginHeader zongge_bmp */
+extern unsigned long zongge_bmp;
+/*** EndHeader */
+
+// Bitmap : zongge_bmp
+// Buffer Size : 60
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 15 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,15,zongge_bmp);
+
+xdata zongge_bmp {
+'\x10','\x40','\x21','\x03',
+'\x08','\x40','\x21','\x03',
+'\x08','\x80','\x41','\xFB',
+'\x3F','\xE0','\x7A','\x0B',
+'\x20','\x20','\x83','\x13',
+'\x20','\x20','\xFC','\xA3',
+'\x20','\x21','\x20','\x43',
+'\x3F','\xE0','\x20','\xA3',
+'\x00','\x01','\xF9','\x1F',
+'\x02','\x00','\x26','\x0B',
+'\x11','\x10','\x23','\xF3',
+'\x51','\x08','\x22','\x13',
+'\x50','\x2C','\x2A','\x13',
+'\xD0','\x24','\x32','\x13',
+'\x0F','\xE0','\x23','\xF3'
+};
+
+
+/*** BeginHeader realFlux_bmp */
+extern unsigned long realFlux_bmp;
+/*** EndHeader */
+
+// Bitmap : realFlux_bmp
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 62 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,62,16,realFlux_bmp);
+
+xdata realFlux_bmp {
+'\x00','\x78','\x00','\x20','\x41','\x00','\x3F','\xE3',
+'\xEF','\x88','\x00','\x20','\x20','\x80','\x20','\x23',
+'\xA4','\x88','\xF8','\x20','\x2F','\xFC','\x3F','\xE3',
+'\xA2','\x50','\x88','\x20','\x00','\x80','\x20','\x23',
+'\xAF','\xFC','\x8F','\xFD','\x01','\x00','\x3F','\xE3',
+'\xE8','\x14','\x88','\x20','\x92','\x20','\x00','\x03',
+'\xB4','\x10','\xF8','\x20','\x97','\xF1','\xFF','\xFF',
+'\xA7','\x7C','\x8A','\x20','\x20','\x10','\x22','\x23',
+'\xE5','\x10','\x89','\x20','\x24','\xA0','\x3F','\xE3',
+'\xA9','\x50','\x89','\x20','\x24','\xA0','\x22','\x23',
+'\xB6','\x7C','\xF8','\x21','\xC4','\xA0','\x3F','\xE3',
+'\xA2','\x90','\x00','\x20','\x44','\xA0','\x02','\x03',
+'\xE4','\x10','\x00','\x20','\x48','\xA4','\x3F','\xF3',
+'\xA8','\x10','\x00','\x20','\x48','\xA4','\x02','\x03',
+'\x90','\x10','\x00','\xA0','\x50','\x9D','\xFF','\xFF',
+'\x20','\x10','\x00','\x40','\x40','\x00','\x00','\x03'
+};
+
+
+/*** BeginHeader fluxSum_bmp */
+extern unsigned long fluxSum_bmp;
+/*** EndHeader */
+
+// Bitmap : fluxSum_bmp
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 60 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,60,16,fluxSum_bmp);
+
+xdata fluxSum_bmp {
+'\xFF','\xC2','\x01','\x01','\x04','\x00','\xFF','\x8F',
+'\x88','\x41','\x01','\x00','\x82','\x00','\x80','\x8F',
+'\xFF','\xC1','\x81','\x00','\xBF','\xF0','\xFF','\x8F',
+'\x88','\x41','\x01','\x00','\x02','\x00','\x80','\x8F',
+'\xFF','\xC0','\x01','\x04','\x04','\x00','\xFF','\x8F',
+'\x10','\x07','\x9F','\xF2','\x48','\x80','\x00','\x0F',
+'\x21','\x00','\x81','\x02','\x5F','\xC7','\xFF','\xFF',
+'\x7E','\x00','\x81','\x00','\x80','\x40','\x88','\x8F',
+'\x09','\x00','\x81','\x00','\x92','\x80','\xFF','\x8F',
+'\x30','\x80','\x81','\x00','\x92','\x80','\x88','\x8F',
+'\x7F','\xC0','\x81','\x07','\x12','\x80','\xFF','\x8F',
+'\x04','\x40','\x91','\x01','\x12','\x80','\x08','\x0F',
+'\x45','\x00','\xA1','\x01','\x22','\x90','\xFF','\xCF',
+'\x44','\xC0','\xC1','\x01','\x22','\x90','\x08','\x0F',
+'\x94','\x40','\x81','\x01','\x42','\x77','\xFF','\xFF',
+'\x08','\x00','\x01','\x01','\x00','\x00','\x00','\x0F'
+};
+
+/*** BeginHeader input_bmp */
+extern unsigned long input_bmp;
+/*** EndHeader */
+
+// Bitmap : input_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 31 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,31,16,input_bmp);
+
+xdata input_bmp {
+'\x00','\x90','\x01','\x01',
+'\x20','\x90','\x01','\x01',
+'\x10','\x90','\x01','\x01',
+'\x13','\xFC','\x01','\x09',
+'\x00','\x90','\x01','\x09',
+'\x00','\x90','\x7D','\x91',
+'\xF0','\x90','\x05','\xA1',
+'\x17','\xFE','\x09','\x41',
+'\x10','\x90','\x09','\x41',
+'\x10','\x90','\x11','\x21',
+'\x11','\x10','\x11','\x11',
+'\x11','\x10','\x21','\x09',
+'\x12','\x10','\x41','\x07',
+'\x28','\x00','\x81','\x01',
+'\x47','\xFE','\x05','\x01',
+'\x00','\x00','\x02','\x01'
+};
+
+
+/*** BeginHeader output_bmp */
+extern unsigned long output_bmp;
+/*** EndHeader */
+
+// Bitmap : output_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 30 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,30,16,output_bmp);
+
+xdata output_bmp {
+'\x02','\x00','\x02','\x03',
+'\x02','\x00','\x02','\x03',
+'\x42','\x10','\x02','\x03',
+'\x42','\x10','\x02','\x13',
+'\x42','\x10','\x02','\x13',
+'\x42','\x10','\xFB','\x23',
+'\x7F','\xF0','\x0B','\x43',
+'\x02','\x10','\x12','\x83',
+'\x02','\x00','\x12','\x83',
+'\x02','\x00','\x22','\x43',
+'\x82','\x08','\x22','\x23',
+'\x82','\x08','\x42','\x13',
+'\x82','\x08','\x82','\x0F',
+'\x82','\x09','\x02','\x03',
+'\xFF','\xF8','\x0A','\x03',
+'\x00','\x08','\x04','\x03'
+};
+
+
+/*** BeginHeader extend1_bmp */
+extern unsigned long extend1_bmp;
+/*** EndHeader */
+
+// Bitmap : extend1_bmp
+// Buffer Size : 224
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 110 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,110,16,extend1_bmp);
+
+xdata extend1_bmp {
+'\x10','\x10','\x10','\x00','\x01','\x00','\x10','\x20','\x02','\x00','\x10','\x00','\x10','\x83',
+'\x08','\x20','\x13','\xFE','\x11','\x10','\x10','\x20','\x02','\x00','\x11','\xF0','\x10','\x83',
+'\x04','\x40','\x12','\x02','\x11','\x08','\x11','\x20','\xFF','\xFE','\x11','\x10','\x50','\x83',
+'\x00','\x00','\x14','\x44','\x22','\x00','\x11','\x20','\x04','\x00','\x11','\x10','\x50','\xFF',
+'\x1F','\xF0','\xFC','\x40','\x3F','\xFC','\x19','\xFC','\x04','\x00','\xFD','\x10','\x7D','\x57',
+'\x10','\x10','\x13','\xFC','\x02','\x00','\x55','\x20','\x0F','\xF0','\x11','\x10','\x52','\x57',
+'\x10','\x10','\x10','\x80','\x04','\x00','\x52','\x20','\x08','\x10','\x31','\x10','\x90','\x57',
+'\x10','\x10','\x14','\xA0','\x07','\xF8','\x50','\x20','\x18','\x10','\x39','\x10','\x10','\x97',
+'\x1F','\xF0','\x19','\x20','\x0A','\x08','\x90','\x20','\x2F','\xF0','\x55','\x10','\x1C','\x97',
+'\x10','\x10','\x31','\xFC','\x09','\x08','\x11','\xFC','\x48','\x10','\x55','\x10','\xF1','\x27',
+'\x01','\x00','\xD0','\x20','\x11','\x10','\x10','\x20','\x88','\x10','\x91','\x10','\x52','\x27',
+'\x08','\x84','\x10','\x20','\x10','\xA0','\x10','\x20','\x0F','\xF0','\x11','\x12','\x10','\x47',
+'\x48','\x92','\x17','\xFE','\x20','\x40','\x10','\x20','\x08','\x10','\x11','\x12','\x10','\x47',
+'\x48','\x12','\x10','\x20','\x40','\xA0','\x10','\x20','\x08','\x10','\x12','\x12','\x10','\x87',
+'\x87','\xF0','\x50','\x20','\x03','\x18','\x13','\xFE','\x08','\x50','\x12','\x0E','\x11','\x2B',
+'\x00','\x00','\x20','\x20','\x1C','\x06','\x10','\x00','\x08','\x20','\x14','\x00','\x10','\x13'
+};
+
+
+/*** BeginHeader extend2_bmp */
+extern unsigned long extend2_bmp;
+/*** EndHeader */
+
+// Bitmap : extend2_bmp
+// Buffer Size : 176
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 85 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,85,16,extend2_bmp);
+
+xdata extend2_bmp {
+'\x00','\x00','\x01','\x10','\x00','\x00','\x00','\x00','\x00','\x00','\x27',
+'\xFF','\xE3','\xF9','\x10','\x00','\x00','\x00','\xFF','\xE3','\xF9','\x2F',
+'\x84','\x20','\xA3','\xF8','\x00','\x00','\x00','\x84','\x20','\xA4','\xAF',
+'\x84','\x20','\xA1','\x10','\x00','\xFF','\xE0','\x84','\x20','\xA2','\xB7',
+'\x84','\x23','\xF8','\x40','\x40','\x00','\x00','\x84','\x23','\xFA','\x27',
+'\xFF','\xE2','\xA8','\xA0','\x40','\x00','\x00','\xFF','\xE2','\xA8','\xFF',
+'\x84','\x22','\xA9','\x10','\x40','\x00','\x00','\x84','\x22','\xA8','\x27',
+'\x84','\x22','\xAA','\x08','\x40','\x00','\x00','\x84','\x22','\xAE','\x67',
+'\x84','\x22','\xB9','\xF3','\xF8','\x00','\x00','\x84','\x22','\xBA','\x77',
+'\xFF','\xE3','\x08','\x40','\x40','\x00','\x00','\xFF','\xE3','\x0A','\xAF',
+'\x84','\x22','\x08','\x40','\x40','\x00','\x00','\x84','\x22','\x0B','\x2F',
+'\x04','\x03','\xF9','\xF0','\x40','\x00','\x00','\x04','\x03','\xFA','\x27',
+'\x04','\x02','\x08','\x40','\x43','\xFF','\xF8','\x04','\x02','\x0A','\x27',
+'\x04','\x02','\x08','\x40','\x00','\x00','\x00','\x04','\x02','\x0D','\x07',
+'\x04','\x03','\xFB','\xF8','\x00','\x00','\x00','\x04','\x03','\xF8','\xFF',
+'\x04','\x02','\x08','\x00','\x00','\x00','\x00','\x04','\x02','\x08','\x07'
+};
+
+
+/*** BeginHeader extend3_bmp */
+extern unsigned long extend3_bmp;
+/*** EndHeader */
+
+// Bitmap : extend3_bmp
+// Buffer Size : 176
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 85 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,85,16,extend3_bmp);
+
+xdata extend3_bmp {
+'\x00','\x00','\x00','\x80','\x00','\x80','\x00','\x00','\x00','\x46','\x17',
+'\xFF','\xE3','\xF8','\x40','\x00','\xFF','\xF1','\xFF','\xC0','\x41','\xA7',
+'\x84','\x20','\xA3','\xF8','\x01','\x00','\x00','\x00','\x80','\x40','\xC7',
+'\x84','\x20','\xA0','\x00','\x02','\x7F','\xC0','\x01','\x00','\x53','\x27',
+'\x84','\x23','\xF9','\xF0','\x40','\x00','\x00','\x02','\x01','\x6C','\x17',
+'\xFF','\xE2','\xA9','\x10','\x41','\xFF','\xC0','\x04','\x01','\x41','\x07',
+'\x84','\x22','\xA9','\xF0','\x40','\x00','\x40','\x08','\x01','\x4F','\xFF',
+'\x84','\x22','\xA8','\x00','\x41','\xFE','\x40','\x10','\x02','\x42','\x87',
+'\x84','\x22','\xB9','\xF3','\xF8','\x02','\x40','\x20','\x00','\x44','\x87',
+'\xFF','\xE3','\x08','\x20','\x40','\xFE','\x40','\x40','\x00','\x4F','\xF7',
+'\x84','\x22','\x08','\x40','\x40','\x02','\x40','\x40','\x00','\x54','\x97',
+'\x04','\x03','\xFB','\xF8','\x43','\xFF','\xC8','\x80','\x10','\xA4','\x97',
+'\x04','\x02','\x08','\x40','\x40','\x92','\x28','\x80','\x10','\x94','\xD7',
+'\x04','\x02','\x08','\x40','\x00','\x54','\x28','\x80','\x11','\x04','\xA7',
+'\x04','\x03','\xF9','\x40','\x00','\x92','\x18','\x7F','\xF1','\x00','\x87',
+'\x04','\x02','\x08','\x80','\x01','\x31','\x08','\x00','\x02','\x00','\x87'
+};
+
+
+/*** BeginHeader extend4_bmp */
+extern unsigned long extend4_bmp;
+/*** EndHeader */
+
+// Bitmap : extend4_bmp
+// Buffer Size : 90
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 15 pixels.
+// Width  : 47 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,47,15,extend4_bmp);
+
+xdata extend4_bmp {
+'\x00','\x00','\x3F','\xF8','\x78','\x21',
+'\x7F','\xFC','\x21','\x08','\x48','\x21',
+'\x00','\x00','\x21','\x08','\x4B','\xFF',
+'\x00','\x00','\x21','\x08','\x4A','\x03',
+'\x00','\x00','\x3F','\xF8','\x7C','\x45',
+'\x00','\x00','\x21','\x08','\x48','\x41',
+'\x3F','\xF8','\x21','\x08','\x4B','\xFF',
+'\x00','\x00','\x21','\x08','\x48','\x89',
+'\x00','\x00','\x3F','\xF8','\x78','\x89',
+'\x00','\x00','\x21','\x08','\x49','\x09',
+'\x00','\x00','\x01','\x00','\x48','\xD1',
+'\x00','\x00','\x01','\x00','\x48','\x21',
+'\xFF','\xFE','\x01','\x00','\x48','\x51',
+'\x00','\x00','\x01','\x00','\x48','\x89',
+'\x00','\x00','\x01','\x00','\x9B','\x05'
+};
+
+
+/*** BeginHeader extend5_bmp */
+extern unsigned long extend5_bmp;
+/*** EndHeader */
+
+// Bitmap : extend5_bmp
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 63 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,63,16,extend5_bmp);
+
+xdata extend5_bmp {
+'\x00','\x00','\x20','\x00','\x00','\x00','\x10','\x41',
+'\x00','\x00','\x3F','\xFC','\xFF','\xFE','\x10','\x21',
+'\xFD','\xFE','\x40','\x00','\x01','\x00','\x13','\xFF',
+'\x10','\x10','\x9F','\xF0','\x01','\x00','\x16','\x03',
+'\x10','\x10','\x00','\x00','\x01','\x00','\x5C','\x05',
+'\x10','\x20','\x7F','\xF0','\x7F','\xFC','\x51','\xF9',
+'\x10','\x20','\x11','\x10','\x41','\x04','\x50','\x01',
+'\x7C','\x68','\x0A','\x10','\x41','\x04','\x90','\x01',
+'\x10','\xA4','\x7F','\xD0','\x42','\x84','\x13','\xFF',
+'\x11','\x22','\x04','\x10','\x42','\x44','\x10','\x91',
+'\x12','\x22','\x3F','\x90','\x44','\x24','\x10','\x91',
+'\x10','\x20','\x04','\x12','\x48','\x24','\x28','\x91',
+'\x1C','\x20','\xFF','\xEA','\x40','\x04','\x25','\x13',
+'\xE0','\x20','\x04','\x0A','\x40','\x04','\x41','\x13',
+'\x40','\x20','\x04','\x06','\x40','\x14','\x42','\x0F',
+'\x00','\x20','\x04','\x02','\x40','\x08','\x84','\x01'
+};
+
+
+/*** BeginHeader extend6_bmp */
+extern unsigned long extend6_bmp;
+/*** EndHeader */
+
+// Bitmap : extend6_bmp
+// Buffer Size : 32
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 15 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,15,16,extend6_bmp);
+
+xdata extend6_bmp {
+'\x08','\x21',
+'\x08','\x21',
+'\xFF','\xFF',
+'\x08','\x21',
+'\x01','\x01',
+'\x01','\x01',
+'\x7F','\xFD',
+'\x03','\x81',
+'\x05','\x41',
+'\x09','\x21',
+'\x11','\x11',
+'\x2F','\xE9',
+'\xC1','\x07',
+'\x01','\x01',
+'\x01','\x01',
+'\x01','\x01'
+};
+
+
+/*** BeginHeader extend7_bmp */
+extern unsigned long extend7_bmp;
+/*** EndHeader */
+
+// Bitmap : extend7_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 29 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,29,16,extend7_bmp);
+
+xdata extend7_bmp {
+'\x00','\x00','\x20','\x87',
+'\xFF','\xE0','\x20','\x87',
+'\x84','\x23','\xFF','\xFF',
+'\x84','\x20','\x20','\x87',
+'\x84','\x20','\x04','\x07',
+'\xFF','\xE0','\x04','\x07',
+'\x84','\x21','\xFF','\xF7',
+'\x84','\x20','\x0E','\x07',
+'\x84','\x20','\x15','\x07',
+'\xFF','\xE0','\x24','\x87',
+'\x84','\x20','\x44','\x47',
+'\x04','\x00','\xBF','\xA7',
+'\x04','\x03','\x04','\x1F',
+'\x04','\x00','\x04','\x07',
+'\x04','\x00','\x04','\x07',
+'\x04','\x00','\x04','\x07'
+};
+
+
+/*** BeginHeader extend8_bmp */
+extern unsigned long extend8_bmp;
+/*** EndHeader */
+
+// Bitmap : extend8_bmp
+// Buffer Size : 192
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 94 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,94,16,extend8_bmp);
+
+xdata extend8_bmp {
+'\x40','\x00','\x00','\x00','\x00','\x20','\x00','\x00','\x00','\x00','\x10','\x43',
+'\x27','\xF8','\x00','\x00','\x00','\x20','\x00','\x00','\x7F','\xF0','\x10','\x43',
+'\x20','\x08','\x00','\x00','\x00','\x20','\x00','\x00','\x42','\x11','\xFF','\xFF',
+'\x80','\x08','\x00','\x00','\xFC','\x20','\x7F','\xF0','\x42','\x10','\x10','\x43',
+'\x8F','\x88','\x00','\x00','\x05','\xFC','\x00','\x00','\x42','\x10','\x02','\x03',
+'\x88','\x88','\x00','\x00','\x04','\x20','\x00','\x00','\x7F','\xF0','\x02','\x03',
+'\x88','\x88','\x00','\x00','\x48','\x20','\x00','\x00','\x42','\x10','\xFF','\xFB',
+'\x88','\x88','\x00','\x00','\x29','\x20','\x00','\x00','\x42','\x10','\x07','\x03',
+'\x8F','\x88','\x00','\x00','\x10','\xA0','\x00','\x00','\x42','\x10','\x0A','\x83',
+'\x88','\x88','\x00','\x00','\x10','\xA0','\x00','\x00','\x7F','\xF0','\x12','\x43',
+'\x88','\x88','\x00','\x00','\x28','\x20','\x00','\x00','\x42','\x10','\x22','\x23',
+'\x88','\x88','\x60','\x00','\x24','\x20','\x00','\x00','\x02','\x00','\x5F','\xD3',
+'\x8F','\x88','\x60','\x00','\x44','\x21','\xFF','\xFC','\x02','\x01','\x82','\x0F',
+'\x80','\x08','\x20','\x00','\x80','\x20','\x00','\x00','\x02','\x00','\x02','\x03',
+'\x80','\x28','\x40','\x00','\x00','\xA0','\x00','\x00','\x02','\x00','\x02','\x03',
+'\x80','\x10','\x00','\x00','\x00','\x40','\x00','\x00','\x02','\x00','\x02','\x03'
+};
+
+
+/*** BeginHeader extend9_bmp */
+extern unsigned long extend9_bmp;
+/*** EndHeader */
+
+// Bitmap : extend9_bmp
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 63 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,63,16,extend9_bmp);
+
+xdata extend9_bmp {
+'\x08','\x00','\x00','\x00','\x00','\x00','\x08','\x21',
+'\x08','\x7C','\x00','\x00','\x3F','\xF8','\x08','\x21',
+'\x14','\x44','\x00','\x00','\x21','\x08','\xFF','\xFF',
+'\x12','\x48','\x3F','\xF8','\x21','\x08','\x08','\x21',
+'\x21','\x48','\x00','\x00','\x21','\x08','\x01','\x01',
+'\x48','\xD0','\x00','\x00','\x3F','\xF8','\x01','\x01',
+'\x84','\x48','\x00','\x00','\x21','\x08','\x7F','\xFD',
+'\x04','\x48','\x00','\x00','\x21','\x08','\x03','\x81',
+'\x7F','\x44','\x00','\x00','\x21','\x08','\x05','\x41',
+'\x01','\x44','\x00','\x00','\x3F','\xF8','\x09','\x21',
+'\x22','\x44','\x00','\x00','\x21','\x08','\x11','\x11',
+'\x14','\x68','\x00','\x00','\x01','\x00','\x2F','\xE9',
+'\x08','\x50','\xFF','\xFE','\x01','\x00','\xC1','\x07',
+'\x04','\x40','\x00','\x00','\x01','\x00','\x01','\x01',
+'\x04','\x40','\x00','\x00','\x01','\x00','\x01','\x01',
+'\x00','\x40','\x00','\x00','\x01','\x00','\x01','\x01'
+};
+/*** BeginHeader KeLiWu_BMP */
+extern unsigned long KeLiWu_BMP;
+/*** EndHeader */
+
+// Bitmap : 颗粒物_BMP
+// Buffer Size : 96
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 48 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,48,16,颗粒物_BMP);
+
+xdata KeLiWu_BMP {
+'\x00','\x00','\x08','\x20','\x10','\x80',
+'\x7F','\x7E','\x08','\x10','\x10','\x80',
+'\x49','\x10','\x4A','\x10','\x50','\x80',
+'\x49','\x20','\x2A','\x00','\x50','\xFC',
+'\x7F','\x7C','\x2D','\xFE','\x7D','\x54',
+'\x49','\x44','\x08','\x00','\x52','\x54',
+'\x49','\x54','\xFE','\x04','\x90','\x54',
+'\x7F','\x54','\x18','\x84','\x10','\x94',
+'\x08','\x54','\x1C','\x84','\x1C','\x94',
+'\xFF','\x54','\x2A','\x48','\xF1','\x24',
+'\x1C','\x54','\x2A','\x48','\x52','\x24',
+'\x2A','\x54','\x48','\x48','\x10','\x44',
+'\x49','\x20','\x88','\x50','\x10','\x44',
+'\x88','\x28','\x08','\x10','\x10','\x84',
+'\x08','\x44','\x09','\xFE','\x11','\x28',
+'\x08','\x82','\x08','\x00','\x10','\x10'
+};
+
+/*** BeginHeader BiaoKuangLiuLiang_BMP */
+extern unsigned long BiaoKuangLiuLiang_BMP;
+/*** EndHeader */
+
+// Bitmap : 标况流量_BMP
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 64 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,64,16,标况流量_BMP);
+
+xdata BiaoKuangLiuLiang_BMP {
+'\x10','\x00','\x00','\x00','\x00','\x80','\x00','\x00',
+'\x11','\xFC','\x47','\xF8','\x20','\x40','\x1F','\xF0',
+'\x10','\x00','\x24','\x08','\x17','\xFE','\x10','\x10',
+'\x10','\x00','\x24','\x08','\x10','\x80','\x1F','\xF0',
+'\xFC','\x00','\x04','\x08','\x81','\x10','\x10','\x10',
+'\x13','\xFE','\x04','\x08','\x42','\x08','\xFF','\xFE',
+'\x30','\x20','\x17','\xF8','\x47','\xFC','\x00','\x00',
+'\x38','\x20','\x11','\x20','\x10','\x04','\x1F','\xF0',
+'\x55','\x28','\x21','\x20','\x10','\x00','\x11','\x10',
+'\x55','\x24','\xE1','\x20','\x22','\x48','\x1F','\xF0',
+'\x92','\x24','\x21','\x20','\xE2','\x48','\x11','\x10',
+'\x12','\x22','\x22','\x20','\x22','\x48','\x1F','\xF0',
+'\x14','\x22','\x22','\x22','\x22','\x48','\x01','\x00',
+'\x10','\x20','\x24','\x22','\x22','\x4A','\x1F','\xF0',
+'\x10','\xA0','\x28','\x1E','\x24','\x4A','\x01','\x00',
+'\x10','\x40','\x10','\x00','\x08','\x46','\x7F','\xFC'
+};
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

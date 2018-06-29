@@ -1,0 +1,100 @@
+
+/*** BeginHeader */
+#ifndef rd_3507_VOCs_lib
+#define rd_3507_VOCs_lib
+/*** EndHeader */
+
+
+/*******************************************************
+江苏旭龙 常州VOCS连续监测系统
+
+*******************************************************/
+
+/*** BeginHeader rd_VOCs*/
+int rd_VOCs(char port, char Addr);
+/*** EndHeader */
+int rd_VOCs(char port, char Addr)
+{
+   static int status;
+   auto union uf f; 
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      pack_modbus_cmd(Addr, 0x03, 0x00, 0x06);
+      com_write(port);
+      waitfor(DelayMs(2000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if ((com_rlen >= 4*3+5) && (com_rbuf[0] == Addr) && (com_rbuf[1] == 0x03))
+      {
+         f.ch[3] = com_rbuf[3];
+         f.ch[2] = com_rbuf[4];
+         f.ch[1] = com_rbuf[5];
+         f.ch[0] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+         f.ch[3] = com_rbuf[3+4*1];
+         f.ch[2] = com_rbuf[4+4*1];
+         f.ch[1] = com_rbuf[5+4*1];
+         f.ch[0] = com_rbuf[6+4*1];
+         com_f[1] = f.f;         //即时值
+         f.ch[3] = com_rbuf[3+4*2];
+         f.ch[2] = com_rbuf[4+4*2];
+         f.ch[1] = com_rbuf[5+4*2];
+         f.ch[0] = com_rbuf[6+4*2];
+         com_f[2] = f.f;         //即时值
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+      }
+	  
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      pack_modbus_cmd(Addr, 0x03, 0x0190, 0x08);
+      com_write(port);
+      waitfor(DelayMs(2000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if ((com_rlen >= 4*4+5) && (com_rbuf[0] == Addr) && (com_rbuf[1] == 0x03))
+      {
+         f.ch[3] = com_rbuf[3];
+         f.ch[2] = com_rbuf[4];
+         f.ch[1] = com_rbuf[5];
+         f.ch[0] = com_rbuf[6];
+         com_f[3] = f.f;         //即时值
+         f.ch[3] = com_rbuf[3+4*1];
+         f.ch[2] = com_rbuf[4+4*1];
+         f.ch[1] = com_rbuf[5+4*1];
+         f.ch[0] = com_rbuf[6+4*1];
+         com_f[4] = f.f;         //即时值
+         f.ch[3] = com_rbuf[3+4*2];
+         f.ch[2] = com_rbuf[4+4*2];
+         f.ch[1] = com_rbuf[5+4*2];
+         f.ch[0] = com_rbuf[6+4*2];
+         com_f[5] = f.f;         //即时值
+         f.ch[3] = com_rbuf[3+4*3];
+         f.ch[2] = com_rbuf[4+4*3];
+         f.ch[1] = com_rbuf[5+4*3];
+         f.ch[0] = com_rbuf[6+4*3];
+         com_f[6] = f.f;         //即时值
+		 
+	 	 status = 1;
+      }
+      else
+      {
+         com_f[3] = 0.0;
+         com_f[4] = 0.0;
+         com_f[5] = 0.0;
+         com_f[6] = 0.0;
+	 	 status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

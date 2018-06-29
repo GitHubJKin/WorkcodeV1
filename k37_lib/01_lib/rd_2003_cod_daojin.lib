@@ -1,0 +1,101 @@
+/*** BeginHeader */
+#ifndef rd_2003_cod_daojin_lib
+#define rd_2003_cod_daojin_lib
+/*** EndHeader */
+
+/******************************************************************
+岛津TOC-4100CN   (COD, TOC)                                          //2010
+232/422   4800,8,N,1
+###???_______*** //发(___为数据区)
+&&&???_______*** //回应(___为数据区)
+
+###001M1*** //对001号ID，测定1号流路
+###001M0*** //接受测定(M后不为0表示没有接受测定或者出错)
+
+###001R1*** //对001号ID，读1号流路    //11
+###001R0*** //接收测定结果通知命令    //11
+
+数据
+011204132756112.34567.890ppm0         //29
+01年12月04日
+13点27分56秒
+流路号为1    (有1~6个流路的)
+COD换算浓度为12．345
+TOC浓度为67．890
+浓度单位ppm  (ppm/ppb)
+Reserved 值为0
+
+第一个数据(com_f[0])是COD，第二个数据(com_f[1])是TOC
+*****************************************************************/
+/*** BeginHeader rd_cod_daojin */
+int rd_cod_daojin( char port );
+/*** EndHeader */
+int rd_cod_daojin( char port )
+{
+   auto char i, flag;
+   auto char *p_char;
+   auto char tmpc[7];
+   static int status;
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "###001R1***");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen == 11)&&(strcmp(com_rbuf, "###001R0***")==0))//只发了回应却没有发数据，就多执行以下多等1500秒
+      {
+         waitfor(DelayMs(1500));
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+      }
+
+      if(com_rlen == 29)//上述有执行waitfor的1.5秒
+         p_char = com_rbuf;
+      else if((com_rlen >= 40)&&(strcmp(com_rbuf, "###001R0***")==0))//回应和数据一同收到
+         p_char = (&com_rbuf[11]);
+      else
+         p_char = NULL;//没有任何合法数据
+
+      if(p_char != NULL && p_char[25]=='p' && p_char[26]=='p' && p_char[27]=='m')//提取数据
+      {
+         comTime.tm_year = (p_char[0] - '0') * 10 + p_char[1] - '0';
+         comTime.tm_mon =  (p_char[2] - '0') * 10 + p_char[3] - '0';
+         comTime.tm_mday = (p_char[4] - '0') * 10 + p_char[5] - '0';
+         comTime.tm_hour = (p_char[6] - '0') * 10 + p_char[7] - '0';
+         comTime.tm_min =  (p_char[8] - '0') * 10 + p_char[9] - '0';
+         comTime.tm_sec =  (p_char[10] - '0') * 10 + p_char[11] - '0';
+         com_sec = mktime(&comTime);//时间
+
+         //com_rbuf[12]//是流路号
+         memcpy(tmpc, &com_rbuf[13], 6);
+         tmpc[6] = 0x00;
+         com_f[0] = atof(tmpc);           //COD即时值
+
+         memcpy(tmpc, &com_rbuf[19], 6);
+         tmpc[6] = 0x00;
+         com_f[1] = atof(tmpc);          //TOC即时值
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2010  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

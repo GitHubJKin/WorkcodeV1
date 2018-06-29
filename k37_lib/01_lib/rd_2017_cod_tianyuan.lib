@@ -1,0 +1,68 @@
+/*** BeginHeader */
+#ifndef rd_2017_cod_tianyuan_lib
+#define rd_2017_cod_tianyuan_lib
+/*** EndHeader */
+
+/*******************************************************
+世纪天源
+02 3030 3031 32313042 30303030 03
+*******************************************************/
+/*** BeginHeader rd_cod_tianyuan */
+int rd_cod_tianyuan( char port );
+/*** EndHeader */
+int rd_cod_tianyuan( char port )
+{
+   static int status;
+   auto char str[3];
+   auto char c;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      sprintf(com_tbuf, "02 3030 3031 32313042 30303030 03");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 3)&&(com_rbuf[0]==0x30)&&(com_rbuf[1]==0x32)
+         &&(com_rbuf[com_rlen-2]==0x30)&&(com_rbuf[com_rlen-1]==0x33))
+      {
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[22], 2);
+         c = atoi(str);
+         com_f[4] = strhexTohex(c);
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[24], 2);
+         c = atoi(str);
+         com_f[3] = strhexTohex(c);
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[26], 2);
+         c = atoi(str);
+         com_f[2] = strhexTohex(c);
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[28], 2);
+         c = atoi(str);
+         com_f[1] = strhexTohex(c);
+
+         com_f[0] = com_f[4]*4096 + com_f[3]*256.0 + com_f[2]*16.0 + com_f[1];
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

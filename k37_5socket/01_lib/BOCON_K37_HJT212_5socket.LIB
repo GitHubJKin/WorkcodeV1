@@ -1,0 +1,4419 @@
+/*******************************************************************************
+    广 州 博 控 自 动 化 技 术 有 限 公 司
+    HJ/T212-2005
+      污染源在线自动监控（监测）
+    系统数据传输标准
+一、广西环境信息中心 IP：116.10.198.130	端口号：8100
+
+    2010-01-10
+*******************************************************************************/
+/********************************************************************
+修改的地方
+1、增加了1073，设置污染源编码
+2、增加了1074，设置现场机设备标识号
+3、增加了1051，提取历史数据采样及上报间隔
+4、增加了1052，设置历史数据采样及上报间隔
+5、增加了1081，提取污染物门限值
+6、增加了1082，设置污染物门限值
+
+********************************************************************/
+
+/*** BeginHeader */
+#ifndef _BOCON_K37_HJT212_LIB
+#define _BOCON_K37_HJT212_LIB
+/*** EndHeader */
+
+
+/*** BeginHeader */
+char pol_pack_buf[256]; //将一个污染物的数据打包的缓冲区
+int pol_pack_len;           //将一个污染物的数据打包的长度
+
+char real_flag[SOCKET_NUMBER];      //实时数据上报的标志，
+                                    //BIT0-实时数据上传标志
+                                    //BIT1-设备实时状态上传标志
+                                    //BIT2-主动报警上传标志
+                                    //BIT3-读取分钟历史记录标志
+                                    //BIT4-读取小时历史记录标志
+                                    //BIT5-读取日历史记录标志
+                                    //BIT6-读取设备运行时间日历史记录标志
+                                    //BIT7-读取报警记录标志
+
+unsigned long btm[SOCKET_NUMBER];   //查询历史记录时的起始时间
+unsigned long etm[SOCKET_NUMBER];   //结束时间
+
+int reportTime[SOCKET_NUMBER];      //数据上报时间，0101，前2位为小时，后2位为分钟 -- 无用处
+char waitSendPos[SOCKET_NUMBER];        //一条记录需要分包发送时，记录参数的起始位置
+char sendOKflag[SOCKET_NUMBER];     //是否有应答的标志
+unsigned long reqTimeout[SOCKET_NUMBER];    //每个socket发送数据后的等待时间
+unsigned long sec_alarm[SOCKET_NUMBER]; //报警重发的时间间隔
+unsigned long sec_rt_data[SOCKET_NUMBER];   //实时数据上报
+unsigned long sec_rt_dev[SOCKET_NUMBER];    //设备运行状态上报
+unsigned long sec_temp_info[SOCKET_NUMBER]; //上传炉膛温度信息
+
+char ack_flag[SOCKET_NUMBER];           //应答标志
+char err_flag[SOCKET_NUMBER];           //解析结果
+char tx_count[SOCKET_NUMBER];           //数据包发送次数，超时重发时计数用
+
+char login[SOCKET_NUMBER];              //登录标志
+int cmd[SOCKET_NUMBER];                 //命令
+char crc[5];
+
+//二、数据段结构：
+char qn[SOCKET_NUMBER][21]; //QN, 	20B - 20080110112355001
+char pnum[5];   //PNUM,	4B - 本次通信的总包数
+char pno[5];    //PNO,	4B	- 当前包号
+char st[6];     //ST,		5B - 系统编号
+char cn[8];     //CN,		7B - 命令编号
+char pw[7];     //PW,		6B - 访问密码
+char mn[15];    //MN,		14B - 监测点编号，组织机构代码的后7位 + 设备序列号
+char fflag[SOCKET_NUMBER];  //Flag,	3B - 拆分和应答标志
+//char cp[961];	//CP,		0-960B - CP=&&数据区&&
+char cp[512];   //由于只是用于接收命令，所以没必要开辟更大空间
+
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+
+    1、查询和设置相关系统参数
+
+*******************************************************************************/
+
+/*** BeginHeader  setReCount, setWarnTime, getSysTime, setSysTime,
+      getAlarmLimit, setAlarmLimit,
+      getSip, setSip, setSipPwd, setSystemNumber, setMN,
+      getReportTime, setReportTime, getSampleTime, setSampleTime,
+      getIntervalTime, setIntervalTime, setRangeLimit, getRangeLimit, getSaveIntervalTime, setSaveIntervalTime,
+      getAirPressure, getAirRatio, getS05, getAirArea, setAirPressure, setAirRatio, setS05, setAirArea, setDevTime,
+      getJdqState,setJdqState */
+
+//参数设置和提取的函数原型
+void setReCount(char no);
+void setWarnTime(char no);
+void getSysTime(char no);
+void setSysTime(char no);
+void getAlarmLimit(char no);
+void setAlarmLimit(char no);
+void getSip(char no);
+void setSip(char no);
+void getReportTime(char no);
+void setReportTime(char no);
+void getSampleTime(char no);
+void setSampleTime(char no);
+void getIntervalTime(char no);
+void setIntervalTime(char no);
+void setSipPwd(char no);
+void setSystemNumber(char no);
+void setMN(char no);
+void getRangeLimit(char no);
+void setRangeLimit(char no);
+
+void getSaveIntervalTime(char no);
+void setSaveIntervalTime(char no);
+void getAirPressure(char no);
+void getAirRatio(char no);
+void getS05(char no);
+void getAirArea(char no);
+void setAirPressure(char no);
+void setAirRatio(char no);
+void setS05(char no);
+void setAirArea(char no);
+void setDevTime(char no);
+
+void getJdqState(char no);
+void setJdqState(char no);
+/*** EndHeader */
+
+/*******************************************************************************
+功能：1000，设置超时时间和重发次数
+QN=20040516010101001;ST=32;CN=1000;PW=123456;MN=88888880000001;Flag=3;CP=&&OverTime=5;ReCount=3&&
+*******************************************************************************/
+void setReCount(char no)
+{
+    auto char *p;
+    p = strstr(cp, "OverTime=");
+    if (p != NULL)
+    {
+        p += 9;
+        overTime[no] = atoi(p);
+        wrOverTime(no, CONFIG_IN_FLASH);
+
+        p = strstr(cp, "ReCount=");
+        if (p != NULL)
+        {
+            p += 8;
+            reCount[no] = atoi(p);
+            wrReCount(no, CONFIG_IN_FLASH);
+        }
+        DBG(printf("OverTime%d=%d, ReCount%d=%d\n", no, overTime[no], no, reCount[no]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1001，设置超限报警时间
+QN=20040516010101001;ST=32;CN=1001;PW=123456;MN=88888880000001;Flag=3;CP=&&WarnTime=5&&
+*******************************************************************************/
+void setWarnTime(char no)
+{
+    auto char *p;
+    p = strstr(cp, "WarnTime=");
+    if (p != NULL)
+    {
+        p += 9;
+        warnTime[no] = atoi(p);
+        wrWarnTime(no, CONFIG_IN_FLASH);
+        DBG(printf("WarnTime%d=%d\n", no, warnTime[no]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1011，提取系统时间
+QN=20040516010101001;ST=32;CN=1011;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+*******************************************************************************/
+void getSysTime(char no)
+{
+    t0 = read_rtc();
+    mktm(&rtc1, t0);
+
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "SystemTime=%04d%02d%02d%02d%02d%02d;", rtc1.tm_year + 1900,
+            rtc1.tm_mon, rtc1.tm_mday, rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1012，设置系统时间，数据已经存放在cp: SystemTime=200801111459
+QN=20040516010101001;ST=32;CN=1012;PW=123456;MN=88888880000001;Flag=3;CP=&&SystemTime=20040516010101&&
+*******************************************************************************/
+void setSysTime(char no)
+{
+    char *p;
+    auto char c;
+
+    p = strstr(cp, "SystemTime=");
+    if ((p != NULL) && (strlen(p) >= 25))
+    {
+        p += 13;
+        if (chk_time(p) == 6)
+        {
+            t0 = mktime(&rtc1);
+            if (t0 > SEC_TIMER) c = 1;
+            else c = 0;
+
+            tm_wr(&rtc1);
+            SEC_TIMER = t0;
+            setDs3231(&rtc1);       //更新时钟芯片里的时间
+            update_rtc(c);         //更新定时器和Flash存储系统
+            err_flag[no] = 1;      //返回成功标志给服务器
+            printf("cmd 1012 successful!\r\n");
+            //return;
+        }
+        else err_flag[no] = 2;                //返回失败
+    }
+    else err_flag[no] = 2;               //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3018，设置下端设备系统时间，数据已经存放在cp: SystemTime=200801111459
+上位机:
+QN=20040516010101001;ST=32;CN=1012;PW=123456;MN=88888880000001;Flag=3;CP=&&SystemTime=20040516010101&&
+*******************************************************************************/
+void setDevTime(char no)
+{
+    char *p;
+    auto char c;
+
+    p = strstr(cp, "SystemTime=");
+    if ((p != NULL) && (strlen(p) >= 25))
+    {
+        p += 13;
+        if (chk_time(p) == 6)
+        {
+            /*t0 = mktime(&rtc1);
+             if(t0 > SEC_TIMER) c = 1;
+             else c = 0;
+    
+            tm_wr(&rtc1);
+             SEC_TIMER = t0;
+            setDs3231(&rtc1);		//更新时钟芯片里的时间
+             update_rtc(c);			//更新定时器和Flash存储系统    */
+            printf("cmd 3018 successful!\r\n");
+            err_flag[no] = 1;      //返回成功标志给服务器
+                                   //return;
+        }
+        else err_flag[no] = 2;                //返回失败
+    }
+    else err_flag[no] = 2;               //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：1021，提取污染物报警门限值
+QN=20040516010101001;ST=32;CN=1021;PW=123456;MN=88888880000001;Flag=3;CP=&&PolId=101;PolId=001...&&
+*******************************************************************************/
+void getAlarmLimit(char no)
+{
+    auto char c, flag;
+    auto char *p1;
+    auto char *p2;
+    auto char id[5];
+    auto unsigned char index;
+
+    pack_header(no); //打包包头
+
+    p1 = strstr(cp, "PolId=");
+    if (p1 == NULL) p1 = strstr(cp, "PolID=");
+    while (p1 != NULL)
+    {
+        memset(id, '\0', sizeof(id));
+        p1 += 6;
+        p2 = strchr(p1, ';');                     //提取污染物编码
+        if (p2 != NULL)
+        {
+            strncpy(id, p1, (int)(p2 - p1));
+        }
+        else strcpy(id, p1);
+        index = queryIndexByPolcode(id);          //查找在编码表里的位置
+
+        if ((index >= 0) && (index < BOCON_NO_OF_POL / 2)) //污染物编码有效
+        {
+            flag = 0;
+            for (c = 0; c < 16; c++)   //搜索主表
+            {
+                if (ai_param[c].polIndex == index)  //搜索污染物所在的通道
+                {
+                    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+                    sprintf(pol_pack_buf, "%s-LowValue=%.2f,%s-UpValue=%.2f;",
+                            PolCode[index], ai_param[c].alarm_L,
+                            PolCode[index], ai_param[c].alarm_H);
+                    strcat(deal_buf, pol_pack_buf);
+                    flag = 1;
+                    break;
+                }
+            }
+            if (flag == 0)      //搜索扩展表
+            {
+                for (c = 0; c < (ALLADCHANNELS - 16); c++)
+                {
+                    if (ai_param_extend[c].polIndex == index) //搜索污染物所在的通道
+                    {
+                        memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+                        sprintf(pol_pack_buf, "%s-LowValue=%.2f,%s-UpValue=%.2f;",
+                                PolCode[index], ai_param_extend[c].alarm_L,
+                                PolCode[index], ai_param_extend[c].alarm_H);
+                        strcat(deal_buf, pol_pack_buf);
+                        flag = 1;
+                        break;
+                    }
+                }
+            } //扩展表
+        } //编码有效
+
+        if (p2 == NULL) break;
+        else
+        {
+            p1 = strstr(p2, "PolId");
+            if (p1 == NULL) p1 = strstr(cp, "PolID=");
+        }
+    }
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1022，设置污染物报警门限值
+QN=20040516010101001;ST=32;CN=1022;PW=123456;MN=88888880000001;Flag=3;CP=&&
+101-LowValue=1.1,101-UpValue=9.9;001-LowValue=2.2,001-UpValue=10.2;...&&
+*******************************************************************************/
+void setAlarmLimit(char no)
+{
+    auto char c, flag;
+    auto char *p;
+    auto char *p1;
+    auto char *p2;
+    auto char id[5];
+    auto unsigned char index;
+    auto float lo, hi;
+
+    flag = 0;
+    p = cp;
+    while (p != NULL)
+    {
+        memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+        p2 = strchr(p, ';');        //提取一个污染物的上下限值
+        if (p2 != NULL)
+        {
+            strncpy(pol_pack_buf, p, (int)(p2 - p));
+            p = p2 + 1;                //指向下一个污染物
+        }
+        else                          //最后一个污染物
+        {
+            strcpy(pol_pack_buf, p);
+            p = NULL;              //没有了，退出
+        }
+
+        p1 = pol_pack_buf;
+        p2 = strchr(p1, '-');
+        if (p2 != NULL)
+        {
+            memset(id, '\0', sizeof(id));
+            strncpy(id, p1, (int)(p2 - p1)); //提取污染物编码
+        }
+        else break;
+        index = queryIndexByPolcode(id);  //查找在编码表里的位置
+        if ((index >= 0) && (index < BOCON_NO_OF_POL / 2)) //污染物编码有效
+        {
+            flag = 0;
+            p2 = strstr(p1, "LowValue=");
+            if (p2 != NULL)
+            {
+                p2 += 9;
+                lo = atof(p2);
+                flag++;
+            }
+            p2 = strstr(p1, "UpValue=");
+            if (p2 != NULL)
+            {
+                p2 += 8;
+                hi = atof(p2);
+                flag++;
+            }
+            if (flag == 2)  //上下限都有效
+            {
+                flag = 0;
+                for (c = 0; c < 16; c++) //搜索主表
+                {
+                    if (ai_param[c].polIndex == index)   //搜索污染物所在的通道
+                    {
+                        ai_param[c].alarm_L = lo;
+                        ai_param[c].alarm_H = hi;
+                        wr_aiparam(c, CONFIG_IN_FLASH);
+                        DBG(
+                            if (c < 8) printf("AI%d", c);
+                            else printf("COM%d", c - 8);
+                            printf(", AL=%.2f, AH=%.2f\n", ai_param[c].alarm_L, ai_param[c].alarm_H);
+                           )
+                        flag = 1;
+                        break;
+                    }
+                }
+                if (flag == 0)     //搜索扩展表
+                {
+                    for (c = 0; c < (ALLADCHANNELS - 16); c++)
+                    {
+                        if (ai_param_extend[c].polIndex == index)  //搜索污染物所在的通道
+                        {
+                            ai_param_extend[c].alarm_L = lo;
+                            ai_param_extend[c].alarm_H = hi;
+                            wr_aiparam_extend(c, CONFIG_IN_FLASH);
+                            DBG(printf("Ext%02d, AL=%.2f, AH=%.2f\n", c, ai_param_extend[c].alarm_L, ai_param_extend[c].alarm_H);)
+                            flag = 1;
+                            break;
+                        }
+                    }
+                } //扩展表
+            } //上下限有效
+        } //编码有效
+    }
+    if (flag > 0) err_flag[no] = 1;          //返回成功标志给服务器
+    else err_flag[no] = 2;                       //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1031，提取上位机地址
+QN=20040516010101001;ST=32;CN=1031;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+*******************************************************************************/
+void getSip(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "AlarmTarget=%s;", sip[no]);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1032，设置上位机地址
+QN=20040516010101001;ST=32;CN=1032;PW=123456;MN=88888880000001;Flag=3;CP=AlarmTarget=3882566&&
+*******************************************************************************/
+void setSip(char no)
+{
+    auto char *p;
+    p = strstr(cp, "AlarmTarget=");
+    if (p != NULL)
+    {
+        p += 12;
+        memset(sip[no], 0x00, sizeof(sip[no]));
+        strcpy(sip[no], p);
+        wrSip(no, CONFIG_IN_FLASH);
+        DBG(printf("SIP%d = %s\n", no, sip[no]);)
+        err_flag[no] = 1;           //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1041，提取数据上报时间
+QN=20040516010101001;ST=32;CN=1041;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+*******************************************************************************/
+void getReportTime(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "ReportTime=%04d;", reportTime[no]);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1042，设置数据上报时间
+QN=20040516010101001;ST=32;CN=1042;PW=123456;MN=88888880000001;Flag=3;CP=&&ReportTime=0101&&
+*******************************************************************************/
+void setReportTime(char no)
+{
+    auto char *p;
+    p = strstr(cp, "ReportTime=");
+    if (p != NULL)
+    {
+        p += 11;
+        reportTime[no] = atoi(p);
+        DBG(printf("ReportTime%d=%d\n", no, reportTime[no]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1051，提取历史数据采样及上报间隔
+QN=20091106010101001；ST=32；CN=1051；PW=123456；MN=88888880000001；Flag=3；CP=&&&&
+*******************************************************************************/
+void getSampleTime(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "HtyInterval=%d;", (sampleInterval / 60));
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1052，设置历史数据采样及上报间隔
+##0090QN=20091106010101001;ST=32;CN=1052;PW=123456;MN=88888880000001;Flag=3;CP=&&HtyInterval=5&&EA41
+*******************************************************************************/
+void setSampleTime(char no)
+{
+    auto char *p;
+    p = strstr(cp, "HtyInterval=");
+    if (p != NULL)
+    {
+        p += 12;
+        sampleInterval = atoi(p) * 60;
+        DBG(printf("ReportTime=%d\n", sampleInterval);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+        wr_sampleInt(CONFIG_IN_FLASH);
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3026，获取CEMS大气压力设置值
+上位机：QN=20040516010101001;ST=32;CN=3026;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+下位机：
+ST=32;CN=3020;PW=123456;MN=88888880000001;CP=&&QN=20040516010101001; RtnValue=1.00&&
+RtnValue  大气压力值
+
+##0077QN=20040516010101001;ST=32;CN=3026;PW=123456;MN=88888880000001;Flag=3;CP=&&&&12A4
+*******************************************************************************/
+void getAirPressure(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "RtnValue=%f;", extendData[2]);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3037，设置大气压力
+QN=20040516010101001;ST=32;CN=3037;PW=123456;MN=88888880000001;Flag=3;CP=&& AtmosphericPressure=101325&&
+
+##0103QN=20040516010101001;ST=32;CN=3037;PW=123456;MN=88888880000001;Flag=3;CP=&&AtmosphericPressure=101325&&3A48
+##0103QN=20040516010101001;ST=32;CN=3037;PW=123456;MN=88888880000001;Flag=3;CP=&&AtmosphericPressure=101425&&8F88
+*******************************************************************************/
+void setAirPressure(char no)
+{
+    auto char *p;
+    p = strstr(cp, "AtmosphericPressure=");
+    if (p != NULL)
+    {
+        p += strlen("AtmosphericPressure=");
+        extendData[2] = atoi(p);
+        wr_extendData(0x02, CONFIG_IN_FLASH);
+        DBG(printf("AtmosphericPressure=%f\n", extendData[2]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3027，获取CEMS截面积设置值
+上位机：QN=20040516010101001;ST=32;CN=3027;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+下位机：
+ST=32;CN=3020;PW=123456;MN=88888880000001;CP=&&QN=20040516010101001; RtnValue=1.00&&
+RtnValue  截面积
+*******************************************************************************/
+void getAirArea(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "RtnValue=%f;", extendData[3]);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3038，设置烟道截面积
+QN=20040516010101001;ST=32;CN=3038;PW=123456;MN=88888880000001;Flag=3;CP=&& ChimneyArear=6.5&&
+
+##0092QN=20040516010101001;ST=32;CN=3038;PW=123456;MN=88888880000001;Flag=3;CP=&&ChimneyArea=6.5&&55E8
+*******************************************************************************/
+void setAirArea(char no)
+{
+    auto char *p;
+    p = strstr(cp, "ChimneyArear=");
+    if (p != NULL)
+    {
+        p += strlen("ChimneyArear=");
+        extendData[3] = atoi(p);
+        wr_extendData(0x03, CONFIG_IN_FLASH);
+        DBG(printf("ChimneyArear=%f\n", extendData[3]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3028，获取CEMS湿度值设置值
+上位机：QN=20040516010101001;ST=32;CN=3028;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+下位机：
+ST=32;CN=3020;PW=123456;MN=88888880000001;CP=&&QN=20040516010101001; RtnValue=1.00&&
+RtnValue  湿度值
+*************************************************************/
+void getS05(char no)
+{
+    auto float f1;
+    auto char ch;
+
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    if (getSampleChannel("B02", &ch, 1, &f1) == 1)
+    {
+        sprintf(pol_pack_buf, "RtnValue=%f;", f1);
+    }
+    else
+    {
+        sprintf(pol_pack_buf, "RtnValue=%f;", extendData[9]);
+    }
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3039，设置CEMS湿度值设置值
+QN=20040516010101001;ST=32;CN=3039;PW=123456;MN=88888880000001;Flag=3;CP=&& Humid=6.5&&
+
+##0086QN=20040516010101001;ST=32;CN=3039;PW=123456;MN=88888880000001;Flag=3;CP=&&Humid=6.5&&1ED1
+*******************************************************************************/
+void setS05(char no)
+{
+    auto char *p;
+    p = strstr(cp, "Humid=");
+    if (p != NULL)
+    {
+        p += strlen("Humid=");
+        extendData[9] = atoi(p);
+        wr_extendData(0x09, CONFIG_IN_FLASH);
+        DBG(printf("Humid=%f\n", extendData[9]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3029，获取CEMS过量空气系数设置值
+上位机：QN=20040516010101001;ST=32;CN=3029;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+下位机：
+ST=32;CN=3020;PW=123456;MN=88888880000001;CP=&&QN=20040516010101001; RtnValue=1.00&&
+RtnValue  过量空气系数
+*************************************************************/
+void getAirRatio(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "RtnValue=%f;", extendData[4]);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：3040，设置过量空气系数
+QN=20040516010101001;ST=32;CN=3040;PW=123456;MN=88888880000001;Flag=3;CP=&& ExcessAirCoefficient=1.5&&
+##0101QN=20040516010101001;ST=32;CN=3040;PW=123456;MN=88888880000001;Flag=3;CP=&&ExcessAirCoefficient=1.5&&2068
+*******************************************************************************/
+void setAirRatio(char no)
+{
+    auto char *p;
+    p = strstr(cp, "ExcessAirCoefficient=");
+    if (p != NULL)
+    {
+        p += strlen("ExcessAirCoefficient=");
+        extendData[4] = atoi(p);
+        wr_extendData(0x04, CONFIG_IN_FLASH);
+        DBG(printf("ExcessAirCoefficient=%f\n", extendData[4]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：1061，提取实时数据间隔
+QN=20040516010101001;ST=32;CN=1061;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+*******************************************************************************/
+void getIntervalTime(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "RtdInterval=%d;", rtdInterval[no]);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：1062，设置实时数据间隔
+QN=20040516010101001;ST=32;CN=1062;PW=123456;MN=88888880000001;Flag=3;CP=&&RtdInterval=31&&
+*******************************************************************************/
+void setIntervalTime(char no)
+{
+    auto char *p;
+    p = strstr(cp, "RtdInterval=");
+    if (p != NULL)
+    {
+        p += 12;
+        rtdInterval[no] = atoi(p);
+        wrRtdInt(no, CONFIG_IN_FLASH);
+        DBG(printf("RtInt%d = %d\n", no, rtdInterval[no]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：1063，获取分钟数据间隔
+上位机：
+QN=20101110010101001;ST=32;CN=1063;PW=123456;MN=010000A8900016F000169DC0;Flag=4;CP=&&&&
+下位机：
+ST=32;CN=1063;PW=123456;MN=010000A8900016F000169DC0;CP=&&QN=20101110010101001;MinInterval=10&&
+MinInterval：分钟数据上报间隔
+*******************************************************************************/
+void getSaveIntervalTime(char no)
+{
+    pack_header(no); //打包包头
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    sprintf(pol_pack_buf, "MinInterval=%d;", sampleInterval / 60);
+    strcat(deal_buf, pol_pack_buf);
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+上位机：
+QN=20101110010101001;ST=32;CN=1064;PW=123456;MN=010000A8900016F000169DC0;Flag=4;CP=&& MinInterval=10&&
+下位机：
+只需返回应答和执行结果
+*******************************************************************************/
+void setSaveIntervalTime(char no)
+{
+    auto char *p;
+    p = strstr(cp, "MinInterval=");
+    if (p != NULL)
+    {
+        p += 12;
+        sampleInterval = atoi(p);
+        sampleInterval *= 60;
+        wr_sampleInt(CONFIG_IN_FLASH);
+        DBG(printf("MinInterval%d = %d\n", no, sampleInterval);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+/*******************************************************************************
+功能：1072，设置服务器访问密码
+QN=20040516010101001;ST=32;CN=1072;PW=123456;MN=88888880000001;Flag=3;CP=&&PW=654321&&
+*******************************************************************************/
+void setSipPwd(char no)
+{
+    auto char *p;
+    p = strstr(cp, "PW=");
+    if (p != NULL)
+    {
+        p += 3;
+        memset(sipPwd[no], 0x00, sizeof(sipPwd[no]));
+        strcpy(sipPwd[no], p);
+        wrSipPwd(no, CONFIG_IN_FLASH);
+        DBG(printf("sipPwd%d = %s\n", no, sipPwd[no]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1073，设置污染源编码
+##0082QN=20091106010101001;ST=32;CN=1073;PW=123456;MN=88888880000001;Flag=3;CP=&&ST=22&&7640
+*******************************************************************************/
+void setSystemNumber(char no)
+{
+    auto char *p;
+    p = strstr(cp, "ST=");
+    if (p != NULL)
+    {
+        p += 3;
+        systemCode = atoi(p);
+        wrSysCode(CONFIG_IN_FLASH);
+        DBG(printf("systemCode = %d\n", systemCode);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1074，设置现场机设备标识号
+##0094QN=20091106010101001;ST=32;CN=1074;PW=123456;MN=88888880000001;Flag=3;CP=&&MN=88888880000002&&6900
+*******************************************************************************/
+void setMN(char no)
+{
+    auto char *p;
+    p = strstr(cp, "MN=");
+    if (p != NULL)
+    {
+        p += 3;
+        memset(MNParam.MN[no], '\0', sizeof(MNParam.MN[no]));
+        strcpy(MNParam.MN[no], p);
+        write_MNnumber_param(CONFIG_IN_FLASH); //保存MN号
+        DBG(printf("MN = %s\n", MNParam.MN[no]);)
+        err_flag[no] = 1;         //返回成功标志给服务器
+    }
+    else err_flag[no] = 2;       //返回失败标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1081，提取污染物门限值
+##0086QN=20091106010101001;ST=32;CN=1081;PW=123456;MN=88888880000001;Flag=3;CP=&&Polld=001&&1B00
+*******************************************************************************/
+void getRangeLimit(char no)
+{
+    auto char c, flag;
+    auto char *p1;
+    auto char *p2;
+    auto char id[5];
+    auto unsigned char index;
+
+    pack_header(no); //打包包头
+
+    p1 = strstr(cp, "PolId=");
+    if (p1 == NULL) p1 = strstr(cp, "PolID=");
+    while (p1 != NULL)
+    {
+        memset(id, '\0', sizeof(id));
+        p1 += 6;
+        p2 = strchr(p1, ';');                     //提取污染物编码
+        if (p2 != NULL)
+        {
+            strncpy(id, p1, (int)(p2 - p1));
+        }
+        else strcpy(id, p1);
+        index = queryIndexByPolcode(id);          //查找在编码表里的位置
+
+        if ((index >= 0) && (index < BOCON_NO_OF_POL / 2)) //污染物编码有效
+        {
+            flag = 0;
+            for (c = 0; c < 16; c++)   //搜索主表
+            {
+                if (ai_param[c].polIndex == index)  //搜索污染物所在的通道
+                {
+                    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+                    sprintf(pol_pack_buf, "%s-LowValue=%.2f,%s-UpValue=%.2f;",
+                            PolCode[index], ai_param[c].range_L,
+                            PolCode[index], ai_param[c].range_H);
+                    strcat(deal_buf, pol_pack_buf);
+                    flag = 1;
+                    break;
+                }
+            }
+        } //编码有效
+
+        if (p2 == NULL) break;
+        else
+        {
+            p1 = strstr(p2, "PolId");
+            if (p1 == NULL) p1 = strstr(cp, "PolID=");
+        }
+    }
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能：1082，设置污染物门限值
+##0112QN=20091106010101001;ST=32;CN=1082;PW=123456;MN=88888880000001;Flag=3;CP=&&001-UpValue=10.11;001-LowValue=1.11&&2A80
+*******************************************************************************/
+void setRangeLimit(char no)
+{
+    auto char c, flag;
+    auto char *p;
+    auto char *p1;
+    auto char *p2;
+    auto char id[5];
+    auto unsigned char index;
+    auto float lo, hi;
+
+    flag = 0;
+    p = cp;
+    while (p != NULL)
+    {
+        memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+        p2 = strchr(p, ';');        //提取一个污染物的上下限值
+        if (p2 != NULL)
+        {
+            strncpy(pol_pack_buf, p, (int)(p2 - p));
+            p = p2 + 1;                //指向下一个污染物
+        }
+        else                          //最后一个污染物
+        {
+            strcpy(pol_pack_buf, p);
+            p = NULL;              //没有了，退出
+        }
+
+        p1 = pol_pack_buf;
+        p2 = strchr(p1, '-');
+        if (p2 != NULL)
+        {
+            memset(id, '\0', sizeof(id));
+            strncpy(id, p1, (int)(p2 - p1)); //提取污染物编码
+        }
+        else break;
+        index = queryIndexByPolcode(id);  //查找在编码表里的位置
+        if ((index >= 0) && (index < BOCON_NO_OF_POL / 2)) //污染物编码有效
+        {
+            //flag = 0;
+            p2 = strstr(p1, "LowValue=");
+            if (p2 != NULL)
+            {
+                p2 += 9;
+                lo = atof(p2);
+                flag++;
+            }
+            p2 = strstr(p1, "UpValue=");
+            if (p2 != NULL)
+            {
+                p2 += 8;
+                hi = atof(p2);
+                flag++;
+            }
+            if (flag == 2)  //上下限都有效
+            {
+                flag = 0;
+                for (c = 0; c < 16; c++) //搜索主表
+                {
+                    if (ai_param[c].polIndex == index)   //搜索污染物所在的通道
+                    {
+                        ai_param[c].range_L = lo;
+                        ai_param[c].range_H = hi;
+                        wr_aiparam(c, CONFIG_IN_FLASH);
+                        DBG(
+                            if (c < 8) printf("AI%d", c);
+                            else printf("COM%d", c - 8);
+                            printf(", AL=%.2f, AH=%.2f\n", ai_param[c].alarm_L, ai_param[c].alarm_H);
+                           )
+                        flag = 1;
+                        break;
+                    }
+                }
+            } //上下限有效
+        } //编码有效
+    }
+    if (flag > 0) err_flag[no] = 1;          //返回成功标志给服务器
+    else err_flag[no] = 2;                       //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+//获取继电器状态
+void getJdqState(char no)
+{
+    auto char *p1;
+    auto char index, index2;
+
+    pack_header(no); //打包包头
+
+    p1 = strstr(cp, "JdqNo=");
+    index = *(p1 + 6) - '0';
+    if (p1)
+    {
+        if (index == 1)
+        {
+
+            index2 = dialPwd[0] - '0';
+        }
+        else
+        {
+            index2 = dialPwd[1] - '0';
+        }
+        memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+        sprintf(pol_pack_buf, "JdqNo=%d,JdqState=%d;", index, index2);
+        strcat(deal_buf, pol_pack_buf);
+
+    }
+    PACK(no);
+    err_flag[no] = 1;                //返回成功标志给服务器
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+void setJdqState(char no)
+{
+    auto char *p1, *p2;
+    auto char index, index2;
+
+    pack_header(no); //打包包头
+
+    p1 = strstr(cp, "JdqNo=");
+    p2 = strstr(cp, "JdqState=");
+    index = *(p1 + 6);
+    index2 = *(p2 + 9);
+    if (p1 && p2)
+    {
+        switch (index)
+        {
+        case '1':
+            dialPwd[0] = index2;
+            break;
+        case '2':
+            dialPwd[1] = index2;
+            break;
+
+        }
+        dialPwd[2] = 0;
+        wrDialPwd(CONFIG_IN_FLASH);
+        err_flag[no] = 1;               //返回成功标志给服务器
+        ack_flag[no] = 1;               //标记为准备返回9012操作执行结果
+        sendOKflag[no] = 1;         //不需要重发
+    }
+}
+
+
+
+/*******************************************************************************
+
+    2、打包各种实时数据和历史数据
+
+*******************************************************************************/
+
+/*** BeginHeader  PACK, calQn, prtTxHeader, pack_header, 
+  get_pol_pack_hj212_2005, 
+  get_pol_pack_hj212_2005_sichuang,
+  get_pol_pack_hj212_2017,
+  get_pol_pack,
+      pack_his_tx, pack_rt_tx, pack_his_alarm, pack_dev_time,
+      getRecordByServer, getMinuteData, getHourData,
+      getDayHistory, getDayDev, getAlarm,
+      getRTdata, getRTdev, putAlarm, chk_alarm*/
+
+//解包和打包的函数原型
+void calQn(char no);
+void PACK(char no);
+void prtTxHeader(char no);
+void pack_header(char no);
+void get_pol_pack_hj212_2005(char no, char ch, char mode);
+void get_pol_pack_hj212_2005_sichuang(char no, char ch, char mode);
+void get_pol_pack_hj212_2017(char no, char ch, char mode);
+void get_pol_pack(char no, char ch, char mode);
+
+//历史数据、实时数据和报警数据的函数原型
+void pack_his_tx(char no);      //打包一条历史记录，分钟、小时、日
+void pack_rt_tx(char no);       //打包一条实时记录
+void pack_his_alarm(char no);   //打包一条历史报警记录
+void pack_dev_time(char no);    //打包一条设施运行时间日数据
+void getRTdata(char no);
+void getRTdev(char no);
+void getRecordByServer(char no, char flag, char table);
+void getMinuteData(char no, char flag);
+void getHourData(char no, char flag);
+void getDayHistory(char no, char flag);
+void getDayDev(char no, char flag);
+void getAlarm(char no, char flag);
+void putAlarm(char no);
+char chk_alarm(void);
+
+/*** EndHeader */
+
+
+/*******************************************************************************
+函数功能：计算出当前的QN，填入到qn数组里，用于需要自行生成QN的命令
+*******************************************************************************/
+void calQn(char no)
+{
+    auto struct tm comTime;
+    t0 = read_rtc();
+    mktm(&comTime, t0);
+    sprintf(qn[no], "%04d%02d%02d%02d%02d%02d%03d", comTime.tm_year + 1900,
+            comTime.tm_mon, comTime.tm_mday, comTime.tm_hour,
+            comTime.tm_min, comTime.tm_sec, (int)(MS_TIMER % 1000));
+}
+
+/*******************************************************************************
+函数功能：	通用打包函数，根据协议打包，数据已经存放在deal_tbuf中
+    计算数据段的长度，CRC，加上数据包的结束符
+结果：		数据包完成打包并存放到对应的Socket缓冲区，
+    长度为tcp_tlen[no]，等待底层驱动发送出去
+*******************************************************************************/
+void PACK(char no)
+{
+    int data_tlen;
+
+    strcpy(&(deal_buf[strlen(deal_buf) - 1]), "&&");
+    data_tlen = strlen(deal_buf) - 6;
+    tcp_tlen[no] = data_tlen + 12;
+	
+#if(GUANGZHOUXINHUANHEYUAN == 1)
+	if(no == 1)
+	{
+	   CrcCheck_HalfTableLookUp(&deal_buf[6], data_tlen);
+	}
+	else
+	{
+    	CRC16(&deal_buf[6], data_tlen);
+	}
+#else
+    	CRC16(&deal_buf[6], data_tlen);
+#endif
+    deal_buf[data_tlen + 6] = crc[0];        //CRC数据
+    deal_buf[data_tlen + 7] = crc[1];
+    deal_buf[data_tlen + 8] = crc[2];
+    deal_buf[data_tlen + 9] = crc[3];
+
+    deal_buf[data_tlen + 10] = 0x0d;         //数据包的结束符
+    deal_buf[data_tlen + 11] = 0x0a;
+
+    deal_buf[2] = data_tlen / 1000 + 0x30;   //数据段的长度
+    data_tlen %= 1000;
+    deal_buf[3] = data_tlen / 100 + 0x30;
+    data_tlen %= 100;
+    deal_buf[4] = data_tlen / 10 + 0x30;
+    data_tlen %= 10;
+    deal_buf[5] = data_tlen + 0x30;
+
+    /*if(no == 2 && strcmp(dialPwd, "NO") != 0)
+    {
+     ser232Task(0);
+     tcp_tlen[no] = 0;
+
+    }*/
+    root2xmem(tcp_tbuf[no], deal_buf, tcp_tlen[no]);
+
+
+//  if((strstr(deal_buf, "DataTime") != NULL) && (tcp_tlen[no] < 92))
+// {
+//  	tcp_tlen[no] = 0;		//本数据包里没有任何污染物参数，是否不发?
+// }
+}
+
+//打印待发送的数据头
+void prtTxHeader(char no)
+{
+    auto int i;
+    printf("%dTx: %s\n", no, &deal_buf[6]);
+    //printf("%dTx: ", no);
+    //for(i=6;i<strlen(deal_buf);i++)
+    //{
+    //	printf("%c", deal_buf[i]);
+    //}
+    //printf("\n");
+}
+
+/*******************************************************************************
+函数功能：	打包一个数据包的包头
+no				socket号，共计3个，0-2
+command		命令号
+t				数据包的时间标志
+flag			应答标志，0-不应答，1-需要应答
+*******************************************************************************/
+void pack_header(char no)
+#if 0
+{
+    memset(deal_buf, 0x00, sizeof(deal_buf));
+    if (cmd[no] == 2072)     //报警数据，固定要求服务器响应
+    {
+        sprintf(deal_buf, "##0000QN=%s;ST=%d;CN=%d;PW=%s;MN=%s;Flag=1;CP=&&AlarmTime=%04d%02d%02d%02d%02d%02d;",
+                qn[no], systemCode, cmd[no], sipPwd[no], devMN, rtc1.tm_year + 1900, rtc1.tm_mon, rtc1.tm_mday,
+                rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+    }
+    else if (cmd[no] < 1100 || cmd[no] > 3000)    //参数设置和提取的命令
+    {
+        sprintf(deal_buf, "##0000ST=%d;CN=%d;PW=%s;MN=%s;CP=&&QN=%s;",
+                systemCode, cmd[no], sipPwd[no], devMN, qn[no]);
+    }
+    else                         //正常数据
+    {
+        sprintf(deal_buf, "##0000ST=%d;CN=%d;PW=%s;MN=%s;CP=&&DataTime=%04d%02d%02d%02d%02d%02d;",
+                systemCode, cmd[no], sipPwd[no], devMN, rtc1.tm_year + 1900, rtc1.tm_mon, rtc1.tm_mday,
+                rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+    }
+
+    DBG(prtTxHeader(no);)
+}
+#else
+{
+    auto char flag;
+    flag = getFlag(no);
+
+    memset(deal_buf, 0x00, sizeof(deal_buf));
+
+    if (getCommunicationProtocol(no) ==  HJ212_2017)
+    {
+        calQn(no);               //需要计算QN
+        sprintf(deal_buf, "##0000QN=%s;ST=%d;CN=%d;PW=%s;MN=%s;Flag=%d;CP=&&",
+                qn[no], systemCode, cmd[no], sipPwd[no], MNParam.MN[no], flag);
+    }
+    else
+    {
+#if(GUANGZHOUXINHUANHEYUAN == 1)
+      if(no == 1)	//河源平台
+      {
+         calQn(no);
+         sprintf(deal_buf, "##0000QN=%s;ST=%d;CN=%d;PW=%s;MN=%s;CP=&&",
+            qn[no], systemCode, cmd[no], sipPwd[no], MNParam.MN[no]);
+      }
+	  else
+	  {
+        sprintf(deal_buf, "##0000ST=%d;CN=%d;PW=%s;MN=%s;Flag=%d;CP=&&",
+                systemCode, cmd[no], sipPwd[no], MNParam.MN[no], flag);
+	  }
+#else
+        sprintf(deal_buf, "##0000ST=%d;CN=%d;PW=%s;MN=%s;Flag=%d;CP=&&",
+                systemCode, cmd[no], sipPwd[no], MNParam.MN[no], flag);
+#endif
+    }
+
+    if ((cmd[no] >= 2000 && cmd[no] <= 2999) || cmd[no] == 3020)
+    {
+        memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+        sprintf(pol_pack_buf, "DataTime=%04d%02d%02d%02d%02d%02d;",
+                rtc1.tm_year + 1900, rtc1.tm_mon, rtc1.tm_mday,
+                rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+        strcat(deal_buf, pol_pack_buf);
+    }
+
+    DBG(prtTxHeader(no);)
+}
+#endif
+
+void get_pol_pack_hj212_2005(char no, char ch, char mode) //总量是否上传，有些参数总量无意义
+{
+    auto unsigned char p;
+    auto struct tm comTime;
+    auto char *polcode;
+    static float old_dat[10];
+    auto char i;
+
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    if (mode == 0)   //历史数据
+    {
+        p = onemsg_rd.AI_Val[ch].polIndex;
+#if (SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+        p = getPolIndex(no, p);
+#endif
+        polcode = getPolcode(no, p);
+        if (onemsg_rd.AI_Val[ch].ZsFlag == 1)    //本通道还有折算数据
+        {
+#if (JIAOTONGWUZI == 1)
+            if (p != 79) sprintf(pol_pack_buf, "%s-Min=%.2f,%s-Avg=%.2f,%s-Max=%.2f,%s-Cou=%.2f,\
+%s-ZsMin=%.2f,%s-ZsAvg=%.2f,%s-ZsMax=%.2f;",
+                                 polcode, onemsg_rd.AI_Val[ch].Min,
+                                 polcode, onemsg_rd.AI_Val[ch].Avg,
+                                 polcode, onemsg_rd.AI_Val[ch].Max,
+                                 polcode, onemsg_rd.AI_Val[ch].Sum,
+                                 polcode, onemsg_rd.AI_Val[ch].ZsMin,
+                                 polcode, onemsg_rd.AI_Val[ch].ZsAvg,
+                                 polcode, onemsg_rd.AI_Val[ch].ZsMax);
+            else sprintf(pol_pack_buf, "%s-Min=%.3f,%s-Avg=%.3f,%s-Max=%.3f,%s-Cou=%.3f,\
+%s-ZsMin=%.3f,%s-ZsAvg=%.3f,%s-ZsMax=%.3f;",
+                         polcode, onemsg_rd.AI_Val[ch].Min,
+                         polcode, onemsg_rd.AI_Val[ch].Avg,
+                         polcode, onemsg_rd.AI_Val[ch].Max,
+                         polcode, onemsg_rd.AI_Val[ch].Sum,
+                         polcode, onemsg_rd.AI_Val[ch].ZsMin,
+                         polcode, onemsg_rd.AI_Val[ch].ZsAvg,
+                         polcode, onemsg_rd.AI_Val[ch].ZsMax);
+#elif(GUANGZHOUXINHUANHEYUAN == 1)	//河源平台
+		 if(onemsg_rd.AI_Val[ch].ZsFlag == 1 && no == 1)   //本通道还有折算数据
+		 {
+			   sprintf(pol_pack_buf, "%s-Min=%.2f,%s-Avg=%.2f,%s-Max=%.2f,%s-Cou=%.2f,\
+%sCV-Min=%.2f,%sCV-Avg=%.2f,%sCV-Max=%.2f;",
+			   PolCode[p], onemsg_rd.AI_Val[ch].Min,
+			   PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+			   PolCode[p], onemsg_rd.AI_Val[ch].Max,
+			   PolCode[p], onemsg_rd.AI_Val[ch].Sum,
+			   PolCode[p], onemsg_rd.AI_Val[ch].ZsMin,
+			   PolCode[p], onemsg_rd.AI_Val[ch].ZsAvg,
+			   PolCode[p], onemsg_rd.AI_Val[ch].ZsMax);
+		 }
+         else if(onemsg_rd.AI_Val[ch].ZsFlag == 1)   //本通道还有折算数据
+         {
+               sprintf(pol_pack_buf, "%s-Min=%.2f,%s-Avg=%.2f,%s-Max=%.2f,%s-Cou=%.2f,\
+%s-ZsMin=%.2f,%s-ZsAvg=%.2f,%s-ZsMax=%.2f;",
+               PolCode[p], onemsg_rd.AI_Val[ch].Min,
+               PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+               PolCode[p], onemsg_rd.AI_Val[ch].Max,
+               PolCode[p], onemsg_rd.AI_Val[ch].Sum,
+               PolCode[p], onemsg_rd.AI_Val[ch].ZsMin,
+               PolCode[p], onemsg_rd.AI_Val[ch].ZsAvg,
+               PolCode[p], onemsg_rd.AI_Val[ch].ZsMax);
+         }
+#else
+            sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f,\
+%s-ZsMin=%.2f,%s-ZsAvg=%.2f,%s-ZsMax=%.2f;",
+                    polcode, onemsg_rd.AI_Val[ch].Min,
+                    polcode, onemsg_rd.AI_Val[ch].Avg,
+                    polcode, onemsg_rd.AI_Val[ch].Max,
+                    polcode, onemsg_rd.AI_Val[ch].Sum,
+                    polcode, onemsg_rd.AI_Val[ch].ZsMin,
+                    polcode, onemsg_rd.AI_Val[ch].ZsAvg,
+                    polcode, onemsg_rd.AI_Val[ch].ZsMax);
+#endif
+        }
+        else
+        {
+            if (p == 0 && modbusConfig[7].devAddr == 200)
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum,
+                        "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B11", onemsg_wr.AI_Val[ch_flux].Total);
+            }
+            else if (p == 0 && modbusConfig[7].devAddr == 201)
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum,
+                        "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B21", onemsg_wr.AI_Val[ch_flux].Total);
+            }
+            else if (p == 0 && modbusConfig[7].devAddr == 202)
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum,
+                        "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B00", onemsg_wr.AI_Val[ch_flux].Total);
+            }
+            else
+            {
+#if((HANGZHOUHAICHI == 1)||(HUNANTUOAN == 1))
+                if ((p != 80) && (p != 81))
+                {
+                    sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                            polcode, onemsg_rd.AI_Val[ch].Min,
+                            polcode, onemsg_rd.AI_Val[ch].Avg,
+                            polcode, onemsg_rd.AI_Val[ch].Max,
+                            polcode, onemsg_rd.AI_Val[ch].Sum);
+                }
+#elif (JIAOTONGWUZI == 1)
+                if (p != 79) sprintf(pol_pack_buf, "%s-Min=%.2f,%s-Avg=%.2f,%s-Max=%.2f,%s-Cou=%.2f;",
+                                     polcode, onemsg_rd.AI_Val[ch].Min,
+                                     polcode, onemsg_rd.AI_Val[ch].Avg,
+                                     polcode, onemsg_rd.AI_Val[ch].Max,
+                                     polcode, onemsg_rd.AI_Val[ch].Sum);
+                else sprintf(pol_pack_buf, "%s-Min=%.3f,%s-Avg=%.3f,%s-Max=%.3f,%s-Cou=%.3f;",
+                             polcode, onemsg_rd.AI_Val[ch].Min,
+                             polcode, onemsg_rd.AI_Val[ch].Avg,
+                             polcode, onemsg_rd.AI_Val[ch].Max,
+                             polcode, onemsg_rd.AI_Val[ch].Sum);
+#elif(GUANGZHOUXINHUANHEYUAN == 1)		//河源平台
+				if(p == 0 && no == 1)
+				{
+					if(devNo == 3 || devNo == 33)
+				   {
+					sprintf(pol_pack_buf, "%s-Rtd=%.2f;B00-Rtd=%.2f;",
+						 PolCode[p], (onemsg_rd.AI_Val[ch].Avg), onemsg_rd.AI_Val[ch].Sum);
+				   }
+				   else
+				   {
+					sprintf(pol_pack_buf, "%s-Rtd=%.2f;B00-Rtd=%.2f;",
+						 PolCode[p], (onemsg_rd.AI_Val[ch].Avg * 3.6), onemsg_rd.AI_Val[ch].Sum);
+				   }
+				}
+				else if(p == 80)
+				{
+				   if(no == 1)
+				   {
+				   sprintf(pol_pack_buf, "B02a-Cou=%.2f,B02a-Min=%.2f,B02a-Avg=%.2f,B02a-Max=%.2f;",
+					onemsg_rd.AI_Val[ch].Sum,
+					onemsg_rd.AI_Val[ch].Min,
+					onemsg_rd.AI_Val[ch].Avg,
+					onemsg_rd.AI_Val[ch].Max);
+				   }
+				}
+				else
+				{
+				   if(no == 1)
+				   {
+					  if(p != 81)
+					  {
+						 sprintf(pol_pack_buf, "%s-Rtd=%.2f;",
+							PolCode[p], onemsg_rd.AI_Val[ch].Avg);
+					  }
+				   }
+				   else
+				   {
+					  sprintf(pol_pack_buf, "%s-Min=%.2f,%s-Avg=%.2f,%s-Max=%.2f,%s-Cou=%.2f;",
+						 PolCode[p], onemsg_rd.AI_Val[ch].Min,
+						 PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+						 PolCode[p], onemsg_rd.AI_Val[ch].Max,
+						 PolCode[p], onemsg_rd.AI_Val[ch].Sum);
+				   }
+				}
+#elif (XICHANGSANFENG == 1)
+                if (p != 77)  	//S06 不上传
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum);
+#elif (CHANGSHAHUASHIJIE == 1)
+                if (p != 71)  	//原SO2 不上传
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum);
+#else
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum);
+#endif
+
+            }
+
+        }
+    }
+    else if (mode == 1)  //实时数据
+    {
+        p = Savech[ch].polIndex;
+
+#if (SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+        p = getPolIndex(no, p);
+#endif
+        polcode = getPolcode(no, p);
+        if (Savech[ch].zs_index < ALLADCHANNELS)     //本通道有折算值
+        {
+#if (JIAOTONGWUZI == 1)
+            if (p != 79) sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-ZsRtd=%.2f,%s-Flag=%c;",
+                                 polcode, Savech[ch].val,
+                                 polcode, Savech[Savech[ch].zs_index].val,   //折算值
+                                 polcode, Savech[ch].flag);
+            else sprintf(pol_pack_buf, "%s-Rtd=%.3f,%s-ZsRtd=%.3f,%s-Flag=%c;",
+                         polcode, Savech[ch].val,
+                         polcode, Savech[Savech[ch].zs_index].val,   //折算值
+                         polcode, Savech[ch].flag);
+#elif(GUANGZHOUXINHUANHEYUAN == 1)		//河源平台
+			if(Savech[ch].zs_index < ALLADCHANNELS && no == 1)		//本通道有折算值
+			{
+				  sprintf(pol_pack_buf, "%s-Rtd=%.2f,%sCV-Rtd=%.2f,%s-Flag=%c;",
+				  PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+				  PolCode[p], onemsg_rd.AI_Val[ch].ZsAvg,	//折算值
+				  PolCode[p], onemsg_rd.AI_Val[ch].flag);
+			}
+			else if(Savech[ch].zs_index < ALLADCHANNELS)	  //本通道有折算值
+			{
+				  sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-ZsRtd=%.2f,%s-Flag=%c;",
+				  PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+				  PolCode[p], onemsg_rd.AI_Val[ch].ZsAvg,	//折算值
+				  PolCode[p], onemsg_rd.AI_Val[ch].flag);
+			}
+#else
+            sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-ZsRtd=%.4f,%s-Flag=%c;",
+                    polcode, Savech[ch].val,
+                    polcode, Savech[Savech[ch].zs_index].val,   //折算值
+                    polcode, Savech[ch].flag);
+#endif
+
+        }
+        else
+        {
+            //旧国标才会出现B11
+            if (p == 0 && modbusConfig[7].devAddr == 200)
+            {
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;%s-Rtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[ch].flag,
+                        "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B11", Savech[ch].flag);
+
+            }
+            else if (p == 0 && modbusConfig[7].devAddr == 201)
+            {
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;%s-Rtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[ch].flag,
+                        "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B21", Savech[ch].flag);
+
+            }
+            else if (p == 0 && modbusConfig[7].devAddr == 202)
+            {
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;%s-Rtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[ch].flag,
+                        "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                        "B00", Savech[ch].flag);
+
+            }
+            else
+            {
+#if((HANGZHOUHAICHI == 1)||(HUNANTUOAN == 1))
+                if ((p != 80) && (p != 81))
+                {
+                    sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                            polcode, Savech[ch].val,
+                            polcode, Savech[ch].flag);
+                }
+#elif (JIAOTONGWUZI == 1)
+                if (p != 79) sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+                                     polcode, Savech[ch].val,
+                                     polcode, Savech[ch].flag);
+                else sprintf(pol_pack_buf, "%s-Rtd=%.3f,%s-Flag=%c;",
+                             polcode, Savech[ch].val,
+                             polcode, Savech[ch].flag);
+#elif(GUANGZHOUXINHUANHEYUAN == 1)		//河源平台
+				if(p == 0 && no == 1)
+				{
+					if(devNo == 3 || devNo == 33)
+				   {
+						sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+						PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+						PolCode[p], onemsg_rd.AI_Val[ch].flag);
+				   }
+				   else
+				   {
+						sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+						PolCode[p], onemsg_rd.AI_Val[ch].Avg * 3.6,
+						PolCode[p], onemsg_rd.AI_Val[ch].flag);
+				   }
+				}
+				else if(p == 80)
+				{
+				   if(no == 1)
+				   {
+					  sprintf(pol_pack_buf, "B02a-Rtd=%.2f,B02a-Flag=%c;",
+						 onemsg_rd.AI_Val[ch].Avg,
+						 onemsg_rd.AI_Val[ch].flag);
+				   }
+				}
+				else
+				{
+				   if(no == 1)
+				   {
+					  //if(p != 81)
+					  //{
+						 sprintf(pol_pack_buf, "%s-Rtd=%.2f;",
+							PolCode[p], onemsg_rd.AI_Val[ch].Avg);
+					  //}
+				   }
+				   else
+				   {
+					  sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+						 PolCode[p], onemsg_rd.AI_Val[ch].Avg,
+						 PolCode[p], onemsg_rd.AI_Val[ch].flag);
+				   }
+				}
+#elif (XICHANGSANFENG == 1)
+                if (p != 77) 	//S06 不上传
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[ch].flag);
+#elif (CHANGSHAHUASHIJIE == 1)
+                if (p != 71)  	//原SO2 不上传
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[ch].flag);
+#else
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[ch].flag);
+#endif
+            }
+        }
+    }
+    else if (mode == 2)   //报警实时数据
+    {
+        p = Savech[ch].polIndex;
+#if(SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+        p = getPolIndex(no, p);
+#endif
+        polcode = getPolcode(no, p);
+#if (JIAOTONGWUZI == 1)
+        if (p != 79) sprintf(pol_pack_buf, "%s-Ala=%.2f;", polcode, onemsg_rd.AI_Val[ch].Max);
+        else sprintf(pol_pack_buf, "%s-Ala=%.3f;", polcode, onemsg_rd.AI_Val[ch].Max); //压力3位小数
+#elif(GUANGZHOUXINHUANHEYUAN == 1)	//河源平台
+		if(p == 0 && no == 1)
+		{
+		   if(devNo == 3 || devNo == 33)
+		   {
+		   sprintf(pol_pack_buf, "%s-Ala=%.2f,AlarmType=1;",
+			  PolCode[p], Savech[ch].val);
+		   }
+		   else
+		   {
+		   sprintf(pol_pack_buf, "%s-Ala=%.2f,AlarmType=1;",
+			  PolCode[p], Savech[ch].val * 3.6);
+		   }
+		}
+		else
+		{
+		   if(p != 81)
+		   {
+			  sprintf(pol_pack_buf, "%s-Ala=%.2f,AlarmType=1;",
+				 PolCode[p], Savech[ch].val);
+		   }
+		}
+#else
+        sprintf(pol_pack_buf, "%s-Ala=%.2f,AlarmType=1;", polcode, Savech[ch].val);
+#endif
+    }
+    else if (mode == 3)   //报警历史记录
+    {
+        p = onemsg_rd.AI_Val[ch].polIndex;
+#if(SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+        p = getPolIndex(no, p);
+#endif
+        polcode = getPolcode(no, p);
+#if (JIAOTONGWUZI == 1)
+        if (p != 79) sprintf(pol_pack_buf, "%s-Ala=%.2f;", polcode, onemsg_rd.AI_Val[ch].Max);
+        else sprintf(pol_pack_buf, "%s-Ala=%.3f;", polcode, onemsg_rd.AI_Val[ch].Max); //压力3位小数
+#elif(GUANGZHOUXINHUANHEYUAN == 1)	//河源平台
+				if(p == 0 && no == 1)
+				{
+				   if(devNo == 3 || devNo == 33)
+				   {
+					   sprintf(pol_pack_buf, "%s-Ala=%.2f;", PolCode[p], onemsg_rd.AI_Val[ch].Max);
+				   }
+				   else
+				   {
+					   sprintf(pol_pack_buf, "%s-Ala=%.2f;", PolCode[p], onemsg_rd.AI_Val[ch].Max * 3.6);
+				   }
+				}
+				else
+				{
+				  // if(p != 81)
+				  // {
+					  sprintf(pol_pack_buf, "%s-Ala=%.2f;", PolCode[p], onemsg_rd.AI_Val[ch].Max);
+				  // }
+				}
+#else
+        sprintf(pol_pack_buf, "%s-Ala=%.2f;", polcode, onemsg_rd.AI_Val[ch].Max);
+#endif
+    }
+    else if (mode == 4)   //设施运行时间日数据
+    {
+        sprintf(pol_pack_buf, "SB%d-RT=%.2f;", ch + 1, onemsg_rd.DI_Time[ch]);
+    }
+#if(GUANGZHOUXINHUANHEYUAN == 1)
+  else if(mode == 5)   //实时数据
+  {
+     p = Savech[ch].polIndex;
+     if(Savech[ch].zs_index < ALLADCHANNELS)      //本通道有折算值
+     {
+           sprintf(pol_pack_buf, "%s-Rtd=%.2f,%sCV-Rtd=%.2f,%s-Flag=%c;",
+           PolCode[p], Savech[ch].val,
+           PolCode[p], Savech[Savech[ch].zs_index].val, //折算值
+           PolCode[p], Savech[ch].flag);
+     }
+     else
+     {
+        if(p == 80)
+        {
+           sprintf(pol_pack_buf, "B02a-Rtd=%.2f,B02a-Flag=%c;",
+              Savech[ch].val,
+           Savech[ch].flag);
+        }
+        else if(p == 0 && no == 1)
+        {
+        	if(devNo == 3 || devNo == 33)
+           {
+           sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+              PolCode[p], Savech[ch].val,
+              PolCode[p], Savech[ch].flag);
+           }
+           else
+           {
+           sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+              PolCode[p], Savech[ch].val * 3.6,
+              PolCode[p], Savech[ch].flag);
+           }
+        }
+        else
+        {
+           sprintf(pol_pack_buf, "%s-Rtd=%.2f,%s-Flag=%c;",
+              PolCode[p], Savech[ch].val,
+              PolCode[p], Savech[ch].flag);
+        }
+     }
+  	}
+#else
+    else if (mode == 5)   //炉膛温度
+    {
+        p = Savech[ch].polIndex;
+#if(SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+        p = getPolIndex(no, p);
+#endif
+        sprintf(pol_pack_buf, "%s-Info=%.2f;",
+                PolCode[p], Savech[ch].val);
+    }
+#endif
+
+    pol_pack_len = strlen(pol_pack_buf);
+}
+
+void get_pol_pack_hj212_2005_sichuang(char no, char ch, char mode)
+{
+    auto unsigned char p;
+    auto struct tm comTime;
+    auto char *polcode;
+    static float old_dat[10];
+    auto char i;
+
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    if (mode == 0)   //历史数据
+    {
+        p = onemsg_rd.AI_Val[ch].polIndex;
+        polcode = getPolcode(no, p);
+#define ______________1
+        if (p == 35 && no == 4)
+        {
+            if (onemsg_rd.AI_Val[ch].ZsFlag == 1)    //本通道还有折算数据
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f,\
+                    %s-ZsMin=%.2f,%s-ZsAvg=%.2f,%s-ZsMax=%.2f;",
+                        "039", onemsg_rd.AI_Val[ch].Min,
+                        "039", onemsg_rd.AI_Val[ch].Avg,
+                        "039", onemsg_rd.AI_Val[ch].Max,
+                        "039", onemsg_rd.AI_Val[ch].Sum,
+                        "039", onemsg_rd.AI_Val[ch].ZsMin,
+                        "039", onemsg_rd.AI_Val[ch].ZsAvg,
+                        "039", onemsg_rd.AI_Val[ch].ZsMax);
+            }
+            else
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                        "039", onemsg_rd.AI_Val[ch].Min,
+                        "039", onemsg_rd.AI_Val[ch].Avg,
+                        "039", onemsg_rd.AI_Val[ch].Max,
+                        "039", onemsg_rd.AI_Val[ch].Sum);
+            }
+        }
+#define ______________2
+        else
+        {
+            if (onemsg_rd.AI_Val[ch].ZsFlag == 1)    //本通道还有折算数据
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f,\
+                    %s-ZsMin=%.2f,%s-ZsAvg=%.2f,%s-ZsMax=%.2f;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum,
+                        polcode, onemsg_rd.AI_Val[ch].ZsMin,
+                        polcode, onemsg_rd.AI_Val[ch].ZsAvg,
+                        polcode, onemsg_rd.AI_Val[ch].ZsMax);
+            }
+            else
+            {
+                if (p == 0 && modbusConfig[7].devAddr == 200)
+                {
+                    sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                            polcode, onemsg_rd.AI_Val[ch].Min,
+                            polcode, onemsg_rd.AI_Val[ch].Avg,
+                            polcode, onemsg_rd.AI_Val[ch].Max,
+                            polcode, onemsg_rd.AI_Val[ch].Sum,
+                            "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B11", onemsg_wr.AI_Val[ch_flux].Total);
+                }
+                else if (p == 0 && modbusConfig[7].devAddr == 201)
+                {
+                    sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                            polcode, onemsg_rd.AI_Val[ch].Min,
+                            polcode, onemsg_rd.AI_Val[ch].Avg,
+                            polcode, onemsg_rd.AI_Val[ch].Max,
+                            polcode, onemsg_rd.AI_Val[ch].Sum,
+                            "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B21", onemsg_wr.AI_Val[ch_flux].Total);
+                }
+                else if (p == 0 && modbusConfig[7].devAddr == 202)
+                {
+                    sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                            polcode, onemsg_rd.AI_Val[ch].Min,
+                            polcode, onemsg_rd.AI_Val[ch].Avg,
+                            polcode, onemsg_rd.AI_Val[ch].Max,
+                            polcode, onemsg_rd.AI_Val[ch].Sum,
+                            "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B00", onemsg_wr.AI_Val[ch_flux].Total);
+                }
+                else
+                {
+                    sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f;",
+                            polcode, onemsg_rd.AI_Val[ch].Min,
+                            polcode, onemsg_rd.AI_Val[ch].Avg,
+                            polcode, onemsg_rd.AI_Val[ch].Max,
+                            polcode, onemsg_rd.AI_Val[ch].Sum);
+
+                }
+
+            }
+        }
+    }
+    else if (mode == 1)  //实时数据
+    {
+        p = Savech[ch].polIndex;
+        polcode = getPolcode(no, p);
+#define ______________3
+        if (p == 35 && no == 4)
+        {
+            if (Savech[ch].zs_index < ALLADCHANNELS)     //本通道有折算值
+            {
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-ZsRtd=%.4f,%s-Flag=%c;",
+                        "039", Savech[ch].val,
+                        "039", Savech[Savech[ch].zs_index].val,   //折算值
+                        "039", Savech[ch].flag);
+            }
+            else
+            {
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                        "039", Savech[ch].val,
+                        "039", Savech[ch].flag);
+            }
+        }
+#define ______________4
+        else
+        {
+            if (Savech[ch].zs_index < ALLADCHANNELS)     //本通道有折算值
+            {
+                sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-ZsRtd=%.4f,%s-Flag=%c;",
+                        polcode, Savech[ch].val,
+                        polcode, Savech[Savech[ch].zs_index].val,   //折算值
+                        polcode, Savech[ch].flag);
+            }
+            else
+            {
+                //旧国标才会出现B11
+                if (p == 0 && modbusConfig[7].devAddr == 200)
+                {
+                    sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;%s-Rtd=%.4f,%s-Flag=%c;",
+                            polcode, Savech[ch].val,
+                            polcode, Savech[ch].flag,
+                            "B11", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B11", Savech[ch].flag);
+
+                }
+                else if (p == 0 && modbusConfig[7].devAddr == 201)
+                {
+                    sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;%s-Rtd=%.4f,%s-Flag=%c;",
+                            polcode, Savech[ch].val,
+                            polcode, Savech[ch].flag,
+                            "B21", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B21", Savech[ch].flag);
+
+                }
+                else if (p == 0 && modbusConfig[7].devAddr == 202)
+                {
+                    sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;%s-Rtd=%.4f,%s-Flag=%c;",
+                            polcode, Savech[ch].val,
+                            polcode, Savech[ch].flag,
+                            "B00", onemsg_wr.AI_Val[ch_flux].Total,
+                            "B00", Savech[ch].flag);
+
+                }
+                else
+                {
+                    sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                            polcode, Savech[ch].val,
+                            polcode, Savech[ch].flag);
+                }
+            }
+        }
+    }
+    else if (mode == 2)   //报警实时数据
+    {
+        p = Savech[ch].polIndex;
+        polcode = getPolcode(no, p);
+        sprintf(pol_pack_buf, "%s-Ala=%.2f,AlarmType=1;", polcode, Savech[ch].val);
+    }
+    else if (mode == 3)   //报警历史记录
+    {
+        p = onemsg_rd.AI_Val[ch].polIndex;
+        polcode = getPolcode(no, p);
+        sprintf(pol_pack_buf, "%s-Ala=%.2f;", polcode, onemsg_rd.AI_Val[ch].Max);
+    }
+    else if (mode == 4)   //设施运行时间日数据
+    {
+        sprintf(pol_pack_buf, "SB%d-RT=%.2f;", ch + 1, onemsg_rd.DI_Time[ch]);
+    }
+    else if (mode == 5)   //炉膛温度
+    {
+        p = Savech[ch].polIndex;
+        sprintf(pol_pack_buf, "%s-Info=%.2f;",
+                PolCode[p], Savech[ch].val);
+    }
+    pol_pack_len = strlen(pol_pack_buf);
+}
+
+void get_pol_pack_hj212_2017(char no, char ch, char mode)
+{
+    auto unsigned char p;
+    auto char *polcode;
+
+    memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+    if (mode == 0)    //历史数据
+    {
+        p = onemsg_rd.AI_Val[ch].polIndex;
+        polcode = getPolcode(no, p);
+        if (onemsg_rd.AI_Val[ch].ZsFlag == 1)  //本通道还有折算数据
+        {
+            sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f,\
+%s-ZsMin=%.4f,%s-ZsAvg=%.4f,%s-ZsMax=%.4f,%s-Flag=%c;",
+                    polcode, onemsg_rd.AI_Val[ch].Min,
+                    polcode, onemsg_rd.AI_Val[ch].Avg,
+                    polcode, onemsg_rd.AI_Val[ch].Max,
+                    polcode, onemsg_rd.AI_Val[ch].Sum,
+                    polcode, onemsg_rd.AI_Val[ch].ZsMin,
+                    polcode, onemsg_rd.AI_Val[ch].ZsAvg,
+                    polcode, onemsg_rd.AI_Val[ch].ZsMax,
+                    polcode, onemsg_rd.AI_Val[ch].flag);
+        }
+        else
+        {
+            if (p == 0)
+            {
+                sprintf(pol_pack_buf, "%s-Min=%.2f,%s-Avg=%.2f,%s-Max=%.2f,%s-Cou=%.2f,%s-ST=%.2f,%s-End=%.2f,%s-Flag=%c;",
+                        polcode, onemsg_rd.AI_Val[ch].Min,
+                        polcode, onemsg_rd.AI_Val[ch].Avg,
+                        polcode, onemsg_rd.AI_Val[ch].Max,
+                        polcode, onemsg_rd.AI_Val[ch].Sum,
+                        polcode, onemsg_rd.AI_Val[ch].ZsTotal,  //时段内起始时间流量计的累积流量读数
+                        polcode, onemsg_rd.AI_Val[ch].Total,    //时段内结束时间流量计的累积流量读数
+                        polcode, onemsg_rd.AI_Val[ch].flag);
+            }
+            else sprintf(pol_pack_buf, "%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,%s-Cou=%.4f,%s-Flag=%c;",
+                         polcode, onemsg_rd.AI_Val[ch].Min,
+                         polcode, onemsg_rd.AI_Val[ch].Avg,
+                         polcode, onemsg_rd.AI_Val[ch].Max,
+                         polcode, onemsg_rd.AI_Val[ch].Sum,
+                         polcode, onemsg_rd.AI_Val[ch].flag);
+        }
+    }
+    else if (mode == 1)   //实时数据
+    {
+        p = Savech[ch].polIndex;
+        polcode = getPolcode(no, p);
+
+        if (Savech[ch].zs_index < ALLADCHANNELS)       //本通道有折算值
+        {
+            sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-ZsRtd=%.4f,%s-Flag=%c;",
+                    polcode, Savech[ch].val,
+                    polcode, Savech[Savech[ch].zs_index].val,   //折算值
+                    polcode, Savech[ch].flag);
+        }
+        else
+        {
+            sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+                    polcode, Savech[ch].val,
+                    polcode, Savech[ch].flag);
+
+        }
+    }
+    else if (mode == 4)   //设施运行时间日数据
+    {
+        sprintf(pol_pack_buf, "SB%d-RT=%.2f;", ch + 1, onemsg_rd.DI_Time[ch]);
+    }
+    else if (mode == 5)   //炉膛温度
+    {
+        p = Savech[ch].polIndex;
+        sprintf(pol_pack_buf, "%s-Info=%.2f;",
+                PolCode[p], Savech[ch].val);
+    }
+    pol_pack_len = strlen(pol_pack_buf);
+}
+
+
+/*******************************************************************************
+函数功能：自动按照协议格式打包一个污染物的数据
+统一处理实时数据、历史数据、报警数据
+历史数据由调用函数先行准备在onemsg_rd中，实时数据和报警数据在Savech中
+no			服务器号
+ch			参数的通道号
+mode		0-历史数据
+    1-实时数据
+     2-实时报警数据
+     3-报警历史记录
+     4-设施运行时间日数据
+*******************************************************************************/
+void get_pol_pack(char no, char ch, char mode) //总量是否上传，有些参数总量无意义
+{
+    if (getCommunicationProtocol(no) ==  HJ212_2017)
+    {
+        get_pol_pack_hj212_2017(no, ch, mode);
+    }
+    else
+    {
+#if (SICHUANHONGMEI == 1)
+        get_pol_pack_hj212_2005_sichuang(no, ch, mode);
+#else
+        get_pol_pack_hj212_2005(no, ch, mode);
+#endif
+    }
+}
+
+
+///*******************************************************************************
+//函数功能：自动按照协议格式打包一个污染物的数据
+//统一处理实时数据、历史数据、报警数据
+//历史数据由调用函数先行准备在onemsg_rd中，实时数据和报警数据在Savech中
+//no			服务器号
+//ch			参数的通道号
+//mode		0-历史数据
+//        1-实时数据
+//     2-实时报警数据
+//     3-报警历史记录
+//     4-设施运行时间日数据
+//*******************************************************************************/
+//
+//#if 1
+//void get_pol_pack(char no, char ch, char mode) //总量是否上传，有些参数总量无意义
+//{
+//   auto unsigned char p;
+//   auto char *polcode;
+//
+//   memset(pol_pack_buf, 0x00, sizeof(pol_pack_buf));
+//
+//   if (mode == 0)    //历史数据
+//   {
+//      p = onemsg_rd.AI_Val[ch].polIndex;
+//      polcode = getPolcode(no, p);
+//      if (onemsg_rd.AI_Val[ch].ZsFlag == 1)  //本通道还有折算数据
+//      {
+//         sprintf(pol_pack_buf, "%s-Cou=%.4f,%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f,\
+//%s-ZsMin=%.4f,%s-ZsAvg=%.4f,%s-ZsMax=%.4f;",
+//                 polcode, onemsg_rd.AI_Val[ch].Sum,
+//                 polcode, onemsg_rd.AI_Val[ch].Min,
+//                 polcode, onemsg_rd.AI_Val[ch].Avg,
+//                 polcode, onemsg_rd.AI_Val[ch].Max,
+//                 polcode, onemsg_rd.AI_Val[ch].ZsMin,
+//                 polcode, onemsg_rd.AI_Val[ch].ZsAvg,
+//                 polcode, onemsg_rd.AI_Val[ch].ZsMax);
+//      }
+//      else
+//      {
+//         sprintf(pol_pack_buf, "%s-Cou=%.4f,%s-Min=%.4f,%s-Avg=%.4f,%s-Max=%.4f;",
+//                 polcode, onemsg_rd.AI_Val[ch].Sum,
+//                 polcode, onemsg_rd.AI_Val[ch].Min,
+//                 polcode, onemsg_rd.AI_Val[ch].Avg,
+//                 polcode, onemsg_rd.AI_Val[ch].Max
+//                );
+//      }
+//   }
+//   else if (mode == 1)   //实时数据
+//   {
+//      p = Savech[ch].polIndex;
+//      polcode = getPolcode(no, p);
+//      if (Savech[ch].zs_index < ALLADCHANNELS)       //本通道有折算值
+//      {
+//         sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-ZsRtd=%.4f,%s-Flag=%c;",
+//                 polcode, Savech[ch].val,
+//                 polcode, Savech[Savech[ch].zs_index].val,   //折算值
+//                 polcode, Savech[ch].flag);
+//      }
+//      else
+//      {
+//         sprintf(pol_pack_buf, "%s-Rtd=%.4f,%s-Flag=%c;",
+//                 polcode, Savech[ch].val,
+//                 polcode, Savech[ch].flag);
+//      }
+//   }
+//   else if (mode == 2)   //报警实时数据
+//   {
+//      p = Savech[ch].polIndex;
+//      polcode = getPolcode(no, p);
+//      sprintf(pol_pack_buf, "%s-Ala=%.4f,AlarmType=1;",
+//              polcode, Savech[ch].val);
+//   }
+//   else if (mode == 3)   //报警历史记录
+//   {
+//      p = onemsg_rd.AI_Val[ch].polIndex;
+//      polcode = getPolcode(no, p);
+//      sprintf(pol_pack_buf, "%s-Ala=%.4f;", polcode, onemsg_rd.AI_Val[ch].Max);
+//   }
+//   else if (mode == 4)   //设施运行时间日数据
+//   {
+//      sprintf(pol_pack_buf, "SB%d-RT=%.4f;", ch + 1, onemsg_rd.DI_Time[ch]);
+//   }
+//   pol_pack_len = strlen(pol_pack_buf);
+//}
+//#else
+//void get_pol_pack(char no, char ch, char mode)
+//{
+//   if(getCommunicationProtocol(no) ==  HJ212_2017)
+//   {
+//      get_pol_pack_hj212_2017(no, ch, mode);
+//   }
+//   else
+//   {
+//      get_pol_pack_hj212_2005(no, ch, mode);
+//   }
+//}
+//#endif
+
+/*******************************************************************************
+函数功能：自动按照协议格式打包一条历史数据到发送缓冲区
+可处理多参数时的分包发送
+对分钟数据、小时数据、日数据都统一处理，数据由调用函数先行准备在onemsg_rd中
+*******************************************************************************/
+void pack_his_tx(char no)
+{
+    auto char i;
+
+    pack_header(no); //打包包头
+
+    for (i = waitSendPos[no]; i < ALLADCHANNELS; i++)
+    {
+        if ((onemsg_rd.AI_Val[i].polIndex >= 0) && (onemsg_rd.AI_Val[i].polIndex < BOCON_NO_OF_POL / 2))
+        {
+#if(SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+            if (isNotSend(no, onemsg_rd.AI_Val[i].polIndex)) continue;
+#endif
+
+#if(FENSHAOLU == 1)	//焚烧炉
+			if(onemsg_rd.AI_Val[i].polIndex >= 82 && onemsg_rd.AI_Val[i].polIndex < BOCON_NO_OF_POL / 2) continue;			
+#endif
+
+            get_pol_pack(no, i, 0);
+            if ((strlen(deal_buf) + pol_pack_len) < (TCPGPRSBUF - 8)) //多个参数时需要分包处理
+            {
+                strcat(deal_buf, pol_pack_buf);
+                waitSendPos[no] = i + 1;    //记录已经打包了多少参数的数据，分包时从下一个开始
+            }
+            else break;        //超过缓冲区长度，退出，不加这个参数
+        }
+    }
+    if (i == ALLADCHANNELS) waitSendPos[no] = 0;  //已打包所有参数，不需要准备第二个包
+    PACK(no);                //打包包尾
+
+    ack_flag[no] = 2;
+    sendOKflag[no] = 0;  //需要服务器应答
+    reqTimeout[no] = SEC_TIMER;  //记下何时发了数据
+}
+
+/*******************************************************************************
+函数功能：自动按照协议格式打包一条实时数据到发送缓冲区
+可处理多参数时的分包发送
+*******************************************************************************/
+void pack_rt_tx(char no)
+{
+    auto char i;
+    auto char mode;
+
+    //tm_rd(&rtc1);
+    mktm(&rtc1, ((SEC_TIMER / rtdInterval[no]) * rtdInterval[no]));
+    pack_header(no);     //包头准备好
+
+    for (i = waitSendPos[no]; i < ALLADCHANNELS; i++)
+    {
+        if ((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL / 2))
+        {
+#if(FENSHAOLU == 1)		//焚烧炉发送3020命令
+            if (cmd[no] == 3020)
+            {
+                mode = 5;
+                if (Savech[i].polIndex < 82 || Savech[i].polIndex >= BOCON_NO_OF_POL / 2) continue;
+            }
+            else
+            {
+                mode = 1;
+                if (Savech[i].polIndex >= 82 && Savech[i].polIndex < BOCON_NO_OF_POL / 2) continue;
+            }
+#else
+            mode = 1;
+#endif
+
+#if(SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+            if (isNotSend(no, onemsg_rd.AI_Val[i].polIndex)) continue;
+#endif
+
+            get_pol_pack(no, i, mode);
+            if ((strlen(deal_buf) + pol_pack_len) < (TCPGPRSBUF - 8)) //多个参数时需要分包处理
+            {
+                strcat(deal_buf, pol_pack_buf);
+                waitSendPos[no] = i + 1;    //记录已经打包了多少参数的数据，分包时从下一个开始
+            }
+            else break;    //超过缓冲区长度，退出，不加这个参数
+        }
+    }
+    if (i == ALLADCHANNELS) waitSendPos[no] = 0;  //已打包所有参数，不需要准备第二个包
+    PACK(no);
+    sendOKflag[no] = 1;  //不需要重发
+}
+
+/*******************************************************************************
+函数功能：自动打包一条历史报警数据到发送缓冲区，也就是分钟记录，有报警
+可处理多参数时的分包发送，数据由调用函数先行准备在onemsg_rd中
+*******************************************************************************/
+void pack_his_alarm(char no)
+{
+    auto char i;
+
+    pack_header(no); //打包包头
+
+    for (i = waitSendPos[no]; i < ALLADCHANNELS; i++)
+    {
+        if ((onemsg_rd.AI_Val[i].flag == 'T') && (onemsg_rd.AI_Val[i].polIndex >= 0) && (onemsg_rd.AI_Val[i].polIndex < BOCON_NO_OF_POL / 2))
+        {
+#if(SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+            if (isNotSend(no, onemsg_rd.AI_Val[i].polIndex)) continue;
+#endif
+            get_pol_pack(no, i, 3);
+            if ((strlen(deal_buf) + pol_pack_len) < (TCPGPRSBUF - 8)) //多个参数时需要分包处理
+            {
+                strcat(deal_buf, pol_pack_buf);
+                waitSendPos[no] = i + 1;    //记录已经打包了多少参数的数据，分包时从下一个开始
+            }
+            else break;        //超过缓冲区长度，退出，不加这个参数
+        }
+    }
+    if (i == ALLADCHANNELS) waitSendPos[no] = 0;  //已打包所有参数，不需要准备第二个包
+    PACK(no);                //打包包尾
+
+    ack_flag[no] = 2;
+    sendOKflag[no] = 0;  //需要服务器应答
+    reqTimeout[no] = SEC_TIMER;  //记下何时发了数据
+}
+
+/*******************************************************************************
+函数功能：自动打包一条设施运行时间日数据到发送缓冲区，也就是日记录
+不需要分包发送，数据由调用函数先行准备在onemsg_rd中
+*******************************************************************************/
+void pack_dev_time(char no)
+{
+    auto char i;
+
+    pack_header(no);     //打包包头
+    for (i = 0; i < 8; i++)
+    {
+        get_pol_pack(no, i, 4);
+        strcat(deal_buf, pol_pack_buf);
+    }
+    waitSendPos[no] = 0;    //已打包所有参数，不需要准备第二个包
+    PACK(no);                //打包包尾
+
+    ack_flag[no] = 2;
+    sendOKflag[no] = 0;  //需要服务器应答
+    reqTimeout[no] = SEC_TIMER;  //记下何时发了数据
+}
+
+/*******************************************************************************
+功能：2011，提取污染物实时数据
+QN=20040516010101001;ST=32;CN=2011;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+*******************************************************************************/
+void getRTdata(char no)
+{
+    pack_rt_tx(no);
+}
+
+/*******************************************************************************
+函数功能：2021，提取设备运行状态
+QN=20040516010101001;ST=32;CN=2021;PW=123456;MN=88888880000001;Flag=3;CP=&&&&
+*******************************************************************************/
+void getRTdev(char no)
+{
+    auto char i, v;
+
+    tm_rd(&rtc1);
+    pack_header(no);     //包头准备好
+
+    for (i = 0; i < 8; i++)
+    {
+        if (Poldi & (1 << i)) v = 1;
+        else v = 0;
+        sprintf(pol_pack_buf, "SB%d-RS=%d;", i + 1, v);
+        strcat(deal_buf, pol_pack_buf);
+    }
+    waitSendPos[no] = 0;    //已打包所有参数，不需要准备第二个包
+
+    PACK(no);
+    sendOKflag[no] = 1;  //不需要重发
+}
+
+/*******************************************************************************
+no			服务器，0-2
+flag		0-第一次读
+    1-读下一条记录
+     2-重发或者分包
+table		1-分钟记录
+    2-小时统计数据
+     3-日统计数据
+*******************************************************************************/
+void getRecordByServer(char no, char flag, char table)
+{
+    auto char d;
+    if (flag == 0)   //第一次上传数据
+    {
+        if (no > 2)
+        {
+            d = getHisData(&onemsg_rd, table, btm[no], 1, no + 2);
+        }
+        else
+        {
+            d = getHisData(&onemsg_rd, table, btm[no], 1, no);
+        }
+    }
+    else if (flag == 1)
+    {
+        if (no > 2)
+        {
+            d = getNextData(table, btm[no], 1, no + 2);
+        }
+        else d = getNextData(table, btm[no], 1, no);
+    }
+    else
+    {
+        if (no > 2)
+        {
+            xmem2root(&onemsg_rd, onemsg_buf[no + 2], MSGSIZE);   //首先从xmem缓冲区取出数据
+        }
+        else xmem2root(&onemsg_rd, onemsg_buf[no], MSGSIZE); //首先从xmem缓冲区取出数据
+    }
+    btm[no] = onemsg_rd.Btime;
+
+    if ((flag < 2) && (d == 0))
+    {
+        btm[no] = etm[no];          //没找到，停止查找和上传
+        waitSendPos[no] = 0;          //清除分包标志
+        err_flag[no] = 1;             //执行结果，标记为成功
+        ack_flag[no] = 1;             //标记为需要发送9012操作执行结果
+        if (table == 1) real_flag[no] &= 0xf7;     //清除上传标志
+        else if (table == 2) real_flag[no] &= 0xef; //清除上传标志
+        else if (table == 3) real_flag[no] &= 0xdf; //清除上传标志
+      	else if(table == 6) real_flag[no] &= 0xfe;//清除上传标志		  	//河源平台
+    }
+    else
+    {
+        mktm(&rtc1, onemsg_rd.Btime);       //取记录的时间
+        format_his_time(table);               //时间格式化，取整
+                                              //rtc1.tm_sec = 0;						//分钟数据的秒置为0
+                                              //if(table > 1) rtc1.tm_min = 0;	//小时数据的分置为0
+                                              //if(table > 2) rtc1.tm_hour = 0;	//日数据的小时置为0
+        pack_his_tx(no);
+    }
+}
+
+/*******************************************************************************
+函数功能：2051，提取污染物分钟数据
+QN=20040516010101001;ST=32;CN=2051;PW=123456;MN=88888880000001;Flag=3;
+CP=&&BeginTime=20040516010300,EndTime=20040516010900&&
+tmfrom=0	从getsec得到时间，=1	直接调用btm和etm
+
+flag		0	--	第一次读分钟数据
+    1	--	继续读分钟数据
+     2	--	分包数据，原记录还在扩展缓冲区里
+*******************************************************************************/
+void getMinuteData(char no, char flag)
+{
+    getRecordByServer(no, flag, 1);
+}
+
+/*******************************************************************************
+函数功能：2061，提取污染物小时数据
+QN=20040516010101001;ST=32;CN=2061;PW=123456;MN=88888880000001;Flag=3;
+CP=&&BeginTime=20040516010000,EndTime=20040516030000&&
+*******************************************************************************/
+void getHourData(char no, char flag)
+{
+    getRecordByServer(no, flag, 2);
+}
+
+
+/*******************************************************************************
+函数功能：2031，提取污染物日历史数据
+QN=20040516010101001;ST=32;CN=2031;PW=123456;MN=88888880000001;Flag=3;
+CP=&&BeginTime=20040515000000,EndTime=20040520000000&&
+*******************************************************************************/
+void getDayHistory(char no, char flag)
+{
+    getRecordByServer(no, flag, 3);
+}
+
+/*******************************************************************************
+函数功能：2041，提取污染治理设施运行时间日数据
+QN=20040516010101001;ST=32;CN=2041;PW=123456;MN=88888880000001;Flag=3;
+CP=&&BeginTime=20040515000000,EndTime=20040520000000&&
+*******************************************************************************/
+void getDayDev(char no, char flag)
+{
+    auto char d;
+    if (flag == 0)   //第一次上传数据
+    {
+        if (no > 2)
+        {
+            d = getHisData(&onemsg_rd, 3, btm[no], 1, no + 2);
+        }
+        else d = getHisData(&onemsg_rd, 3, btm[no], 1, no);
+    }
+    else if (flag == 1)
+    {
+        if (no > 2)
+        {
+            d = getNextData(3, btm[no], 1, no + 2);
+        }
+        else d = getNextData(3, btm[no], 1, no);
+    }
+    else
+    {
+        if (no > 2)
+        {
+            xmem2root(&onemsg_rd, onemsg_buf[no + 2], MSGSIZE);   //首先从xmem缓冲区取出数据
+        }
+        else xmem2root(&onemsg_rd, onemsg_buf[no], MSGSIZE); //首先从xmem缓冲区取出数据
+    }
+    btm[no] = onemsg_rd.Btime;
+
+    if ((flag < 2) && (d == 0))
+    {
+        btm[no] = etm[no];          //没找到，停止查找和上传
+        waitSendPos[no] = 0;          //清除分包标志
+        err_flag[no] = 1;             //执行结果，标记为成功
+        ack_flag[no] = 1;             //标记为需要发送9012操作执行结果
+        real_flag[no] &= 0xbf;        //清除上传标志
+    }
+    else
+    {
+        mktm(&rtc1, onemsg_rd.Btime);       //取记录的时间
+        rtc1.tm_sec = 0;                        //分钟数据的秒置为0
+        rtc1.tm_min = 0;
+        rtc1.tm_hour = 0;
+        pack_dev_time(no);
+    }
+}
+
+/*******************************************************************************
+函数功能：2071，提取污染物报警记录
+QN=20040516010101001;ST=32;CN=2071;PW=123456;MN=88888880000001;Flag=3;
+CP=&&BeginTime=20040515000000,EndTime=20040520000000&&
+*******************************************************************************/
+void getAlarm(char no, char flag)
+{
+    auto char d;
+    if (flag == 0)   //第一次上传数据
+    {
+        if (no > 2)
+        {
+            d = getHisData(&onemsg_rd, 1, btm[no], 1, no + 2);
+        }
+        else d = getHisData(&onemsg_rd, 1, btm[no], 1, no);
+    }
+    else if (flag == 1)
+    {
+        if (no > 2)
+        {
+            d = getNextData(5, btm[no], 1, no + 2);
+        }
+        else d = getNextData(5, btm[no], 1, no);
+    }
+    else
+    {
+        if (no > 2)
+        {
+            xmem2root(&onemsg_rd, onemsg_buf[no + 2], MSGSIZE);   //首先从xmem缓冲区取出数据
+        }
+        else
+        {
+            xmem2root(&onemsg_rd, onemsg_buf[no + 2], MSGSIZE);   //首先从xmem缓冲区取出数据
+        }
+    }
+    btm[no] = onemsg_rd.Btime;
+
+    if ((flag < 2) && (d == 0))   //由于可能查找超过几百条记录都没有报警记录，
+    {                                        //底层驱动会提示找不到，但实际还没有查完，故这里不能返回完成
+        btm[no] = etm[no];          //没找到，停止查找和上传
+        waitSendPos[no] = 0;          //清除分包标志
+        err_flag[no] = 1;             //执行结果，标记为成功
+        ack_flag[no] = 1;             //标记为需要发送9012操作执行结果
+        real_flag[no] &= 0x7f; //f7;		//清除上传标志
+    }
+    else if (onemsg_rd.type == 5)        //找到报警记录
+    {
+        mktm(&rtc1, onemsg_rd.Btime);       //取记录的时间
+        rtc1.tm_sec = 0;                        //分钟数据的秒置为0
+        pack_his_alarm(no);
+    }
+    else
+    {
+        ack_flag[no] = 2;
+    }
+    /*else
+    {
+     ack_flag[no] = 1;
+       err_flag[no] = 1;				//执行结果，标记为成功
+       real_flag[no] &= 0x7f;		//清除上传标志
+    }  */
+
+}
+
+//有报警返1,,否则返0
+//不检查折算值是否报警	--	不处理，因为没有对应的参数
+char chk_alarm(void)
+{
+    auto char i, status;
+    status = 0;
+    for (i = 0; i < ALLADCHANNELS; i++)
+    {
+        if ((Savech[i].flag == 'T') && (Savech[i].polIndex < BOCON_NO_OF_POL / 2))
+        {
+            status = 1;
+            break;
+        }
+    }
+    return status;
+}
+
+/*******************************************************************************
+函数功能：2072，主动上传报警信息
+QN=20040516010101001;ST=32;CN=2072;PW=123456;MN=88888880000001;Flag=0;CP=&&
+AlarmTime=20040506010101;101-Ala=1.1, AlarmType =1&&
+*******************************************************************************/
+void putAlarm(char no)
+{
+    auto char i;
+
+    calQn(no);              //需要计算QN
+    memset(deal_buf, '\0', sizeof(deal_buf));
+    //t0 = read_rtc();	//在calQn里已经读过了
+    //mktm(&rtc1, t0);
+
+    pack_header(no);
+
+//只发送超标的参数，折算值的超标不处理，因为没有对应的变量，待完善!!!
+    for (i = waitSendPos[no]; i < ALLADCHANNELS; i++)
+    {
+        if ((Savech[i].flag == 'T') && (Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL / 2))
+        {
+            get_pol_pack(no, i, 2);
+            if ((strlen(deal_buf) + pol_pack_len) < (TCPGPRSBUF - 8)) //多个参数时需要分包处理
+            {
+                strcat(deal_buf, pol_pack_buf);
+                waitSendPos[no] = i + 1;    //记录已经打包了多少参数的数据，分包时从下一个开始
+            }
+            else break;    //超过缓冲区长度，退出，不加这个参数
+        }
+    }
+    if (i == ALLADCHANNELS) waitSendPos[no] = 0;  //已打包所有参数，不需要准备第二个包
+
+    PACK(no);
+    sendOKflag[no] = 0;              //等待对方回应
+    reqTimeout[no] = SEC_TIMER; //记下何时发了数据
+}
+
+/*******************************************************************************
+
+    3、仪器控制
+
+*******************************************************************************/
+
+/*** BeginHeader  devSampleNow, devMaintain, devSetSmpTime, devCalib */
+void devSampleNow(char no);
+void devMaintain(char no);
+void devSetSmpTime(char no);
+void devCalib(char no);
+/*** EndHeader */
+
+/*******************************************************************************
+函数功能：3012，即时采样命令
+QN=20040516010101001;ST=32;CN=3012;PW=123456;MN=88888880000001;Flag=3;CP=&&PolId=101&&
+*******************************************************************************/
+void devSampleNow(char no)
+{
+    auto char i;
+    auto char *p;
+    auto unsigned char index;
+
+    p = strstr(cp, "PolId=");
+    if (p == NULL)	p = strstr(cp, "PolID=");  //lai remake 20100926
+    if (p != NULL)
+    {
+        p += 6;
+        if ((*(p + 2) == ',') || (*(p + 2) == '&')) *(p + 2) = 0x00;
+        else *(p + 3) = 0x00;
+        index = queryIndexByPolcode(p);
+        if ((index >= 0) && (index < BOCON_NO_OF_POL)) //污染物编码有效
+        {
+            for (i = 0; i < 15; i++)
+            {
+                if (Savech[i].polIndex == index)        //搜索污染物所在的通道
+                {
+                    if ((i >= 0) && (i < 8))
+                    {
+                        digOut(0, 1);
+                        msDelay(1000);
+                        digOut(0, 0);
+                    }
+                    else start_com_dev(i - 8);            //如果是串口设备，就启动仪器
+                    err_flag[no] = 1;                        //返回成功标志给服务器
+                    ack_flag[no] = 1;                        //标记为准备返回9012操作执行结果
+                    sendOKflag[no] = 1;                 //不需要重发
+                    return;
+                }
+            }
+        }
+    }
+    err_flag[no] = 2;               //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+函数功能：3011，下端监测设备校零校满
+QN=20040516010101001;ST=32;CN=3011;PW=123456;MN=88888880000001;Flag=3;CP=&&PolId=101&&
+*******************************************************************************/
+void devCalib(char no)
+{
+    auto char i;
+    auto char *p;
+    auto unsigned char index;
+
+    p = strstr(cp, "PolId=");
+    if (p == NULL) p = strstr(cp, "PolID=");
+    if (p != NULL)
+    {
+        p += 6;
+        if ((*(p + 2) == ',') || (*(p + 2) == '&')) *(p + 2) = 0x00;
+        else *(p + 3) = 0x00;
+        index = queryIndexByPolcode(p);
+        if ((index >= 0) && (index < BOCON_NO_OF_POL)) //污染物编码有效
+        {
+            for (i = 0; i < 15; i++)
+            {
+                if (Savech[i].polIndex == index)        //搜索污染物所在的通道
+                {
+                    if ((i >= 0) && (i < 8))
+                    {
+                        digOut(0, 1);
+                        msDelay(1000);
+                        digOut(0, 0);
+                        err_flag[no] = 1;
+                    }
+                    else
+                    {
+                        err_flag[no] = calib_com_dev(i - 8); //如果是串口设备，就启动仪器
+                    }
+                    //err_flag[no] = 1;						//返回成功标志给服务器
+                    ack_flag[no] = 1;                        //标记为准备返回9012操作执行结果
+                    sendOKflag[no] = 1;                 //不需要重发
+                    return;
+                }
+            }
+        }
+    }
+    err_flag[no] = 2;               //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+函数功能：3013，设备操作命令
+QN=20040516010101001;ST=32;CN=3013;PW=123456;MN=88888880000001;Flag=3;CP=&&PolId=101&&
+*******************************************************************************/
+void devMaintain(char no)
+{
+    auto char i;
+    auto char *p;
+    auto unsigned char index;
+
+    p = strstr(cp, "PolId=");
+    if (p == NULL) p = strstr(cp, "PolID=");
+    if (p != NULL)
+    {
+        p += 6;
+        if ((*(p + 2) == ',') || (*(p + 2) == '&')) *(p + 2) = 0x00;
+        else *(p + 3) = 0x00;
+        index = queryIndexByPolcode(p);
+        if ((index >= 0) && (index < BOCON_NO_OF_POL)) //污染物编码有效
+        {
+            for (i = 0; i < 15; i++)
+            {
+                if (Savech[i].polIndex == index)        //搜索污染物所在的通道
+                {
+                    if ((i >= 0) && (i < 8))
+                    {
+                        digOut(0, 1);
+                        msDelay(1000);
+                        digOut(0, 0);
+                        err_flag[no] = 1;
+                    }
+                    else
+                    {
+                        err_flag[no] = maintain_com_dev(i - 8); //如果是串口设备，就启动仪器
+                    }
+                    //err_flag[no] = 1;						//返回成功标志给服务器
+                    ack_flag[no] = 1;                        //标记为准备返回9012操作执行结果
+                    sendOKflag[no] = 1;                 //不需要重发
+                    return;
+                }
+            }
+        }
+    }
+    err_flag[no] = 2;               //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+函数功能：3014，设置设备采样时间周期
+QN=20040516010101001;ST=32;CN=3014;PW=123456;MN=88888880000001;Flag=3;CP=&&
+PolId=101,CTime=04,CTime=10,CTime=14,CTime=16...&&
+*******************************************************************************/
+void devSetSmpTime(char no)
+{
+    auto char i;
+    auto char *p;
+    auto unsigned char index;
+
+    p = strstr(cp, "PolId=");
+    if (p == NULL) p = strstr(cp, "PolID=");
+    if (p != NULL)
+    {
+        p += 6;
+        if ((*(p + 2) == ',') || (*(p + 2) == '&')) *(p + 2) = 0x00;
+        else *(p + 3) = 0x00;
+        index = queryIndexByPolcode(p);
+        if ((index >= 0) && (index < BOCON_NO_OF_POL)) //污染物编码有效
+        {
+            for (i = 0; i < 15; i++)
+            {
+                if (Savech[i].polIndex == index)        //搜索污染物所在的通道
+                {
+                    if ((i >= 0) && (i < 8))
+                    {
+                        digOut(1, 1);
+                        msDelay(1000);
+                        digOut(1, 0);
+                    }
+                    else setSmpTime_com_dev(i - 8);
+
+                    err_flag[no] = 1;                        //返回成功标志给服务器
+                    ack_flag[no] = 1;                        //标记为准备返回9012操作执行结果
+                    sendOKflag[no] = 1;                 //不需要重发
+                    return;
+                }
+            }
+        }
+    }
+    err_flag[no] = 2;               //返回失败
+    ack_flag[no] = 1;                //标记为准备返回9012操作执行结果
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+
+    4、应答响应
+
+*******************************************************************************/
+
+/*** BeginHeader  packReqAck, packExeAck, packCmdAck,
+      txLogReq, ackOfLogin, txHeartBeat */
+
+//应答包
+void packReqAck(char no, char flag);
+void packExeAck(char no);
+void packCmdAck(char no);
+//非国标命令
+void txLogReq(char no, char cmd);
+void ackOfLogin(char no, char cmd);
+void txHeartBeat(char no, char flag);
+/*** EndHeader */
+
+/*******************************************************************************
+功能：9011 = 响应上位机的应答,
+code表示请求返回码，1=准备执行，2=请求被拒绝，3=密码错误
+ST=91;CN=9011;PW=123456;MN=88888880000001;Flag=0;CP=&&QN=20040516010101001;QnRtn=1&&
+*******************************************************************************/
+void packReqAck(char no, char flag)
+{
+    auto char code;
+
+    if (err_flag[no] == 5)                //包头错，不响应
+    {
+        return;
+    }
+    else if ((err_flag[no] == 4) || (err_flag[no] == 3))    //数据错，拒绝请求
+    {
+        //strcpy(pw, "000000");				//pw
+        //strcpy(mn, "00000000000000");	//mn
+        //strcpy(pw, sipPwd[no]);
+        //strcpy(mn, MNParam.MN[no]);
+        t0 = read_rtc();
+        mktm(&rtc1, t0);                  //qn
+        sprintf(qn[no], "%04d%02d%02d%02d%02d%02d%03d", rtc1.tm_year + 1900,
+                rtc1.tm_mon, rtc1.tm_mday, rtc1.tm_hour,
+                rtc1.tm_min, rtc1.tm_sec, (int)(MS_TIMER % 1000));
+        code = 2;
+    }
+    else if ((err_flag[no] == 2) || (err_flag[no] == 1))    //MN或密码错，返回密码错
+    {
+        code = 3;
+    }
+    else if (err_flag[no] == 0)           //数据正常
+    {
+        code = 1;
+    }
+
+    memset(deal_buf, '\0', sizeof(deal_buf));
+
+    if (getCommunicationProtocol(no) ==  HJ212_2017)
+    {
+        sprintf(deal_buf, "##QN=%s;0000ST=91;CN=9011;PW=%s;MN=%s;Flag=%d;CP=&&QnRtn=%d;",
+                qn[no], sipPwd[no], MNParam.MN[no], flag, code);
+    }
+    else
+    {
+        sprintf(deal_buf, "##0000ST=91;CN=9011;PW=%s;MN=%s;Flag=%d;CP=&&QN=%s;QnRtn=%d;",
+                sipPwd[no], MNParam.MN[no], flag, qn[no], code);
+    }
+    PACK(no);
+    sendOKflag[no] = 1;          //不需要重发和应答
+}
+
+/*******************************************************************************
+功能：9012，返回操作执行结果
+code表示执行结果返回码，1=成功，2=失败，100=没有数据
+ST=91;CN=9012;PW=123456;MN=88888880000001;CP=&&QN=20040516010101001;ExeRtn=1&&
+*******************************************************************************/
+void packExeAck(char no)
+{
+//   calQn(no);
+    memset(deal_buf, '\0', sizeof(deal_buf));
+    if (getCommunicationProtocol(no) ==  HJ212_2017)
+    {
+        sprintf(deal_buf, "##0000QN=%s;ST=91;CN=9012;PW=%s;MN=%s;Flag=%d;CP=&&ExeRtn=%d;",
+                qn[no], sipPwd[no], MNParam.MN[no], getFlag(no), err_flag[no]);
+    }
+    else
+    {
+        sprintf(deal_buf, "##0000ST=91;CN=9012;PW=%s;MN=%s;Flag=%d;CP=&&QN=%s;ExeRtn=%d;",
+                sipPwd[no], MNParam.MN[no], getFlag(no), qn[no], err_flag[no]);
+    }
+    PACK(no);
+    ack_flag[no] = 0;               //标记为已完成
+    sendOKflag[no] = 1;         //不需要重发
+}
+
+/*******************************************************************************
+功能：9013，服务器命令的应答
+ST=91;CN=9013;PW=123456;MN=88888880000001;CP=&&QN=20040516010101001&&
+*******************************************************************************/
+void packCmdAck(char no)
+{
+//   calQn(no);
+    memset(deal_buf, '\0', sizeof(deal_buf));
+    if (getCommunicationProtocol(no) ==  HJ212_2017)
+    {
+        sprintf(deal_buf, "##0000QN=%s;ST=91;CN=9013;PW=%s;MN=%s;Flag=%d;CP=&&",
+                qn[no], sipPwd[no], MNParam.MN[no], getFlag(no));
+    }
+    else
+    {
+        sprintf(deal_buf, "##0000ST=91;CN=9013;PW=%s;MN=%s;Flag=%d;CP=&&QN=%s",
+                sipPwd[no], MNParam.MN[no], getFlag(no), qn[no]);
+    }
+    PACK(no);
+    ack_flag[no] = 0;               //标记为已完成
+    sendOKflag[no] = 1;         //不需要重发
+}
+
+/*******************************************************************************
+功能: 8011、9021，请求登录				--	非国标
+QN=20040516010101001;ST=91;CN=9021;PW=123456;MN=88888880000001;Flag=1;CP=&&&&
+*******************************************************************************/
+void txLogReq(char no, char cmd)
+{
+    memset(deal_buf, '\0', sizeof(deal_buf));
+    calQn(no);
+    if (cmd == 1)         //8011
+    {
+        sprintf(deal_buf, "##0000ST=91;CN=8011;PW=%s;MN=%s;Flag=0;CP=&&LoginTime=%s;",
+                sipPwd[no], MNParam.MN[no], qn[no]);
+    }
+    else if (cmd == 2)        //9021
+    {
+        sprintf(deal_buf, "##0000QN=%s;ST=91;CN=9021;PW=%s;MN=%s;Flag=1;CP=&&;",
+                qn[no], sipPwd[no], MNParam.MN[no]);
+    }
+    PACK(no);
+    sendOKflag[no] = 1;          //不需要重发
+                                 //sendOKflag[no] = 0;		//需要服务器应答
+                                 //reqTimeout[no] = SEC_TIMER;	//记下何时发了数据
+}
+
+/*******************************************************************************
+功能：8012、9022，请求登陆的响应		--	非国标
+ST=91;CN=9022;PW=123456;MN=88888880000001;Flag=0;CP=&&QN=20040516010101001;Logon=1&&
+*******************************************************************************/
+void ackOfLogin(char no, char cmd)
+{
+    auto char *p;
+    if (cmd == 1) p = strstr(cp, "Login=");           //8012
+    else if (cmd == 2) p = strstr(cp, "Logon=");  //9022
+    if (p > 0) login[no] = atoi((p + 6));
+    else login[no] = 0;
+    if (login[no]) DBG(printf("Login OK\n");)
+    ack_flag[no] = 0;                //标记为已完成
+    sendOKflag[no] = 1;          //不需要重发
+}
+
+/*******************************************************************************
+功能: 8013 = 主动上发心跳包			--	非国标
+*******************************************************************************/
+void txHeartBeat(char no, char flag)
+{
+	auto char i;
+    memset(deal_buf, '\0', sizeof(deal_buf));
+
+#if(GUANGZHOUXINHUANHEYUAN == 1)	//河源平台
+   if(no == 1)
+   {
+      calQn(no);
+      tm_rd(&rtc1);
+      sprintf(deal_buf, "##0000QN=%s;ST=91;CN=9021;PW=%s;MN=%s;Flag=1;CP=&&DataTime=%04d%02d%02d%02d%02d%02d;",
+            qn[no], sipPwd[no], devMN,
+            rtc1.tm_year+1900, rtc1.tm_mon, rtc1.tm_mday,
+            rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+      for(i=waitSendPos[no]; i<ALLADCHANNELS; i++)
+      {
+         if((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL / 2))
+         {
+            get_pol_pack(no, i, 5);
+            if((strlen(deal_buf) + pol_pack_len) < (TCPGPRSBUF-8))   //多个参数时需要分包处理
+            {
+               strcat(deal_buf, pol_pack_buf);
+               waitSendPos[no] = i + 1;   //记录已经打包了多少参数的数据，分包时从下一个开始
+            }
+            else break; //超过缓冲区长度，退出，不加这个参数
+         }
+      }
+      if(i == ALLADCHANNELS) waitSendPos[no] = 0;  //已打包所有参数，不需要准备第二个包
+   }
+   else
+   {
+      sprintf(deal_buf, "##0000ST=%d;CN=8013;PW=%s;MN=%s;Flag=%d;CP=&&HeartbeatTime=%d;",
+         systemCode, sipPwd[no], devMN, flag, heartbeatInterval[no]);
+   }
+#else
+    sprintf(deal_buf, "##0000ST=%d;CN=8013;PW=%s;MN=%s;Flag=%d;CP=&&HeartbeatTime=%d;",
+            systemCode, sipPwd[no], MNParam.MN[no], flag, heartbeatInterval[no]);
+#endif
+    prtTxHeader(no);
+    PACK(no);
+    sendOKflag[no] = 1;  //不需要重发
+}
+
+/*******************************************************************************
+
+    5、协议层的命令解析和处理的接口函数
+
+*******************************************************************************/
+/*** BeginHeader  chk_pack_div, txHisPack, chk_hjt212_cmd,
+    parsePackage, parseCmd, exeCmd,
+    parse_ser_param, getsec, CRC16, hjt212_init */
+
+void chk_pack_div(char no);
+void txHisPack(char no, char flag);
+
+void chk_hjt212_cmd(char no);
+void parseCmd(char no);
+void exeCmd(char no);
+void parse_ser_param(char *src, char *dst, int dstLen, char flag);
+void parsePackage(char no);
+
+char getsec(char no);
+unsigned int CRC16(char *buf, int len);
+void hjt212_init(char i, char log, char txFlag);
+
+/*** EndHeader */
+
+/*******************************************************************************
+检查数据的分包发送，和重发，是直接从缓冲区里读数据并打包
+*******************************************************************************/
+void chk_pack_div(char no)
+{
+    if (cmd[no] == 2011) getRTdata(no);
+    else if (cmd[no] == 2072) putAlarm(no);
+    else if (cmd[no] == 2051) getMinuteData(no, 2);
+    else if (cmd[no] == 2061) getHourData(no, 2);
+    else if (cmd[no] == 2031) getDayHistory(no, 2);
+    else if (cmd[no] == 2041) getDayDev(no, 2);
+    else if (cmd[no] == 2071) getAlarm(no, 2);
+}
+
+/*******************************************************************************
+检查历史记录发送，处理多条记录发送，完成后清除发送标志
+*******************************************************************************/
+void txHisPack(char no, char flag)
+{
+    if (real_flag[no] & 0x08)             //取分钟数据
+    {
+        cmd[no] = 2051;
+        if (flag == 1)                         //重发标志
+        {
+            getMinuteData(no, 2);           //直接从缓冲区取出原记录
+        }
+        else if (btm[no] <= etm[no])       //读下一条记录
+        {
+            getMinuteData(no, 1);
+        }
+        else
+        {
+            real_flag[no] &= 0xf7;          //清除标志
+            err_flag[no] = 1;                  //执行结果，标记为成功
+            ack_flag[no] = 1;                  //标记为准备发送9012操作执行结果
+        }
+    }
+    else if (real_flag[no] & 0x10)            //取小时数据
+    {
+        cmd[no] = 2061;
+        if (flag == 1)
+        {
+            getHourData(no, 2);
+        }
+        else if (btm[no] <= etm[no])
+        {
+            getHourData(no, 1);
+        }
+        else
+        {
+            real_flag[no] &= 0xef;
+            err_flag[no] = 1;
+            ack_flag[no] = 1;
+        }
+    }
+    else if (real_flag[no] & 0x20)            //取日数据
+    {
+        cmd[no] = 2031;
+        if (flag == 1)
+        {
+            getDayHistory(no, 2);
+        }
+        else if (btm[no] <= etm[no])
+        {
+            getDayHistory(no, 1);
+        }
+        else
+        {
+            real_flag[no] &= 0xdf;
+            err_flag[no] = 1;
+            ack_flag[no] = 1;
+        }
+    }
+    else if (real_flag[no] & 0x40)            //取设备运行时间日数据
+    {
+        cmd[no] = 2041;
+        if (flag == 1)
+        {
+            getDayDev(no, 2);
+        }
+        else if (btm[no] <= etm[no])
+        {
+            getDayDev(no, 1);
+        }
+        else
+        {
+            real_flag[no] &= 0xbf;
+            err_flag[no] = 1;
+            ack_flag[no] = 1;
+        }
+    }
+    else if (real_flag[no] & 0x80)            //取报警记录
+    {
+        cmd[no] = 2071;
+        if (flag == 1)
+        {
+            getAlarm(no, 2);
+        }
+        else if (btm[no] <= etm[no])
+        {
+            getAlarm(no, 1);
+        }
+        else
+        {
+            real_flag[no] &= 0x7f;
+            err_flag[no] = 1;
+            ack_flag[no] = 1;
+        }
+    }
+}
+
+/*******************************************************************************
+收到的服务器命令在parseCmd中被分为6类：11，12，21，22，31，80，存放到ack_flag中
+ack_flag只在处理命令的时候有效，一旦命令处理完成就无用了
+*******************************************************************************/
+void chk_hjt212_cmd(char no)
+{
+    auto int rc;
+    //check_un_tx_page_crc();//ver 4
+
+
+    //如果有数据还没有发完，就不要再发了
+    if (tcp_tlen[no] > 0) return;
+
+//	if(login[no] == 1)	//判断是否已登陆
+    if ((ack_flag[no] == 11) || (ack_flag[no] == 12) || (ack_flag[no] == 21) || (ack_flag[no] == 31))
+    {    //收到服务器命令，第一次进行处理，处理9011请求应答选项
+#ifdef PROTO_ACK_9011
+        packReqAck(no, getFlag(no)); //发送9011请求应答，分包标志??
+        sendOKflag[no] = 1;           //不需要重发和应答
+#endif
+        //if(ack_flag[no] == 21) ack_flag[no] = 2;//实时采集的命令不需要解析，已置标志
+        //else
+        ack_flag[no] = 3;     //标记为需要解析，准备上传数据
+    }
+    else if (ack_flag[no] == 22)
+    {
+        packCmdAck(no);             //发送9013通知应答
+    }
+    else if (ack_flag[no] == 1)     //发送9012操作执行结果
+    {
+#ifdef PROTO_ACK_9012
+        packExeAck(no);
+#else
+        ack_flag[no] = 0;             //标记为已完成
+        sendOKflag[no] = 1;           //不需要重发
+#endif
+    }
+    else if ((ack_flag[no] == 3) || (ack_flag[no] == 80))     //第一次执行命令
+    {
+        exeCmd(no);
+    }
+    //else if(ack_flag[no]==2)		//再次执行命令，无动作
+    //{
+    //}
+//一、一条记录要分多个包上传的处理，需要首先将一条记录的各个分包发完
+//		然后再对整条记录做重发处理，即再分包全部发一次，避免分包在重发时指针混乱
+    else if (waitSendPos[no] != 0)   //实时数据或者历史记录有分包
+    {
+        chk_pack_div(no);
+    }
+
+//三、报警事件的处理
+    /*else if(SEC_TIMER >= (sec_alarm[no] + warnTime[no]))
+    {
+    sec_alarm[no] = SEC_TIMER;
+      if(chk_alarm())
+      {
+     cmd[no] = 2072;
+     real_flag[no] |= 0x04;
+     tx_count[no] = 0;			//需要重发
+     putAlarm(no);
+      }
+      else real_flag[no] &= 0xfb;
+   }*/
+//四、实时数据上传的处理，包括实时数据和设备运行状态
+
+    else if (((real_flag[no] & 0x01)) && (SEC_TIMER >= (sec_rt_data[no] + rtdInterval[no])))
+    {    //实时数据上传
+        sec_rt_data[no] = (SEC_TIMER / rtdInterval[no]) * rtdInterval[no];
+        //if(rtdInterval[no] > 3) sec_rt_dev[no] += 2;//防止设备运行状态被同时上传
+        cmd[no] = 2011;
+        getRTdata(no);
+    }
+#if(FENSHAOLU == 1)
+    else if (SEC_TIMER >= (sec_temp_info[no] + rtdInterval[no]))
+    {    //实时数据上传
+        sec_temp_info[no] = (SEC_TIMER / rtdInterval[no]) * rtdInterval[no];
+        cmd[no] = 3020;
+        getRTdata(no);
+    }
+#endif
+
+    /*else if((real_flag[no] & 0x02) && (SEC_TIMER >= (sec_rt_dev[no] + 2)) &&
+    (realTm < 2))
+   {	//设施运行状态上传
+    sec_rt_dev[no] = (SEC_TIMER/rtdInterval[no])*rtdInterval[no];
+    cmd[no] = 2021;
+      getRTdev(no);
+    } */
+
+//二、此处处理超时重发，只有上一条数据发送成功或者重发次数完成了
+//		才能进行下条数据的发送，可将重发次数设为0关闭重发功能
+    else if (sendOKflag[no] == 0)    //未收到应答
+    {
+        if (SEC_TIMER >= (reqTimeout[no] + overTime[no]))    //超时时间到
+        {
+            if (tx_count[no] < reCount[no])  //重发次数未完成
+            {
+                tx_count[no]++;
+                txHisPack(no, 1);       //会更新超时定时器
+            }
+            else
+            {
+                sendOKflag[no] = 1; //已重发要求的次数，置为完成
+                tx_count[no] = 0;
+            }
+        }
+    }
+
+//五、取某时间段的历史数据，此处有效则后面的自动上传和心跳不会执行
+    else if (real_flag[no] & 0xf8)
+    {
+        txHisPack(no, 0);
+        if (tcp_tlen[no] > 0)
+        {
+            tx_count[no] = 0;       //需要重发
+        }
+    }
+
+    else if (bz_rdP_start[no] != bz_rdP_end[no])
+    {
+        if (no > 2)
+        {
+            rc = read_nf_page(&onemsg_rd, bz_rdP_start[no], no + 2);
+        }
+        else
+        {
+            rc = read_nf_page(&onemsg_rd, bz_rdP_start[no], no);
+        }
+        if (rc == 0)
+        {
+#if(GUANGZHOUXINHUANHEYUAN == 1)
+			if((onemsg_rd.type == 6))
+			{
+			   if(no == 1)
+			   {
+				   cmd[no] = 9021;
+			   }
+			   else
+			   {
+				   cmd[no] = 2011;
+			   }
+			   getRtdData(no, 2);	//数据已读出，直接从缓冲区取出打包
+			}
+			else if(((onemsg_rd.type == 1) || (onemsg_rd.type == 5)) && (no != 1))
+			{
+			   if(no == 1)
+			   {
+				  cmd[no] = 2011;
+			   }
+			   else
+			   {
+				  cmd[no] = 2051;
+			   }
+			
+			   getMinuteData(no, 2);   //数据已读出，直接从缓冲区取出打包
+			}
+			else if(onemsg_rd.type == 2)
+			{
+			   if(no == 1)
+			   {
+				  cmd[no] = 2011;
+			   }
+			   else
+			   {
+				  cmd[no] = 2061;
+			   }
+			
+			   getHourData(no, 2);
+			}
+			else if(onemsg_rd.type == 3 && (no != 1))
+			{
+			   cmd[no] = 2031;
+			   getDayHistory(no, 2);
+			}
+#else
+	        if ((onemsg_rd.type == 1) || (onemsg_rd.type == 5))
+	        {
+	            cmd[no] = 2051;
+	            getMinuteData(no, 2);   //数据已读出，直接从缓冲区取出打包
+	        }
+	        else if (onemsg_rd.type == 2)
+	        {
+	            cmd[no] = 2061;
+	            getHourData(no, 2);
+	        }
+	        else if (onemsg_rd.type == 3)
+	        {
+	            cmd[no] = 2031;
+	            getDayHistory(no, 2);
+	        }
+#endif
+            tx_count[no] = 0;              //需要重发
+        }
+
+        bz_rdP_start[no]++;
+        if (bz_rdP_start[no] >= nandFlash.pages)
+        {
+            bz_rdP_start[no] = 0L;
+        }
+    }
+//六、自动上传，断线补发
+#if(HEBEIBAIJIN == 0 )		//河北白晶，断线之后不自动补发
+    else if (un_tx_page.ptr[no] < wrPtr)
+    {
+        if (no > 2)
+        {
+            rc = read_nf_page(&onemsg_rd, un_tx_page.ptr[no], no + 2);
+        }
+        else
+        {
+            rc = read_nf_page(&onemsg_rd, un_tx_page.ptr[no], no);
+        }
+        if (rc == 0)
+        {
+#if(GUANGZHOUXINHUANHEYUAN == 1)
+			 if((onemsg_rd.type == 6))
+			 {
+			 	if(no == 1)
+			    {
+			    	cmd[no] = 9021;
+			    }
+			    else
+			    {
+			    	cmd[no] = 2011;
+			    }
+			    getRtdData(no, 2);   //数据已读出，直接从缓冲区取出打包
+			 }
+			 else if(((onemsg_rd.type == 1) || (onemsg_rd.type == 5)) && (no != 1))
+			 {
+			    if(no == 1)
+			    {
+			       cmd[no] = 2011;
+			    }
+			    else
+			    {
+			       cmd[no] = 2051;
+			    }
+
+			    getMinuteData(no, 2);   //数据已读出，直接从缓冲区取出打包
+			 }
+			 else if(onemsg_rd.type == 2)
+			 {
+			    if(no == 1)
+			    {
+			       cmd[no] = 2011;
+			    }
+			    else
+			    {
+			       cmd[no] = 2061;
+			    }
+
+			    getHourData(no, 2);
+			 }
+			 else if(onemsg_rd.type == 3 && (no != 1))
+			 {
+			    cmd[no] = 2031;
+			    getDayHistory(no, 2);
+			 }
+#else
+            if ((onemsg_rd.type == 1) || (onemsg_rd.type == 5))
+            {
+                cmd[no] = 2051;
+                getMinuteData(no, 2);   //数据已读出，直接从缓冲区取出打包
+            }
+            else if (onemsg_rd.type == 2)
+            {
+                cmd[no] = 2061;
+                getHourData(no, 2);
+            }
+            else if (onemsg_rd.type == 3)
+            {
+                cmd[no] = 2031;
+                getDayHistory(no, 2);
+            }
+#endif
+            tx_count[no] = 0;              //需要重发
+        }
+
+        //ver 4
+        un_tx_page.ptr[no] += 1L;
+        if (un_tx_page.ptr[no] >= nandFlash.pages)
+        {
+            un_tx_page.ptr[no] = 0L;
+        }
+
+        un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR) - 2);
+    }
+#endif
+//七、心跳包，非国标，可通过设置心跳周期为0关闭
+    else if ((heartbeatInterval[no] > 0) && (SEC_TIMER >= (heartBeat[no] + heartbeatInterval[no])))
+    {
+        txHeartBeat(no, getFlag(no));              //8013心跳包
+        heartBeat[no] = SEC_TIMER;
+    }
+
+}
+
+/*******************************************************************************
+函数说明：	解析新收到的服务器命令（根据数据包的解析结果，相关变量已赋值）
+    只是置位相关标志，并不执行命令
+    由协议任务根据置位的标志执行具体命令，处理应答等
+    一旦收到新命令，应马上清除原来的状态，转入执行新命令
+
+1、所有的设置命令：	1000、1001、1012、1022、1032、1042、1062、1072
+    所有的仪器命令：	3011、3012、3013、3014
+   都统一上传2个包：	9011请求应答和9012操作执行结果
+2、所有的读参数命令：1011、1021、1031、1041、1061
+    都统一上传3个包：	9011请求应答，数据包和9012操作执行结果
+3、实时数据采集命令：2011、2021
+    都统一上传：		9011请求应答和连续的实时数据
+   实时数据停止命令：2012、2022
+   都统一上传1个包：	9013通知应答
+4、读取历史数据命令：2031、2041、2051、2061、2071
+    都统一上传：		9011请求应答、多条数据、9012操作执行结果
+   上位机可能会返回：9014结果应答（如果9011请求应答要求上位机应答），分包应答等
+5、主动报警：			2072，服务器不会发2072的命令
+    上位机返回：		9013通知应答
+
+ack_flag		记录当前状态，等待命令执行时处理，然后状态会变化
+    0	--	命令已执行完成
+    1	--	最后一个动作，返回9012操作执行结果
+    2	--	上传需要的数据，按命令执行
+    22	--	停止实时采集		--	1	--	0
+    12	--	设置参数				--	1	--	0
+    11	--	取参数				--	2	--	1	--	0
+    21	--	取实时数据			--	2
+    31	--	取历史数据			--	2	--	1	--	0
+
+real_flag	记录上传数据的命令，数据上报的标志
+    BIT0-实时数据上传标志
+    BIT1-设备实时状态上传标志
+    BIT2-主动报警上传标志
+    BIT3-读取分钟历史记录标志
+    BIT4-读取小时历史记录标志
+    BIT5-读取日历史记录标志
+    BIT6-读取设备运行时间日历史记录标志
+    BIT7-读取报警记录标志
+    当需要的时间段历史数据上传完成后，对应的标志位清0
+*******************************************************************************/
+void parseCmd(char no)
+{
+    sendOKflag[no] = 1;             //服务器已响应的标志
+    waitSendPos[no] = 0;                //清除分包发送的标志，未发完的分包丢弃
+    reqTimeout[no] = SEC_TIMER;  //更新超时重发的定时器
+
+    if ((cmd[no] == 9013) || (cmd[no] == 9014))
+    {
+        ack_flag[no] = 0;       //收到了服务器的应答，命令已完成
+    }
+    else if ((cmd[no] == 2011) || (cmd[no] == 2021))
+    {
+        ack_flag[no] = 21;  //实时采集
+        if (cmd[no] == 2011) real_flag[no] |= 0x01;
+        else real_flag[no] |= 0x02;
+    }
+    else if ((cmd[no] == 2012) || (cmd[no] == 2022))
+    {
+        ack_flag[no] = 22;  //停止实时采集
+        if (cmd[no] == 2012) real_flag[no] &= 0xfe;
+        else real_flag[no] &= 0xfd;
+    }
+    else if ((cmd[no] == 2031) || (cmd[no] == 2041) || (cmd[no] == 2051) || (cmd[no] == 2061) || (cmd[no] == 2071))
+    {
+        ack_flag[no] = 31;  //取历史数据
+        real_flag[no] &= 0x03;    //读取历史记录时，只能连续读取一种数据，不能混合同时读取，实时数据不受影响
+        if (cmd[no] == 2031) real_flag[no] |= 0x20;
+        else if (cmd[no] == 2041) real_flag[no] |= 0x40;
+        else if (cmd[no] == 2051) real_flag[no] |= 0x08;
+        else if (cmd[no] == 2061) real_flag[no] |= 0x10;
+        else real_flag[no] |= 0x80;
+        getsec(no);               //起止时间参数从上位机命令中取得
+    }
+    else if ((cmd[no] == 1000) || (cmd[no] == 1001) || (cmd[no] == 1012) || (cmd[no] == 1022)
+             || (cmd[no] == 1032) || (cmd[no] == 1042) || (cmd[no] == 1062) || (cmd[no] == 1072)
+             || (cmd[no] == 3011) || (cmd[no] == 3012) || (cmd[no] == 3013) || (cmd[no] == 3014)
+             || (cmd[no] == 1052) || (cmd[no] == 1073) || (cmd[no] == 1074) || (cmd[no] == 1082) || cmd[no] == 1064
+             ||	cmd[no] == 3037 || cmd[no] == 3038 || cmd[no] == 3039 || cmd[no] == 3040 || cmd[no] == 3018)
+    {
+        ack_flag[no] = 12;  //设置参数
+    }
+    else if ((cmd[no] == 1011) || (cmd[no] == 1021) || (cmd[no] == 1031) ||
+             (cmd[no] == 1041) || (cmd[no] == 1061) || (cmd[no] == 1051) || (cmd[no] == 1081) || (cmd[no] == 1063) ||
+             cmd[no] == 3026 || cmd[no] == 3027 || cmd[no] == 3028 || cmd[no] == 3029)
+    {
+        ack_flag[no] = 11;  //取参数
+    }
+    else if ((cmd[no] == 8012) || (cmd[no] == 9022))
+    {
+        ack_flag[no] = 80;  //登陆请求的应答
+    }
+
+    DBG(printf("%s%d#:%d%s\n", RED, no, cmd[no], BLACK);)
+}
+
+/*******************************************************************************
+函数说明：解析命令（根据数据包的解析结果，相关变量已赋值）
+*******************************************************************************/
+void exeCmd(char no)
+{
+    switch (cmd[no])
+    {  /*
+    //以下是服务器查询和设置相关系统参数的命令
+     case 1000:		//设置超时时间和重发次数
+     setReCount(no);
+     break;
+     case 1001:		//设置超限报警时间
+      setWarnTime(no);
+      break;
+     case 1011:		//提取设备实时时间
+     DBG(printf("Get rtc\n");)
+      getSysTime(no);
+      break;
+     case 1012:		//设置设备实时时间
+     DBG(printf("Set rtc\n");)
+      setSysTime(no);
+      break;
+     case 1021:		//提取污染物报警门限值
+     DBG(printf("Get Limit\n");)
+     getAlarmLimit(no);
+     break;
+       case 1022:		//设置污染物报警门限值
+     setAlarmLimit(no);
+     break;
+       case 1031:		//提取上位机地址
+     #ifndef HHT
+     DBG(printf("Get SIP\n");)
+     getSip(no);
+      #else
+      DBG(printf("Get Limit\n");)
+     getRangeLimit(no);
+      #endif
+     break;
+       case 1032:		//设置上位机地址
+     #ifndef HHT
+      DBG(printf("Set SIP\n");)
+     setSip(no);
+      #else
+      DBG(printf("Set Limit\n");)
+      setRangeLimit(no);
+      #endif
+     break;
+       case 1041:		//提取数据上报时间
+     DBG(printf("Get ReportTime\n");)
+     getReportTime(no);
+     break;
+       case 1042:		//设置数据上报时间
+     setReportTime(no);
+     break;
+       case 1051:		//提取历史数据采样及上报间隔
+     DBG(printf("Get Sample Time\n");)
+     getSampleTime(no);
+     break;
+       case 1052:		//设置历史数据采样及上报间隔
+     setSampleTime(no);
+     break;
+     case 1061:		//提取实时数据间隔
+     DBG(printf("Get rtInt\n");)
+      getIntervalTime(no);
+      break;
+     case 1062:		//设置实时数据间隔
+      setIntervalTime(no);
+      break;
+       #ifdef HHT //恒灏天新增
+       case 1063://获取分钟数据间隔
+     getSaveIntervalTime(no);
+     break;
+       case 1064: //设置分钟数据间隔
+     setSaveIntervalTime(no);
+     break;
+       #endif
+       case 1072:		//设置访问密码
+      setSipPwd(no);
+     break;
+       case 1073:		//设置污染源编码
+       #ifdef HHT
+     setMN(no);
+       #else
+      setSystemNumber(no);
+       #endif
+     break;
+       case 1074:		//设置现场机设备标识号
+      setMN(no);
+     break;
+       #ifdef HHT
+     case 1081:		//提取污染物量程限值
+     DBG(printf("Get Limit\n");)
+     getRangeLimit(no);
+     break;
+       case 1082:		//设置污染物量程限值
+     DBG(printf("Set Limit\n");)
+     setRangeLimit(no);
+     break;
+       #endif
+      */
+        //以下是各种实时数据和历史数据的命令
+#if(GUANGZHOUXINHUANHEYUAN == 1)
+    case 2011:      //提取污染物实时数据					河源平台
+         DBG(printf("Get Rtd %ld -- %ld\n", btm[no], etm[no]);)
+         getRtdData(no, 0);
+         break;
+#else
+    case 2011:      //提取污染物实时数据
+        DBG(printf("Get RT\n");)
+        getRTdata(no);
+        ack_flag[no] = 2;              //标记为准备返回9012操作执行结果
+        sendOKflag[no] = 1;         //不需要重发
+        break; 
+#endif
+		/*
+          case 2021:		//提取设备运行状态数据
+         DBG(printf("Get Dev\n");)
+         getRTdev(no);
+         ack_flag[no] = 2;				//标记为准备返回9012操作执行结果
+        sendOKflag[no] = 1;			//不需要重发
+         break;  */
+        //case 2012:		//停止察看实时数据
+        //case 2022:		//停止察看设备运行状态
+        //	break;
+    case 2031:      //提取污染物日历史数据
+        DBG(printf("Get Day %ld -- %ld\n", btm[no], etm[no]);)
+        getDayHistory(no, 0);
+        break; /*
+         case 2041:		//提取设备运行时间日历史数据
+           DBG(printf("Get Dev %ld -- %ld\n", btm[no], etm[no]);)
+        getDayDev(no, 0);
+           break; */
+    case 2051:      //提取污染物分钟数据
+        DBG(printf("Get Min %ld -- %ld\n", btm[no], etm[no]);)
+        getMinuteData(no, 0);
+        break;
+    case 2061:      //提取污染物小时数据
+        DBG(printf("Get Hour %ld -- %ld\n", btm[no], etm[no]);)
+        getHourData(no, 0);
+        break; /*
+         case 2071:		//提取污染物报警记录
+        DBG(printf("Get Alarm %ld -- %ld\n", btm[no], etm[no]);)
+        getAlarm(no, 0);
+           break;
+    
+          //以下是仪器控制的命令
+           case 3011:		//校零校满
+           DBG(printf("Dev Calib\n");)
+           devCalib(no);
+           break;
+         case 3012:		//即时采样
+        DBG(printf("Dev Sample Now\n");)
+        devSampleNow(no);
+        break;
+         case 3013:		//设备操作
+           DBG(printf("Dev Maintain\n");)
+        devMaintain(no);
+           break;
+         case 3014:		//设置仪器采样时间周期
+           DBG(printf("Dev Sample Time\n");)
+        devSetSmpTime(no);
+           break;
+           case 3018:		//设置设备实时时间
+           DBG(printf("Set dev rtc\n");)
+        setDevTime(no);
+        break;
+         #ifdef HHT
+         case 3026:
+        DBG(printf("get airPressure\n");)
+        getAirPressure(no);
+        break;
+         case 3027:
+        DBG(printf("get area\n");)
+        getAirArea(no);
+        break;
+         case 3028:
+        DBG(printf("get S05\n");)
+        getS05(no);
+        break;
+         case 3029:
+        DBG(printf("get airRatio\n");)
+        getAirRatio(no);
+        break;
+         case 3037:
+        DBG(printf("set airPressure\n");)
+        getAirPressure(no);
+        break;
+         case 3038:
+        DBG(printf("set area\n");)
+        setAirArea(no);
+        break;
+         case 3039:
+        DBG(printf("set S05\n");)
+        setS05(no);
+        break;
+         case 3040:
+        DBG(printf("set airRatio\n");)
+        setAirRatio(no);
+        break;
+         #endif*/
+
+        /*
+        case 3098:
+        setJdqState(no);
+        break;
+        case 3099:
+        getJdqState(no);
+        break;*/
+
+
+        /* case 8012:		//注册请求的响应
+        ackOfLogin(no, 1);
+        break;
+         case 9022:		//注册请求的响应
+        ackOfLogin(no, 2);
+        break;*/
+
+    default:
+        break;
+    }
+}
+
+/*******************************************************************************
+从收到的服务器数据包里提取数据，存放到指定的缓冲区里
+*******************************************************************************/
+void parse_ser_param(char *src, char *dst, int dstLen, char flag)
+{
+    auto char *p2;
+    auto int len;
+
+    if (flag == 1) p2 = strchr(src, ';');
+    else p2 = strstr(src, "&&");
+    len = (int)(p2 - src);       //数据长度
+    if (len >= dstLen) len = dstLen - 1;
+    memset(dst, '\0', dstLen);
+    strncpy(dst, src, len);
+}
+
+/*******************************************************************************
+函数功能：解析收到的数据包
+数据存放在cp中，命令存放在cmd中
+No1. ##0059QN=20080111144821562;ST=32;CN=1080;PW=123456;Flag=0;CP=&&&&9F3B
+No2. ##0094QN=20080111145946421;ST=32;CN=1012;PW=;MN==2008011114482;Flag=3;CP=&&SystemTime=200801111459&&AF93
+
+parsePackage的解析结果存放在err_flag里
+    5-包头错
+    4-包长度错
+     3-CRC错
+     2-MN号码错
+     1-访问密码错
+     0-正确解析
+*******************************************************************************/
+void parsePackage(char no)
+{
+    char *p1;
+    char *p2;
+    int data_rlen;
+    auto int i;
+
+    err_flag[no] = 0;
+    xmem2root(deal_buf, tcp_rbuf[no], tcp_rlen[no]);
+
+
+
+    if (devNo == 97 && no == SOCKET_1)
+    {
+        tcp_tlen[SOCKET_5] = tcp_rlen[SOCKET_1];
+        root2xmem(tcp_tbuf[SOCKET_5], deal_buf, tcp_tlen[SOCKET_5]);
+    }
+
+    if (devNo == 98)
+    {
+        com_tcp_rec_pack_task(COM_1, deal_buf, tcp_rlen[no]);
+    }
+
+
+//检查数据包头
+    if ((deal_buf[0] != '#') || (deal_buf[1] != '#'))
+    {
+        DBG(printf("%d# Header Error\n", no);)
+        err_flag[no] = 5;
+        return;
+    }
+//检查数据段长度
+    data_rlen = (deal_buf[2]-0x30)* 1000 +(deal_buf[3]-0x30)* 100
+    +(deal_buf[4]-0x30)* 10 +(deal_buf[5]-0x30);
+    if (devNo == 99)
+    {
+        data_rlen += 10;
+    }
+    else
+    {
+        data_rlen += 12;
+    }
+    if (data_rlen  != tcp_rlen[no])
+    {
+        DBG(printf("%d# Length Error\n", no);)
+        err_flag[no] = 4;
+        return;
+    }
+//检查CRC校验
+    /*	CRC16(&deal_buf[6], data_rlen);
+       deal_buf[data_rlen+6] = toupper(deal_buf[data_rlen+6]);
+      deal_buf[data_rlen+7] = toupper(deal_buf[data_rlen+7]);
+      deal_buf[data_rlen+8] = toupper(deal_buf[data_rlen+8]);
+      deal_buf[data_rlen+9] = toupper(deal_buf[data_rlen+9]);
+      deal_buf[data_rlen+10] = '\0';
+      deal_buf[data_rlen+11] = '\0';
+      if(strcmp(crc, &deal_buf[data_rlen+6]) != 0)
+      {
+       DBG(printf("%d# CRC Error\n", no);)
+     err_flag[no] = 3;
+      }*/
+
+//一、解析收到的数据包：QN
+    p1 = strstr(deal_buf, "QN=");
+    if (p1 != NULL)
+    {
+        p1 += 3;
+        parse_ser_param(p1, qn[no], sizeof(qn[no]), 1);
+    }
+//二、解析收到的数据包：ST
+    p1 = strstr(deal_buf, "ST=");
+    if (p1 != NULL)
+    {
+        p1 += 3;
+        parse_ser_param(p1, st, sizeof(st), 1);
+    }
+//三、解析收到的数据包：PW
+    p1 = strstr(deal_buf, "PW=");
+    if (p1 != NULL)
+    {
+        p1 += 3;
+        parse_ser_param(p1, pw, sizeof(pw), 1);
+    }
+//四、解析收到的数据包：MN
+    p1 = strstr(deal_buf, "MN=");
+    if (p1 != NULL)
+    {
+        p1 += 3;
+        parse_ser_param(p1, mn, sizeof(mn), 1);
+    }
+//五、解析收到的数据包：Flag
+    p1 = strstr(deal_buf, "Flag=");
+    if (p1 != NULL)
+    {
+        p1 += 5;
+        parse_ser_param(p1, fflag, sizeof(fflag), 1);
+    }
+//六、解析收到的数据包：PNUM
+    p1 = strstr(deal_buf, "PNUM=");
+    if (p1 != NULL)
+    {
+        p1 += 5;
+        parse_ser_param(p1, pnum, sizeof(pnum), 1);
+    }
+//七、解析收到的数据包：PNO
+    p1 = strstr(deal_buf, "PNO=");
+    if (p1 != NULL)
+    {
+        p1 += 4;
+        parse_ser_param(p1, pno, sizeof(pno), 1);
+    }
+//八、解析收到的数据包：CP
+    p1 = strstr(deal_buf, "CP=&&");
+    if (p1 != NULL)
+    {
+        p1 += 5;
+        parse_ser_param(p1, cp, sizeof(cp), 2);
+    }
+//九、解析收到的数据包：CN
+    p1 = strstr(deal_buf, "CN=");
+    if (p1 != NULL)
+    {
+        p1 += 3;
+        parse_ser_param(p1, cn, sizeof(cn), 1);
+        cmd[no] = atoi(cn);
+    }
+//检查设备代码
+    if (strcmp(mn, MNParam.MN[no]) != 0)
+    {
+        DBG(printf("%d# MN Error\n", no);)
+        if (err_flag[no] == 0) err_flag[no] = 2;
+    }
+//检查密码
+    if (strcmp(pw, sipPwd[no]) != 0)
+    {
+        DBG(printf("%d# Pwd Error\n", no);)
+        if (err_flag[no] == 0) err_flag[no] = 1;
+    }
+
+    if (cmd[no] == 2011 && st == 91 && cn == 9014)
+    {
+        cmd[no] = 0;
+    }
+}
+
+/*******************************************************************************
+函数功能：	按照协议计算CRC校验
+结果：		以字符串方式存放在crc中，返回值为整形值
+*******************************************************************************/
+unsigned int CRC16(char *buf, int len)
+{
+    auto unsigned int r;
+    auto unsigned char hi;
+    auto char flag;
+    auto int i, j;
+
+    r = 0xffff;
+    for (j = 0; j < len; j++)
+    {
+        hi = r >> 8;
+        hi ^= buf[j];
+        r = hi;
+
+        for (i = 0; i < 8; i++)
+        {
+            flag = r & 0x0001;
+            r = r >> 1;
+            if (flag == 1) r ^= 0xa001;
+        }
+    }
+    sprintf(crc, "%04X", r);
+    return r;
+}
+
+/*******************************************************************************
+子函数:  =  取出cp数据区的 起始和结束 时间
+CP=&&BeginTime=20040516010300,EndTime=20040516010900&&
+返0=没有时间,返1=只取得起始时间,返2=成功取得起始和结束时间
+为下面的2051 , 2061 , 2031命令服务, 取得要查询的时间段
+*******************************************************************************/
+char getsec(char no)
+{
+    auto char *p;
+    auto char tmp;
+
+    tmp = 0;
+    //取出起始时间放在 btm
+    p = strstr(cp, "BeginTime=");
+    if ((p != NULL) && (strlen(p) >= 24))
+    {
+        p += 12;
+        if (chk_time(p) == 6)
+        {
+            btm[no] = mktime(&rtc1);
+            tmp++;
+        }
+    }
+
+    //取出结束时间放在 etm
+    p = strstr(cp, "EndTime=");
+    if ((p != NULL) && (strlen(p) >= 22))
+    {
+        p += 10;
+        if (chk_time(p) == 6)
+        {
+            etm[no] = mktime(&rtc1);
+            if (etm[no] > SEC_TIMER)
+            {
+                etm[no] = SEC_TIMER;
+            }
+            tmp++;
+        }
+    }
+    return tmp;
+}
+
+/*******************************************************************************
+初始化协议栈相关变量
+i			服务器号
+txFlag	是否自动上传的标志，
+    0-不上传，1-自动上传实时数据，2-自动上传设备状态，3-都自动上传
+*******************************************************************************/
+void hjt212_init(char i, char log, char txFlag)
+{
+    login[i] = log;
+    cmd[i] = 0;
+    reportTime[i] = 0101;
+    tx_count[i] = reCount[i];        //初始化为不重发
+    real_flag[i] = txFlag;          //自动上传的标志
+    ack_flag[i] = 0;
+    err_flag[i] = 0;
+    waitSendPos[i] = 0;
+    sendOKflag[i] = 1;
+
+    btm[i] = SEC_TIMER;
+    etm[i] = SEC_TIMER;
+
+    reqTimeout[i] = SEC_TIMER;
+    heartBeat[i] = SEC_TIMER;
+    sec_alarm[i] = SEC_TIMER;
+    sec_rt_data[i] = 0L;
+    sec_rt_dev[i] = 0L;
+    sec_temp_info[i] = 0L;
+
+    memset(qn[i], 0x00, sizeof(qn[i]));
+    bz_rdP_start[i] = 0L;
+    bz_rdP_end[i] = 0L;
+}
+
+/***********************************************************/
+
+/*** BeginHeader */
+typedef enum {
+    HJ212_2005,
+    HJ212_2017
+}communocationProtocol_t;
+
+typedef enum {
+    HJ212_2005_NOT_SUBPACKAGE_NOT_ACK 	= 0,
+    HJ212_2005_NOT_SUBPACKAGE_NEED_ACK 	= 1,
+    HJ212_2005_NEED_SUBPACKAGE_NOT_ACK 	= 2,
+    HJ212_2005_NEED_SUBPACKAGE_NEED_ACK = 3,
+    HJ212_2017_NOT_SUBPACKAGE_NOT_ACK 	= 4,
+    HJ212_2017_NOT_SUBPACKAGE_NEED_ACK 	= 5,
+    HJ212_2017_NEED_SUBPACKAGE_NOT_ACK 	= 6,
+    HJ212_2017_NEED_SUBPACKAGE_NEED_ACK = 7
+}hj212_flag_t;
+/*** EndHeader */
+
+/*** BeginHeader getCommunicationProtocol*/
+unsigned getCommunicationProtocol(char no);
+/*** EndHeader */
+unsigned getCommunicationProtocol(char no)
+{
+    return warnTime[no];
+}
+
+/*** BeginHeader getPolcode*/
+char* getPolcode(char no, char index);
+/*** EndHeader */
+char* getPolcode(char no, char index)
+{
+    auto char *polcode;
+
+    if (index >= BOCON_NO_OF_POL / 2) " ";
+
+    if (getCommunicationProtocol(no) ==  HJ212_2017)
+    {
+        polcode = PolCode2017[index];
+    }
+    else
+    {
+        polcode = PolCode[index];
+    }
+    return polcode;
+}
+
+
+/*** BeginHeader getFlag*/
+char getFlag(char no);
+/*** EndHeader */
+char getFlag(char no)
+{
+    auto char flag;
+
+    if (PROTO_ACK_FLAG) //需要应答
+    {
+        if (getCommunicationProtocol(no) ==  HJ212_2017)
+        {
+            if (waitSendPos[no] && cmd[no] != 4003)
+            {
+                flag = HJ212_2017_NEED_SUBPACKAGE_NEED_ACK;
+            }
+            else
+            {
+                flag = HJ212_2017_NOT_SUBPACKAGE_NEED_ACK;
+            }
+        }
+        else
+        {
+            if (waitSendPos[no] && cmd[no] != 4003)
+            {
+                flag = HJ212_2005_NEED_SUBPACKAGE_NEED_ACK;
+            }
+            else
+            {
+                flag = HJ212_2005_NOT_SUBPACKAGE_NEED_ACK;
+            }
+        }
+    }
+    else
+    { //不需要应答
+        if (getCommunicationProtocol(no) ==  HJ212_2017)
+        {
+            if (waitSendPos[no] && cmd[no] != 4003)
+            {
+                flag = HJ212_2017_NEED_SUBPACKAGE_NOT_ACK;
+            }
+            else
+            {
+                flag = HJ212_2017_NOT_SUBPACKAGE_NOT_ACK;
+            }
+        }
+        else
+        {
+            if (waitSendPos[no] && cmd[no] != 4003)
+            {
+                flag = HJ212_2005_NEED_SUBPACKAGE_NOT_ACK;
+            }
+            else
+            {
+                flag = HJ212_2005_NOT_SUBPACKAGE_NOT_ACK;
+            }
+        }
+    }
+    return flag;
+}
+
+
+/*** BeginHeader codeChang*/
+int codeChang(char p);
+/*** EndHeader */
+int codeChang(char p)
+{
+    auto int code;
+
+    if (p == 5)
+    {
+        code = 18; //COD
+    }
+    else if (p == 1)
+    {
+        code = 1; //pH
+    }
+    else if (p == 11)
+    {
+        code = 13; //六价格
+    }
+    else if (p == 29)
+    {
+        code = 12;   //氨氮
+    }
+    else if (p == 16)
+    {
+        code = 14; //总铜
+    }
+    else if (p == 18)
+    {
+        code = 15; //总锰
+    }
+    else if (p == 15)
+    {
+        code = 16; //总镍
+    }
+    else if (p == 10)
+    {
+        code = 17;   //总铬
+    }
+    else if (p == 17)
+    {
+        code = 19;   //总锌
+    }
+    else code = p;
+    return code;
+}
+
+/*******************************************************************************
+函数功能：自动按照协议格式打包一个污染物的数据
+统一处理实时数据、历史数据、报警数据
+历史数据由调用函数先行准备在onemsg_rd中，实时数据和报警数据在Savech中
+no       服务器号
+ch       参数的通道号
+mode     0-历史数据
+     1-实时数据
+     2-实时报警数据
+     3-报警历史记录
+     4-设施运行时间日数据
+*******************************************************************************/
+/*** BeginHeader get_pol_packVoc*/
+void get_pol_packVoc(char no, char ch, char mode);
+/*** EndHeader */
+void get_pol_packVoc(char no, char ch, char mode) //总量是否上传，有些参数总量无意义
+{
+    auto unsigned char p;
+    auto char pIndex;
+
+    if (mode == 1)  //实时数据
+    {
+        p = Savech[ch].polIndex;
+        if (p == 0)
+        {
+            sprintf(pol_pack_buf, "%d=%.2f,%d=%.0f,",
+                    69, Savech[ch].val, 70, onemsg_wr.AI_Val[ch].Total);
+        }
+        else
+        {
+            pIndex = codeChang(p);
+            if (pIndex)
+            {
+                sprintf(pol_pack_buf, "%d=%.4f,",
+                        pIndex, Savech[ch].val);
+            }
+        }
+    }
+    pol_pack_len = strlen(pol_pack_buf);
+}
+
+/*** BeginHeader pack_rt_txVoc*/
+void pack_rt_txVoc(char no);
+/*** EndHeader */
+void pack_rt_txVoc(char no)
+{
+    auto char i;
+
+    tm_rd(&rtc1);
+    memset(deal_buf, 0x00, sizeof(deal_buf));
+    sprintf(deal_buf, "%06d,%02d%02d%02d,%02d%02d,",
+            devNo,
+            ((rtc1.tm_year + 1900) % 100), rtc1.tm_mon, rtc1.tm_mday,
+            rtc1.tm_hour, rtc1.tm_min);
+
+
+    for (i = waitSendPos[no]; i < ALLADCHANNELS; i++)
+    {
+        if ((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL / 2))
+        {
+            get_pol_packVoc(no, i, 1);
+            if ((strlen(deal_buf) + pol_pack_len) < (TCPGPRSBUF - 8))   //多个参数时需要分包处理
+            {
+                strcat(deal_buf, pol_pack_buf);
+                waitSendPos[no] = i + 1;   //记录已经打包了多少参数的数据，分包时从下一个开始
+            }
+            else break; //超过缓冲区长度，退出，不加这个参数
+        }
+    }
+    if (i == ALLADCHANNELS) waitSendPos[no] = 0;  //已打包所有参数，不需要准备第二个包
+                                                  //strcat(deal_buf, "\r\n");
+    tcp_tlen[no] = strlen(deal_buf);
+    deal_buf[(tcp_tlen[no] - 1)] = 0x0d;
+    deal_buf[tcp_tlen[no]] = 0x0a;
+    tcp_tlen[no] += 1;
+    root2xmem(tcp_tbuf[no], deal_buf, tcp_tlen[no]);
+}
+
+/*** BeginHeader getRTdataVoc*/
+void getRTdataVoc(char no);
+/*** EndHeader */
+void getRTdataVoc(char no)
+{
+    pack_rt_txVoc(no);
+}
+
+/*** BeginHeader chk_voc_cmd*/
+void chk_voc_cmd(char no);
+/*** EndHeader */
+void chk_voc_cmd(char no)
+{
+    auto int rc;
+    auto unsigned long realTm; //用于判断整时发送实时数据
+
+
+    if (rtdInterval[no] > 0) realTm = SEC_TIMER % rtdInterval[no];
+    else realTm = 0;
+
+    if (((real_flag[no] & 0x01)) && (SEC_TIMER >= (sec_rt_data[no] + 2)) &&
+        (realTm < 2))
+    {  //实时数据上传
+        sec_rt_data[no] = (SEC_TIMER / rtdInterval[no]) * rtdInterval[no];
+        getRTdataVoc(no);
+    }
+}
+
+
+
+/*** BeginHeader isNotSend*/
+int isNotSend(char no, char p);
+/*** EndHeader */
+int isNotSend(char no, char p)
+{
+    auto int status;
+
+    status = 0;
+    if (no == 0)
+    {
+        if (p == 25 || p == 26 || p == 27 || p == 28 || p == 80) status = 0;
+        else status = 1;
+    }
+    else if (no != 0 && (p == 25 || p == 26 || p == 27 || p == 28 || p == 80)) status = 1;
+
+    return status;
+}
+
+/*** BeginHeader getPolIndex*/
+char getPolIndex(char no, char p);
+/*** EndHeader */
+char getPolIndex(char no, char p)
+{
+    auto char polcode;
+
+    polcode = p;
+    if (no == 0 && p == 25) polcode = 0;         //雨水流量
+    else if (no == 0 && p == 26) polcode = 29;    //雨水氨氮
+    else if (no == 0 && p == 27) polcode = 1;     //雨水PH
+    else if (no == 0 && p == 28) polcode = 5;     //雨水COD
+    else if (no == 0 && p == 80) polcode = 9;     //雨水总镉
+
+    return polcode;
+}
+
+
+/*** BeginHeader CrcCheck_HalfTableLookUp*/
+unsigned int CrcCheck_HalfTableLookUp(unsigned char* pUserData, unsigned int iDataLen);
+/*** EndHeader */
+/*******************************************************************************
+河源地区监控平台
+CRC计算方法
+*******************************************************************************/
+unsigned int CrcCheck_HalfTableLookUp(unsigned char* pUserData, unsigned int iDataLen)
+{
+   auto unsigned int iRetVal;
+   auto unsigned char   cCrcTmpChar;      //CRC高位[临时变量]
+   auto unsigned int iCrcCode;
+   auto unsigned int iTmpInedx;
+
+   auto unsigned int Crc_Itu_HalfTable[16];
+   Crc_Itu_HalfTable[0] = 0x0000;
+   Crc_Itu_HalfTable[1] = 0x1021;
+   Crc_Itu_HalfTable[2] = 0x2042;
+   Crc_Itu_HalfTable[3] = 0x3063;
+   Crc_Itu_HalfTable[4] = 0x4084;
+   Crc_Itu_HalfTable[5] = 0x50a5;
+   Crc_Itu_HalfTable[6] = 0x60c6;
+   Crc_Itu_HalfTable[7] = 0x70e7;
+   Crc_Itu_HalfTable[8] = 0x8108;
+    Crc_Itu_HalfTable[9] = 0x9129;
+   Crc_Itu_HalfTable[10] = 0xa14a;
+   Crc_Itu_HalfTable[11] = 0xb16b;
+   Crc_Itu_HalfTable[12] = 0xc18c;
+   Crc_Itu_HalfTable[13] = 0xd1ad;
+   Crc_Itu_HalfTable[14] = 0xe1ce;
+   Crc_Itu_HalfTable[15] = 0xf1ef;
+
+   cCrcTmpChar = 0x00;     //CRC高位[临时变量]
+   iCrcCode = 0x00;
+   iTmpInedx = 0x00;
+
+   if((pUserData==0)||(iDataLen > 1024)) //MAX_USERDATA_LEN=1024
+   {
+      iRetVal = 0x00;
+      sprintf(crc, "%04X", iRetVal);
+      goto RETURN;
+   }
+
+   for(iTmpInedx = 0; iTmpInedx<iDataLen; iTmpInedx++)   //遍历所有的数据
+   {
+      cCrcTmpChar = ((unsigned char)(iCrcCode/256))/16;
+      iCrcCode <<= 4;
+      iCrcCode ^=Crc_Itu_HalfTable[cCrcTmpChar^(*pUserData/16)];
+      cCrcTmpChar = ((unsigned char)(iCrcCode/256)/16);
+      iCrcCode <<= 4;
+      iCrcCode ^=Crc_Itu_HalfTable[cCrcTmpChar^(*pUserData&0x0f)];
+      pUserData++;
+   }
+
+   iRetVal = iCrcCode;
+   sprintf(crc, "%04X", iRetVal);
+RETURN:
+   return iRetVal;
+}
+
+/*** BeginHeader getRtdData*/
+void getRtdData(char no, char flag);
+/*** EndHeader */
+void getRtdData(char no, char flag)
+{
+   getRecordByServer(no, flag, 6);
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

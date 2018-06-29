@@ -1,0 +1,101 @@
+
+/*** BeginHeader */
+#ifndef rd_1038_flux_FYCS_2000_lib
+#define rd_1038_flux_FYCS_2000_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_flux_FYCS_2000*/
+ int rd_flux_FYCS_2000( char port );
+/*** EndHeader */
+/************
+帆扬FYCS-2000系列超声波流量计
+MODBUS-ASCII格式
+发(:010300000002FA\r\n)		读瞬时流量
+返回(:0103043F9DD2F282\r\n)	(1.233)
+
+发(:010300080004F0\r\n)		读累计流量
+返回(:010308303030203E591687E1\r\n)  (20.212)
+****************/
+int rd_flux_FYCS_2000(char port)
+{
+	static status;
+	auto union uf ascii_f;
+	costate
+	{
+		status = 0;
+		modbusAsciiPacket(0x01, 0x03, 0x00, 0x02);
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 9) && (com_rbuf[0] == ':')
+			&& (com_rbuf[com_rlen-2] == '\r') && (com_rbuf[com_rlen-1] == '\n'))
+			{
+				ascii_f.ch[3] = (strhexToHex(com_rbuf[7])) << 4 | (strhexToHex(com_rbuf[8]));
+				ascii_f.ch[2] = (strhexToHex(com_rbuf[9])) << 4 | (strhexToHex(com_rbuf[10]));
+				ascii_f.ch[1] = (strhexToHex(com_rbuf[11])) << 4 | (strhexToHex(com_rbuf[12]));
+				ascii_f.ch[0] = (strhexToHex(com_rbuf[13])) << 4 | (strhexToHex(com_rbuf[14]));
+				com_f[0] = ascii_f.f;			//瞬时流量
+
+				modbusAsciiPacket(0x01, 0x03, 0x08, 0x04);
+				com_write(port);
+				waitfor(DelayMs(1000));
+
+				memset(com_rbuf, 0x00, sizeof(com_rbuf));
+				com_read(port);
+				if((com_rlen >= 12) && (com_rbuf[0] == ':')
+					&& (com_rbuf[com_rlen-2] == '\r') && (com_rbuf[com_rlen-1] == '\n'))
+					{
+						ascii_f.ch[3] = (strhexToHex(com_rbuf[15])) << 4 | (strhexToHex(com_rbuf[16]));
+						ascii_f.ch[2] = (strhexToHex(com_rbuf[17])) << 4 | (strhexToHex(com_rbuf[18]));
+						ascii_f.ch[1] = (strhexToHex(com_rbuf[19])) << 4 | (strhexToHex(com_rbuf[20]));
+						ascii_f.ch[0] = (strhexToHex(com_rbuf[21])) << 4 | (strhexToHex(com_rbuf[22]));
+						com_f[1] = ascii_f.f;		//累计流量小数部分
+
+						ascii_f.ch[3] = (strhexToHex(com_rbuf[7])) << 4 | (strhexToHex(com_rbuf[8]));
+						ascii_f.ch[2] = (strhexToHex(com_rbuf[9])) << 4 | (strhexToHex(com_rbuf[10]));
+						ascii_f.ch[1] = (strhexToHex(com_rbuf[11])) << 4 | (strhexToHex(com_rbuf[12]));
+						ascii_f.ch[0] = (strhexToHex(com_rbuf[13])) << 4 | (strhexToHex(com_rbuf[14]));
+						com_f[1] += (float)ascii_f.l;	//累计流量整数部分
+
+						status = 1;
+					}
+			}
+			else
+			{
+				com_f[0] = 0.0;
+				com_f[1] = 0.0;
+				status = 2;
+
+			}
+			com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

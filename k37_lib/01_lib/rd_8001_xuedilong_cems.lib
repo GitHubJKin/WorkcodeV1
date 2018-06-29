@@ -1,0 +1,108 @@
+
+/*** BeginHeader */
+#ifndef rd_8001_xuedilong_cems_lib
+#define rd_8001_xuedilong_cems_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+北京雪地龙自动控制系统有限公司__二氧化硫                     //8001---OK
+9600 N 8 1
+0x02 0x47 烟道号(1#为0x00,2#为0x01)  校验码(0x47+烟道号:char型)  0x03
+0x02 0x47 0x00  0x47  0x03
+0x02 0x44 烟道号(1#为0x00,2#为0x01).....固定66个字节
+
+[03-06] 温度
+[07-10] 压力
+[11-14] 含湿量
+[15-18] 氧气
+[19-22] 流量
+[23-26] 烟尘      [27-30]是折算值
+[31-34] 粉尘      [35-38]是折算值
+[39-42] CO        [43-46]是折算值
+[47-50] SO2       [51-54]是折算值
+[55-58] 氮氧化物  [59-62]是折算值
+[63]    错误代码
+*******************************************************************************/
+/*** BeginHeader rd_xuedilong_cems */
+int rd_xuedilong_cems( char port );
+/*** EndHeader */
+int rd_xuedilong_cems( char port )
+{
+   static int status;
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = 0x02;
+      com_tbuf[1] = 0x47;
+      com_tbuf[2] = 0x00;//0x00为1#
+      com_tbuf[3] = 0x47;
+      com_tbuf[4] = 0x03;
+      com_tlen = 5;
+      com_write(port);
+      waitfor(DelaySec(XUEDILONG_WAIT_SEC));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 66)
+      {
+         if(com_rbuf[0]==0x02 && com_rbuf[1]==0x44 && com_rbuf[63]==0x00 && com_rbuf[65]==0x03)
+            //&& chksum(&(com_rbuf[1]), 63)==com_rbuf[64])
+         {
+            com_f[0] = *( (float *)(&(com_rbuf[3])) );   //温度
+            com_f[1] = *( (float *)(&(com_rbuf[7])) );   //压力
+            com_f[2] = *( (float *)(&(com_rbuf[11])) );  //湿度
+            com_f[3] = *( (float *)(&(com_rbuf[15])) );  //氧气
+            com_f[4] = *( (float *)(&(com_rbuf[19])) );  //烟气流速
+            com_f[5] = *( (float *)(&(com_rbuf[23])) );  //烟尘浓度
+            com_f[6] = *( (float *)(&(com_rbuf[27])) );  //烟尘浓度折算值
+            com_f[7] = *( (float *)(&(com_rbuf[31])) );  //粉尘
+            com_f[8] = *( (float *)(&(com_rbuf[35])) );  //粉尘折算值
+            com_f[9] = *( (float *)(&(com_rbuf[39])) );  //CO
+            com_f[10] = *( (float *)(&(com_rbuf[43])) ); //CO折算值
+            com_f[11] = *( (float *)(&(com_rbuf[47])) ); //SO2
+            com_f[12] = *( (float *)(&(com_rbuf[51])) ); //SO2折算值
+            com_f[13] = *( (float *)(&(com_rbuf[55])) ); //氮氧化物
+            com_f[14] = *( (float *)(&(com_rbuf[59])) ); //氮氧化物折算值
+
+            com_sec = read_rtc();                        //采样时间
+            if(com_rbuf[63] == 0) status = 1;            //错误代码，0为正常
+            else status = 2;
+         }
+      }
+      if(status == 0)
+      {
+         status = 2;
+         memset(com_f, 0x00, sizeof(com_f));
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+

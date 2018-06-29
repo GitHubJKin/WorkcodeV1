@@ -1,0 +1,99 @@
+/*** BeginHeader */
+#ifndef BOCON_REBOOT_LIB
+#define BOCON_REBOOT_LIB
+/*** EndHeader */
+
+/*** BeginHeader */
+#define TIMERB_VAL	921	//2000Hz
+
+unsigned long reboot_timeout;   //用于记录什么时候更新过这变量
+int TimerBvalue;
+/*** EndHeader */
+
+/*** BeginHeader timerb_isr*/
+nodebug root interrupt void timerb_isr(void);
+/*** EndHeader */
+nodebug root interrupt void timerb_isr(void)
+{
+#asm
+	push af
+	push hl
+	push de
+	ioi ld a, (TBCSR)
+; calculate next match register value
+	ld hl, (TimerBvalue)
+	ld de, TIMERB_VAL
+	add hl, de
+	ld (TimerBvalue), hl
+; load new values into match registers
+	ld a, h
+	rra
+	rra
+	rra
+	ioi ld (TBM1R), a
+	ld a, l
+	ioi ld (TBL1R), a
+
+	pop de
+	pop hl
+	pop af
+//	ipres
+#endasm
+
+	if(SEC_TIMER > reboot_timeout + 300)
+   {
+   	printf("%ld\r\n", reboot_timeout);
+      reboot_timeout = SEC_TIMER;
+      forceSoftReset();
+   }
+}
+
+/*** BeginHeader init_reboot*/
+void init_reboot(void);
+/*** EndHeader */
+void init_reboot(void)
+{
+	reboot_timeout = SEC_TIMER;
+//Setup TimerB INT
+	SetVectIntern(0x0B, timerb_isr);	   // set up ISR
+	WrPortI(TBCR, &TBCRShadow, 0x09);	//clock timer B with (perclk/2) and
+													//set interrupt level to 1
+	WrPortI(TBM1R, NULL, 0x40);			//TimerB value Hi
+	WrPortI(TBL1R, NULL, 0x00);			//TimerB value Low
+   #if CONFIG_IN_FLASH != 0            //为了在使用下载线调试时方便，不启动定时器，
+	WrPortI(TBCSR, &TBCSRShadow, 0x03);	//enable timer B and B1 match interrupts
+   #endif
+
+}
+
+/*** BeginHeader enable_reboot_interrupt*/
+void enable_reboot_interrupt(void);
+/*** EndHeader */
+void enable_reboot_interrupt(void)
+{
+   #if CONFIG_IN_FLASH != 0
+	WrPortI(TBCSR, &TBCSRShadow, 0x03);	//enable timer B and B1 match interrupts
+   #endif
+}
+
+/*** BeginHeader disable_reboot_interrupt*/
+void disable_reboot_interrupt(void);
+/*** EndHeader */
+void disable_reboot_interrupt(void)
+{
+	WrPortI(TBCSR, &TBCSRShadow, 0x00);	//disenable timer B and B1 match interrupts
+}
+
+/*** BeginHeader reboot_task*/
+void reboot_task(void);
+/*** EndHeader */
+void reboot_task(void)
+{
+	reboot_timeout = SEC_TIMER;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

@@ -1,0 +1,61 @@
+/*** BeginHeader */
+#ifndef rd_2009_cod_huanke_lib
+#define rd_2009_cod_huanke_lib
+/*** EndHeader */
+
+/*******************************************************
+北京环科环保技术公司  HBCOD-1型COD                          //2009
+浮点数格式
+*#GET
+*  #  20 01 10 01 02 03 00 00 4c 42
+2001年10月1日2时3分COD为51.0mg/L
+*******************************************************/
+/*** BeginHeader rd_cod_huanke */
+int rd_cod_huanke( char port );
+/*** EndHeader */
+int rd_cod_huanke( char port )
+{
+   static int status;
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "*#GET");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 12)&&(com_rbuf[0]=='*')&&(com_rbuf[1]=='#'))
+      {
+         //com_rbuf[2]是年的高两位,丢掉(时间都是压缩BCD码)
+         comTime.tm_year = (com_rbuf[3]>>4)*10 + (com_rbuf[3]&0x0f);
+         comTime.tm_mon = (com_rbuf[4]>>4)*10 + (com_rbuf[4]&0x0f);
+         comTime.tm_mday = (com_rbuf[5]>>4)*10 + (com_rbuf[5]&0x0f);
+         comTime.tm_hour = (com_rbuf[6]>>4)*10 + (com_rbuf[6]&0x0f);
+         comTime.tm_min = (com_rbuf[7]>>4)*10 + (com_rbuf[7]&0x0f);
+         comTime.tm_sec = 0;
+         com_sec = mktime(&comTime);         //时间
+
+         com_f[0] = *((float *)(&com_rbuf[8]));//即时值
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2009  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

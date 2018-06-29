@@ -1,0 +1,184 @@
+
+/*** BeginHeader */
+#ifndef rd_2014_cod_yuxing_lib
+#define rd_2014_cod_yuxing_lib
+/*** EndHeader */
+
+
+/*******************************************************
+宇星COD
+命令：%C29A\r
+返回：%C2yC031921510001350075
+*******************************************************/
+/*** BeginHeader rd_cod_yuxing */
+int rd_cod_yuxing(char port, Rate rate);
+/*** EndHeader */
+int rd_cod_yuxing(char port, Rate rate)
+{
+    static int status;
+    auto struct tm comTime;
+    auto char str[12];
+    auto char tmpc[5];
+
+    costate
+    {
+	status = 0;
+	memset(com_tbuf, 0x00, sizeof(com_tbuf));
+	strcpy(com_tbuf, "%C29A\r");
+	com_tlen = strlen(com_tbuf);
+	com_write(port);
+	waitfor(DelayMs(1000));
+
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+	if ((com_rlen >= 0) && (com_rbuf[0] == '%') && (com_rbuf[com_rlen - 1] == 0x0d))
+	{
+	    memset(str, 0x00, sizeof(str));
+	    strncpy(str, &com_rbuf[15], 6);
+	    com_f[0] = atof(str);
+
+	    switch (rate)
+	    {
+	    case RATE_10:
+		com_f[0] *= 10;
+		break;
+	    case RATE_100:
+		com_f[0] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[0] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[0] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[0] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[0] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[0] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[0] /= 10000;
+		break;
+	    default:
+		break;
+	    }
+
+
+	    mktm(&comTime, SEC_TIMER);
+	    memset(tmpc, 0x00, sizeof(tmpc));
+	    tmpc[0] = com_rbuf[5];
+	    tmpc[1] = com_rbuf[6];
+	    comTime.tm_mon  = atoi(tmpc); //月
+	    memset(tmpc, 0x00, sizeof(tmpc));
+	    tmpc[0] = com_rbuf[7];
+	    tmpc[1] = com_rbuf[8];
+	    comTime.tm_mday = atoi(tmpc); //日
+	    memset(tmpc, 0x00, sizeof(tmpc));
+	    tmpc[0] = com_rbuf[9];
+	    tmpc[1] = com_rbuf[10];
+	    comTime.tm_hour = atoi(tmpc); //时
+	    memset(tmpc, 0x00, sizeof(tmpc));
+	    tmpc[0] = com_rbuf[11];
+	    tmpc[1] = com_rbuf[12];
+	    comTime.tm_min  = atoi(tmpc); //分
+					  //memset(tmpc, 0x00, sizeof(tmpc));
+					  //tmpc[0] = com_rbuf[13];
+					  //tmpc[1] = com_rbuf[14];
+	    comTime.tm_sec  = 0; //秒
+
+	    com_sec = mktime(&comTime); //时间
+	    status = 1;
+	}
+	else
+	{
+	    status = 2;
+	    com_f[0] = 0.0;
+	    com_sec = read_rtc();
+	}
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+//温度压力流速一体化变送器 宇星科技
+//>modi Infor\r\n
+//>modi Infor#23-012345.88#\r\n
+/*** BeginHeader rd_yuxing_wendu_yali_liusu */
+int rd_yuxing_wendu_yali_liusu(char port);
+/*** EndHeader */
+int rd_yuxing_wendu_yali_liusu(char port)
+{
+    static int status;
+    auto char *point;
+    auto char buffer[10];
+    costate
+    {
+	status = 0;
+	memset(com_tbuf, 0x00, sizeof(com_tbuf));
+	strcpy(com_tbuf, ">modi Infor\r\n");
+	com_tlen = strlen(com_tbuf);
+	com_write(port);
+	waitfor(DelayMs(1000));
+	com_read(port);
+	if ((com_rlen >= 10) && (com_rbuf[0] == '>') && (strstr(com_rbuf, "modi") != NULL))
+	{
+	    point = strchr(com_rbuf, '#') ;
+	    if (point != NULL)
+	    {
+		com_f[0] = atof(point + 1);
+		strncpy(buffer, point + 3, 5);
+		com_f[1] = atof(buffer);
+		com_f[2] = atof(point + 8);
+		status = 1;
+	    }
+	    else
+	    {
+		com_f[0] = 0.0;
+		com_f[1] = 0.0;
+		com_f[2] = 0.0;
+		status = 2;
+	    }
+	}
+	else
+	{
+	    com_f[0] = 0.0;
+	    com_f[1] = 0.0;
+	    com_f[2] = 0.0;
+	    status = 2;
+	}
+    }
+    return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

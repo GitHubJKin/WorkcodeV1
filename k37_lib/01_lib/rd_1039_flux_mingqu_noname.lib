@@ -1,0 +1,74 @@
+
+/*** BeginHeader */
+#ifndef rd_1039_flux_mingqu_noname_lib
+#define rd_1039_flux_mingqu_noname_lib
+/*** EndHeader */
+
+
+/****************************************
+不知名超声波明渠流量计
+modbus-rtu协议，地址默认01。
+发：01030002000265CB(十六进制)
+收：010304406449BA180F(十六进制)  (3.567)
+****************************************/
+/*** BeginHeader rd_flux_mingqu_noname*/
+ int rd_flux_mingqu_noname( char port );
+/*** EndHeader */
+ int rd_flux_mingqu_noname( char port )
+ {
+	 static int status;
+	 auto union uf f;
+	 costate
+	 {
+		 status = 0;
+
+		 pack_modbus_cmd(0x01, 0x03, 0x02, 0x02);
+		 com_write(port);
+		 waitfor(DelayMs(1000));
+
+		 memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		 com_read(port);
+		 if((com_rlen >= 8) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+		 {
+			f.ch[3] = com_rbuf[3];
+			f.ch[2] = com_rbuf[4];
+			f.ch[1] = com_rbuf[5];
+			f.ch[0] = com_rbuf[6];
+			com_f[0] =  f.f;			//瞬时流量
+
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+	 }
+	 return status;
+ }
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

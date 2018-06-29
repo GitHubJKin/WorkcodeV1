@@ -1,0 +1,59 @@
+
+/*** BeginHeader */
+#ifndef rd_2035_cod_houtian_lib
+#define rd_2035_cod_houtian_lib
+/*** EndHeader */
+
+
+/************************************
+厚天协议
+发送:
+:010300000002FA<CR><LF> 
+接收:
+:0103044136000081<CR><LF>
+************************************/
+/*** BeginHeader rd_cod_modbusascii */
+int rd_cod_modbusascii( char port,char addr );
+/*** EndHeader */
+int rd_cod_modbusascii( char port,char addr )
+{
+	static int status;
+   auto union uf data;
+   auto char buf[3];
+   auto crc;
+
+   costate
+   {
+   	status = 0;
+      memset(com_tbuf,0x00,sizeof(com_tbuf));
+      modbusAsciiPacket(addr,0x03,0x00,0x02);
+      com_write(port);
+      waitfor(DelaySec(1));
+
+      memset(com_rbuf,0x00,sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 18 && com_rbuf[0] == ':' && com_rbuf[com_rlen-1] == 0x0a && strhexTohex(com_rbuf[2]) == addr)
+      {
+      	data.ch[0] = strhexTohex(com_rbuf[13])*0x10;
+         data.ch[0] = data.ch[0] + strhexTohex(com_rbuf[14]);
+         data.ch[1] = strhexTohex(com_rbuf[11])*0x10 + strhexTohex(com_rbuf[12]);
+         data.ch[2] = strhexTohex(com_rbuf[9])*0x10 + strhexTohex(com_rbuf[10]);
+         data.ch[3] = strhexTohex(com_rbuf[7])*0x10 + strhexTohex(com_rbuf[8]);
+
+         com_f[0] = data.f;
+         status = 1;
+      }
+      else
+      {
+      	com_f[0] = 0.0;
+         status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

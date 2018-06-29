@@ -1,0 +1,356 @@
+
+/*** BeginHeader */
+#ifndef rd_8004_bocon_cems_lib
+#define rd_8004_bocon_cems_lib
+/*** EndHeader */
+
+
+
+
+
+/*** BeginHeader rd_bocon_cems */
+int rd_bocon_cems( char port );
+/*** EndHeader */
+int rd_bocon_cems( char port )
+{
+   static int status;
+   auto char *p1, *p2;
+   auto char str[12];
+   auto char dataMessage[32];
+   auto int dataCount;
+   auto int i;
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      sprintf(com_tbuf, "STX,READ DATA,ETX");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      printf("%s \n", com_tbuf);
+      waitfor(DelaySec(1));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 6) && (strncmp(com_rbuf, "STX,", 4) == 0) &&
+         (strstr(&com_rbuf[7], ",ETX") != NULL))
+      {
+         printf(" \n");
+         for (i=0; i<com_rlen; i++)
+         {
+            printf("%c", com_rbuf[i]);
+         }
+         p1 = strchr(&com_rbuf[4], ',');
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[4], (int)(p1 - &com_rbuf[4]));
+         dataCount = atoi(str);
+         p1 += 16;
+         printf("%d \n", dataCount);
+         while(dataCount--)
+         {
+            if(strncmp(p1, "ZB4", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[0] = atof(str);
+                     com_f1[0] = com_f[0];
+                     printf("%f \n", com_f[0]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZB0", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[1] = atof(str);
+                     com_f1[1] = com_f[1];
+                     printf("%f \n", com_f[1]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD1", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[2] = atof(str);
+                     com_f1[2] = com_f[2];
+                     printf("%f \n", com_f[2]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZB1", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[3] = atof(str);
+                     com_f1[3] = com_f[3];
+                     printf("%f \n", com_f[3]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZA9", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[4] = atof(str);
+                     com_f1[4] = com_f[4];
+                     printf("%f \n", com_f[4]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZB2", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[5] = atof(str);
+                     com_f1[5] = com_f[5];
+                     printf("%f \n", com_f[5]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZB3", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[6] = atof(str);
+                     com_f1[6] = com_f[6];
+                     printf("%f \n", com_f[6]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD7", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[7] = atof(str);
+                     com_f1[7] = com_f[7];
+                     printf("%f \n", com_f[7]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD8", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[8] = atof(str);
+                     com_f1[8] = com_f[8];
+                     printf("%f \n", com_f[8]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD9", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[9] = atof(str);
+                     com_f1[9] = com_f[9];
+                     printf("%f \n", com_f[9]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD3", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[10] = atof(str);
+                     com_f1[10] = com_f[10];
+                     printf("%f \n", com_f[10]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD4", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[11] = atof(str);
+                     com_f1[11] = com_f[11];
+                     printf("%f \n", com_f[11]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD5", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[12] = atof(str);
+                     com_f1[12] = com_f[12];
+                     printf("%f \n", com_f[12]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZD6", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[13] = atof(str);
+                     com_f1[13] = com_f[13];
+                     printf("%f \n", com_f[13]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+            else if(strncmp(p1, "ZB6", 3) == 0)
+            {
+               p1 += 4;
+               if(p1 != NULL)
+               {
+                  p2 = strchr(p1, ',');
+                  if(p2 != NULL)
+                  {
+                     memset(str, 0x00, sizeof(str));
+                     strncpy(str, p1, (int)(p2 - p1));
+                     com_f[14] = atof(str);
+                     com_f1[14] = com_f[14];
+                     printf("%f \n", com_f[14]);
+                     p1 = p2 + 1;
+                  }
+               }
+            }
+         }
+         com_sec = read_rtc();                        //采样时间
+         status = 1;
+         count = 0;
+      }
+      if(status == 0)
+      {
+         count++;
+         if(count > 10)
+         {
+            count = 0;
+            status = 2;
+            memset(com_f, 0x00, sizeof(com_f));
+            memset(com_f1, 0x00, sizeof(com_f1));
+         }
+         else
+         {
+            status = 1;
+            for (i = 0; i < 15; i++)
+            {
+               com_f[i] = com_f1[i];
+            }
+         }
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+

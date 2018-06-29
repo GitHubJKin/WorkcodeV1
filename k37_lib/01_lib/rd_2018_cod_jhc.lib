@@ -1,0 +1,198 @@
+/*** BeginHeader */
+#ifndef rd_2018_cod_jhc_lib
+#define rd_2018_cod_jhc_lib
+/*** EndHeader */
+
+/*******************************************************
+厂家名称：河南乾正环保设备有限公司
+JHC型COD通讯协议
+发送取数指令：51 FF FF FF FF FF FF 51
+返回：07 07 18 0D 17 38 00 00 70 42 35
+*******************************************************/
+/*** BeginHeader rd_cod_jhc */
+int rd_cod_jhc(char port, Rate rate);
+/*** EndHeader */
+int rd_cod_jhc(char port, Rate rate)
+{
+    static int status;
+    auto union uf data;
+    auto struct tm time;
+
+    costate
+    {
+	status = 0;
+	memset(com_tbuf, 0x00, sizeof(com_tbuf));
+	com_tbuf[0] = 0x51;
+	com_tbuf[1] = 0xff;
+	com_tbuf[2] = 0xff;
+	com_tbuf[3] = 0xff;
+	com_tbuf[4] = 0xff;
+	com_tbuf[5] = 0xff;
+	com_tbuf[6] = 0xff;
+	com_tbuf[7] = 0x51;
+	com_tlen = 8;
+	com_write(port);
+	waitfor(DelayMs(1000));
+
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+	if (com_rlen >= 11)
+	{
+	    time.tm_year = com_rbuf[0] + 100;
+	    time.tm_mon  = com_rbuf[1];
+	    time.tm_mday = com_rbuf[2];
+	    time.tm_hour = com_rbuf[3];
+	    time.tm_min  = com_rbuf[4];
+	    time.tm_sec  = com_rbuf[5];
+	    com_sec = mktime(&time);
+#ifdef DEBUG_PRINTF
+	    printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+		   time.tm_year + 1900, time.tm_mon, time.tm_mday, time.tm_hour, time.tm_min, time.tm_sec);
+#endif
+
+	    data.ch[0] = com_rbuf[6];
+	    data.ch[1] = com_rbuf[7];
+	    data.ch[2] = com_rbuf[8];
+	    data.ch[3] = com_rbuf[9];
+	    com_f[0] = data.f; 
+	    switch (rate)
+	    {
+	    case RATE_10:
+		com_f[0] *= 10;
+		break;
+	    case RATE_100:
+		com_f[0] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[0] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[0] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[0] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[0] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[0] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[0] /= 10000;
+		break;
+	    default:
+		break;
+	    }
+
+	    if (com_f[0] < 0.0 || com_f[0] > 1000.0)
+	    {
+		status = 2;
+		com_f[0] = 0.0;
+	    }
+	    else
+	    {
+		status = 1;
+	    }
+	}
+	else
+	{
+	    status = 2;
+	    com_f[0] = 0.0;
+	    com_sec = read_rtc();
+	}
+    }
+    return status;
+}
+//  厂家名称：河南乾正环保设备有限公司  
+//  设备型号:六价铬设备型号     QZ30   
+//  设备型号:镍离子设备型号     QZ60
+// 02 06 00 01 00 01 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 03
+// 02 06 03 00 12 00 09 00 05 00 15 00 30 00 FF 00 2A D8 FF FF 0D 00 FF FF 0D 00 FF FF 02 00 03
+/*** BeginHeader rd_liujiage_neilizi_jhc*/
+int rd_liujiage_neilizi_jhc(char port, Rate rate);
+/*** EndHeader */
+int rd_liujiage_neilizi_jhc(char port, Rate rate)
+{
+    static int status;
+    auto union uf f;
+    auto CHARTOINTTY val16;
+    auto struct tm time;
+
+    costate
+    {
+	status = 0;
+	memset(com_tbuf, 0xff, 31);
+	com_tbuf[0] = 0x02;
+	com_tbuf[1] = 0x06;
+	com_tbuf[2] = 0x00;
+	com_tbuf[3] = 0x01;
+	com_tbuf[4] = 0x00;
+	com_tbuf[5] = 0x01;
+	com_tbuf[30] = 0x03;
+	com_tlen = 31;
+	com_write(port);
+	waitfor(DelayMs(1000));
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+	if (com_rlen >= 31 && com_rbuf[0] == 0x02 && com_rbuf[com_rlen - 1] == 0x03)
+	{
+	    time.tm_year = hex2dec(com_rbuf[4]) + 100;
+	    time.tm_mon  = hex2dec(com_rbuf[6]);
+	    time.tm_mday = hex2dec(com_rbuf[8]);
+	    time.tm_hour = hex2dec(com_rbuf[10]);
+	    time.tm_min  = hex2dec(com_rbuf[12]);
+	    time.tm_sec  = 0;
+
+	    printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+		   time.tm_year + 1900, time.tm_mon, time.tm_mday, time.tm_hour, time.tm_min, time.tm_sec);
+
+	    com_sec = mktime(&time);
+
+	    val16.c[1] = com_rbuf[16]; 
+	    val16.c[0] = com_rbuf[17];
+	    com_f[0] = (float)val16.i; 
+	    switch (rate)
+	    {
+	    case RATE_10:
+		com_f[0] *= 10;
+		break;
+	    case RATE_100:
+		com_f[0] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[0] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[0] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[0] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[0] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[0] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[0] /= 10000;
+		break;
+	    default:
+		break;
+	    }
+	    status = 1;
+	}
+	else
+	{
+	    com_sec = read_rtc();
+	    com_f[0] = 0.0;
+	    status = 2;
+	}
+    }
+    return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

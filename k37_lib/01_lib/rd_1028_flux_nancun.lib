@@ -1,0 +1,227 @@
+
+/*** BeginHeader */
+#ifndef rd_1028_flux_nancun_lib
+#define rd_1028_flux_nancun_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+番禺南村污水厂流量计流量计  ASCII-9600,N,8,1	         -1028
+*******************************************************************************/
+/*** BeginHeader rd_flux_nancun */
+int rd_flux_nancun( char port );
+/*** EndHeader */
+int rd_flux_nancun( char port )
+{
+	static int status;
+	auto char buf[256];
+	static int len;
+	auto char *point;
+	auto char *point1;
+	auto int i;
+	costate
+	{
+		status = 0;
+
+		waitfor(DelaySec(1));
+		memset(buf, 0x00, sizeof(buf));
+		len=0;
+		while(1)
+		{
+			memset(com_rbuf, 0x00, sizeof(com_rbuf));
+			com_read(port);
+			if(com_rlen > 0)
+			{
+				if((len + com_rlen) >= 256) break;
+				memcpy(&buf[len], com_rbuf,com_rlen);
+				len += com_rlen;
+			}
+			else break;
+		}
+		if(len > 0)//接收到数据
+		{
+         com_rdFlush(port);
+   		com_wrFlush(port);
+			if((strstr(buf,"Read 1>") != NULL) || (strstr(buf,"Login") != NULL))//设备登录
+			{
+				com_tbuf[0] = 0x31;
+				com_tbuf[1] = 0x0D;
+				com_tlen  = 2;
+				com_write(port);  
+            status = 2;
+			}
+			else if(((point = strstr(buf,"1>")) != NULL) &&
+				     ((point1 = strstr(buf, "5>")) != NULL))//既有瞬时流量又有累计流量
+			{
+				point += 2;
+				com_f[0] = ((atof(point)) / 3.6);
+				old_com_f[0] = com_f[0];
+
+				point1 += 2;
+				com_f[1] = atof(point1);
+				old_com_f[1] = com_f[1];
+			}
+			else if((point = strstr(buf, "1>")) != NULL)//瞬时流量
+			{
+				point += 2;
+				com_f[0] = ((atof(point)) / 3.6);
+				old_com_f[0] = com_f[0];
+            com_f[1] = old_com_f[1];
+			}
+			else if((point = strstr(buf, "5>")) != NULL)//累计流量
+			{
+			   point += 2;
+			   com_f[1] = atof(point);
+			   old_com_f[1] = com_f[1];
+            com_f[0] = old_com_f[0];
+			}
+			else  //收到数据,但不是以上类型,则显示上一次保存的数据
+			{
+				com_tbuf[0] = 0x0D;
+				com_tlen  = 1;
+				com_write(port);
+            status = 2;
+				/*for(i=0; i<20; i++)
+				{
+					com_f[i] = old_com_f[i];//如果没收到数据,保存150次读取到的数据
+				} */
+			}
+			if((com_f[1]<0)||(com_f[0]<0))
+					status = 2;
+			deviceStatus = 0;
+			if(!status)status = 1;
+			
+			if(com_f[0] > 10000)	//限制范围，防止数据错乱
+				com_f[0] = 10000;
+		}
+		else    //没接收到数据
+		{
+         com_tbuf[0] = 0x0D;
+			com_tlen  = 1;
+			com_write(port);
+			/*if(deviceStatus < 150)
+			{
+				for(i=0; i<20; i++)
+				{
+					com_f[i] = old_com_f[i];//如果没收到数据,保存150次读取到的数据
+					status = 1;
+				}
+				deviceStatus ++;
+			}
+			else
+			{ */
+				status = 2;   //保存了150次之后,还读不到数据则返回错误
+			//}
+		}
+		com_sec = read_rtc();
+	}
+
+   if(status)
+   printf("%f %f %d\r\n", com_f[0], com_f[1], status);
+
+	return status;
+}
+/*{
+	static int status;
+	auto char buf[256];
+	static int len;
+	auto char *point;
+	auto char *point1;
+	auto int i;
+	costate
+	{
+		status = 0;
+
+		waitfor(DelaySec(1));
+		memset(buf, 0x00, sizeof(buf));
+		len=0;
+		while(1)
+		{
+			memset(com_rbuf, 0x00, sizeof(com_rbuf));
+			com_read(port);
+			if(com_rlen > 0)
+			{
+				if((len + com_rlen) >= 256) break;
+				memcpy(&buf[len], com_rbuf,com_rlen);
+				len += com_rlen;
+			}
+			else break;
+		}
+		if(len > 0)//接收到数据
+		{
+			if((strstr(buf,"Read 1>") != NULL) || (strstr(buf,"Login") != NULL))//设备登录
+			{
+				com_tbuf[0] = 0x31;
+				com_tbuf[1] = 0x0D;
+				com_tlen  = 2;
+				com_write(port);
+			}
+			else if(((point = strstr(buf,"1>")) != NULL) &&
+				     ((point1 = strstr(buf, "5>")) != NULL))//既有瞬时流量又有累计流量
+			{
+				point += 2;
+				com_f[0] = ((atof(point)) / 3.6);
+				old_com_f[0] = com_f[0];
+
+				point1 += 2;
+				com_f[1] = atof(point1);
+				old_com_f[1] = com_f[1];
+			}
+			else if((point = strstr(buf, "1>")) != NULL)//瞬时流量
+			{
+				point += 2;
+				com_f[0] = ((atof(point)) / 3.6);
+				old_com_f[0] = com_f[0];
+			}
+			else if((point = strstr(buf, "5>")) != NULL)//累计流量
+			{
+			   point += 2;
+			   com_f[1] = atof(point);
+			   old_com_f[1] = com_f[1];
+			}
+			else  //收到数据,但不是以上类型,则显示上一次保存的数据
+			{
+				for(i=0; i<20; i++)
+				{
+					com_f[i] = old_com_f[i];//如果没收到数据,保存150次读取到的数据
+				}
+			}
+
+			deviceStatus = 0;
+			status = 1;
+		}
+		else    //没接收到数据
+		{
+			if(deviceStatus < 150)
+			{
+				for(i=0; i<20; i++)
+				{
+					com_f[i] = old_com_f[i];//如果没收到数据,保存150次读取到的数据
+					status = 1;
+				}
+				deviceStatus ++;
+			}
+			else
+			{
+				status = 2;   //保存了150次之后,还读不到数据则返回错误
+			}
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}   */
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+

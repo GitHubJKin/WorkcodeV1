@@ -1,0 +1,76 @@
+
+/*** BeginHeader */
+#ifndef rd_2013_cod_ruiquan_lib
+#define rd_2013_cod_ruiquan_lib
+/*** EndHeader */
+
+
+
+/*******************************************************
+南京锐泉环保技术有限公司  RenQ-IV型COD在线分析仪通信协议         //2013
+命令：'R'
+*******************************************************/
+/*** BeginHeader rd_cod_ruiquan */
+int rd_cod_ruiquan( char port );
+/*** EndHeader */
+int rd_cod_ruiquan( char port )
+{
+   static int status;
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      com_tbuf[0] = 'R';
+      com_tlen = 1;
+      com_write(port);
+      waitfor(DelayMs(4000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 9)&&(com_rbuf[0]==0x55)&&(com_rbuf[1]==0x55)&&
+         (com_rbuf[com_rlen-1]==0x55)&&(com_rbuf[com_rlen-2]==0x55))
+      {
+         com_f[0] = *((float *)(&com_rbuf[5]));//即时值
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+            com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

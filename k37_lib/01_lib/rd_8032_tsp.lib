@@ -1,0 +1,61 @@
+/*** BeginHeader */
+#ifndef rd_8032_tsp_lib
+#define rd_8032_tsp_lib
+
+/*** EndHeader */
+
+/*** BeginHeader rd_tsp_ningxia*/
+int rd_tsp_ningxia( char port );
+/*** EndHeader */
+int rd_tsp_ningxia( char port )
+{
+	static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto char *p;
+
+   costate
+   {
+   	status = 0;
+
+
+      waitfor(DelayMs(70000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      //09-11-13  13:11:01 000000   224   657  1000   185   167   167
+		if( (com_rlen >= 20))
+      {
+      		p = strstr(com_rbuf, "\r\n");
+            if(p != NULL && p - com_rbuf >= 18)
+            {
+            	p -= 18;
+      			com_f[0] = atof(p);
+         		com_f[0] /= 1000.0;
+         		status = 1;
+            }
+            else
+            {
+               status = 2;
+	      		com_f[0] = 0.0;
+            }
+
+      }
+      else
+      {
+
+         	status = 2;
+         	com_f[0] = 0.0;
+      }
+      com_rdFlush(port);
+
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

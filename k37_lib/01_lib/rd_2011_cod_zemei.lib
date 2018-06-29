@@ -1,0 +1,106 @@
+/*** BeginHeader */
+#ifndef rd_2011_cod_zemei_lib
+#define rd_2011_cod_zemei_lib
+/*** EndHeader */
+
+/*******************************************************
+泽美COD                                                    //2011
+数据通信协议：松下电工MEW协议
+发送命令：%01#RDD020010200551(回车)
+接收到的数据为：%01$RD5923142210060801000010(回车)
+2006年10月22日14时23分59秒COD为00000108  即108
+
+%01$RD  592314221006  0801000010(回车)
+        7             19
+*******************************************************/
+/*** BeginHeader rd_cod_zemei */
+int rd_cod_zemei( char port );
+/*** EndHeader */
+int rd_cod_zemei( char port )
+{
+   static int status;
+   auto char tempc[9];
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+      //com_open(port, ai_param[port+16].baudrate);//9600
+      //com_parity(port, PARAM_EPARITY);//奇校验
+      //msDelay(50);
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "%01#RDD020010200551");
+      com_tlen = strlen(com_tbuf);
+      com_tbuf[com_tlen] = 0x0d;//回车
+      ++com_tlen;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);//加上那回车，一般返回29个字符.
+      if((com_rlen >= 28)&&(strncmp(com_rbuf, "%01$RD", 6)==0))
+      {
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = com_rbuf[6];
+         tempc[1] = com_rbuf[7];
+         comTime.tm_sec = atoi(tempc);
+
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = com_rbuf[8];
+         tempc[1] = com_rbuf[9];
+         comTime.tm_min = atoi(tempc);
+
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = com_rbuf[10];
+         tempc[1] = com_rbuf[11];
+         comTime.tm_hour = atoi(tempc);
+
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = com_rbuf[12];
+         tempc[1] = com_rbuf[13];
+         comTime.tm_mday = atoi(tempc);
+
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = com_rbuf[14];
+         tempc[1] = com_rbuf[15];
+         comTime.tm_mon = atoi(tempc);
+
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = '2';
+         tempc[1] = '0';
+         tempc[2] = com_rbuf[16];//'0'
+         tempc[3] = com_rbuf[17];//'6'
+         comTime.tm_year = atoi(tempc)-1900;
+
+         com_sec = mktime(&comTime);         //时间
+
+         memset(tempc,0x00,sizeof(tempc));
+         tempc[0] = com_rbuf[24];
+         tempc[1] = com_rbuf[25];
+         tempc[2] = com_rbuf[22];
+         tempc[3] = com_rbuf[23];
+         tempc[4] = com_rbuf[20];
+         tempc[5] = com_rbuf[21];
+         tempc[6] = com_rbuf[18];
+         tempc[7] = com_rbuf[19];
+         com_f[0] = (float)(atol(tempc));    //即时值
+
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2011  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0;
+         com_f[1] = 0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

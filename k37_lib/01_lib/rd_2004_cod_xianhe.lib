@@ -1,0 +1,78 @@
+/*** BeginHeader */
+#ifndef rd_2004_flux_jiubo_lib
+#define rd_2004_flux_jiubo_lib
+/*** EndHeader */
+
+/*******************************************************************************
+按照河北先河的Modbus协议读取寄存器值，放到对应的串口缓冲区里
+port     串口号
+devAddr  设备地址
+reg      寄存器地址
+*******************************************************************************/
+/*** BeginHeader rd_xianhe_mb */
+int rd_xianhe_mb(char port, char devAddr, char reg);
+/*** EndHeader */
+int rd_xianhe_mb(char port, char devAddr, char reg)
+{
+   static int status;
+   auto int tmpi;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(devAddr, 0x03, reg, 0x01);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 7)&&(com_rbuf[0] == devAddr)&&(com_rbuf[1] == 0x03) )
+      {  //01 03 02 04 4c BB 71
+         tmpi = com_rbuf[3];     //高字节
+         tmpi <<= 8;
+         tmpi |=  com_rbuf[4];   //低字节
+         com_f[reg] = tmpi;
+         com_f[reg] /= 10.0;     //寄存器值
+         status = 1;
+      }
+      else
+      {
+         com_f[reg] = 0.0;
+         status = 2;
+      }
+   }
+   return status;
+}
+
+/*******************************************************************************
+河北先河的设备驱动接口函数
+*******************************************************************************/
+/*** BeginHeader rd_cod_xianhe */
+int rd_cod_xianhe(char port, char devAddr);
+/*** EndHeader */
+int rd_cod_xianhe(char port, char devAddr)
+{
+   static int status;
+
+   costate
+   {
+      status = 0;
+
+      waitfor(status = rd_xianhe_mb(port, devAddr, 0x00));//测量值，COD、硝酸盐、叶绿素等
+      if(status == 1)   //如果读测量值正常，就再读其他参数
+      {
+         waitfor(status = rd_xianhe_mb(port, devAddr, 0x04));//参比电压，COD、硝酸盐
+         waitfor(status = rd_xianhe_mb(port, devAddr, 0x05));//测量电压，COD、硝酸盐
+         waitfor(status = rd_xianhe_mb(port, devAddr, 0x0a));//水中油电压、叶绿素电压
+      }
+
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

@@ -1,0 +1,69 @@
+/*** BeginHeader */
+#ifndef rd_1004_flux_qiuxin_lib
+#define rd_1004_flux_qiuxin_lib
+/*** EndHeader */
+/*******************************************************************************
+无锡求信流量计                               -- 1004
+#0101 0d = +298.7A
+*******************************************************************************/
+/*** BeginHeader rd_flux_qiuxin */
+int rd_flux_qiuxin( char port );
+/*** EndHeader */
+int rd_flux_qiuxin( char port )
+{
+   static int status;
+   auto char * p;
+
+   costate
+   {
+      status = 0;
+      strcpy(com_tbuf, "#0101");
+      com_tbuf[5] = 0x0d;
+      com_tlen = 6;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, '\0', sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 5)
+      {
+         p = strchr(com_rbuf, '=');
+         if(p != NULL)
+         {
+            p ++;
+            com_f[0] = atof(p);     //瞬时流量
+         }
+
+         waitfor(DelayMs(2000));
+         strcpy(com_tbuf, "#01");
+         com_tbuf[3] = 0x0d;
+         com_tlen = 4;
+         com_write(port);
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, '\0', sizeof(com_rbuf));
+         com_read(port);
+         if(com_rlen > 5)
+         {
+            p = strchr(com_rbuf, '=');
+            if(p != NULL)
+            {
+               p ++;
+               com_f[1] = atof(p);  //累计流量
+            }
+         }
+         status = 1;
+      }
+      if(status == 0)
+      {                                                  
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();         //采样时间
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */

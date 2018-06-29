@@ -1,0 +1,1241 @@
+/*** Beginheader */
+#ifndef __BOCON_K37_EXPORT_HISTORY_LIB
+#define __BOCON_K37_EXPORT_HISTORY_LIB
+/*** Endheader */
+
+/*******************************************************************************
+本驱动库包含显示历史记录的函数
+1、以表格方式显示历史记录：1-单条记录、2-小时统计、3-日统计、4-月统计数据
+   接口函数：int queryHistoryRecord(char table);
+   显示函数：void disp_his_record(char table, char msgpage, int msgnum, char flag);
+
+   说明：由于小时、日、月的统计记录都已经单独作为一条记录保存，所以本显示接口函
+         数只需要按时间将要求的记录找出来，正确显示就可以了。
+         这些统计记录在采集和保存的时候已经统计好了
+
+2、以曲线方式显示某种污染物的时间曲线
+
+2010-01-06
+*******************************************************************************/
+
+/*** BeginHeader */
+float curveBuf[31];     //显示曲线时的数据缓冲区，小时-24，日-31，月-12
+char curveCnt;          //曲线数据的个数
+
+//20110114因为之前程序在升级后，有时候有问题
+float codTemp;
+float aveFluxTemp;
+/*** EndHeader */
+
+/*******************************************************************************
+               K37历史纪录查询 -- 选择污染物
+*******************************************************************************/
+/*** BeginHeader chgdiscode*/
+char* chgdiscode(char* src);
+/*** EndHeader */
+char* chgdiscode(char* src)//代码显示的转换函数.
+{
+   int i;
+   for(i=0;;i+=2)
+   {
+      if(strcmp(src, chineseCodeTable[i]) == 0)return chineseCodeTable[i+1];//如果上述列表已找到,就返回新字符以代替原来的字符串以显示,
+      if(chineseCodeTable[i][0] == 0x00)break;
+   }
+   return src;//如果上述列表没找到,就返回原来的字符串以显示
+}
+
+/*** Beginheader dispSelectCode */
+void dispSelectCode(char no);
+/*** endheader */
+void dispSelectCode(char no)
+{
+   glSetBrushType(PIXXOR);
+   glFillRegion( 99 + (no / 8) * 100, 47 + (no % 8) * 20, 97, 18, 0xff);
+   glSetBrushType(PIXBLACK);
+}
+
+/*** Beginheader dispSelectCodeMenu */
+void dispSelectCodeMenu(void);
+/*** endheader */
+void dispSelectCodeMenu(void)
+{
+   auto char c, no;
+   auto int x1;
+
+   glBuffLock();
+   _glBlankRegion( 0, 20, 320, 200);
+   dispCompanyName();
+   glXPutBitmap (113, 24, 47, 16, BoconSelectCode_bmp);
+   glXPutBitmap (161, 24, 46, 16, BoconPolution_bmp);
+
+   x1 = 0;
+   for(c=0;c<CodeNumber;c++)
+   {
+      if(c > 7) x1 = 1;
+      else x1 = 0;
+      glDispPol(100 + x1 * 100, 48 + (c % 8) * 20, CodePosition[c].posTable);
+   }
+   glBuffUnlock();
+}
+
+/*** Beginheader selectCodeMenu */
+int selectCodeMenu(void);
+/*** endheader */
+int selectCodeMenu(void)
+{
+   static int status;
+
+   costate
+   {
+      status = 0;
+      menuNo = 1;
+      tm_ts = SEC_TIMER;
+      dispSelectCodeMenu();
+      dispSelectCode(menuNo-1);        //缺省选择第一个污染物
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+         waitfor ( (wKey = keyGet()) || (SEC_TIMER > (tm_ts + 120)) );
+         switch(wKey)
+         {
+            case 'D':   //Down key
+               dispSelectCode(menuNo-1);
+               menuNo ++;
+               if((menuNo > CodeNumber) || (menuNo < 1)) menuNo = 1;
+               dispSelectCode(menuNo-1);
+               tm_ts = SEC_TIMER;
+               break;
+
+            case 'U':   //Up key
+               dispSelectCode(menuNo-1);
+               menuNo --;
+               if((menuNo > CodeNumber) || (menuNo < 1)) menuNo = CodeNumber;
+               dispSelectCode(menuNo-1);
+               tm_ts = SEC_TIMER;
+               break;
+
+            case 'E':   //Enter key
+               menuNo = CodePosition[menuNo - 1].posTable;
+               status = 1;
+               break;
+
+            case 'C':   //Cencal key
+            default:
+               menuNo = 0xff;
+               status = 1;
+               break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+               K37历史纪录查询 -- 统计曲线的显示函数
+*******************************************************************************/
+/*****************************************************
+功能：   画横坐标和纵坐标
+table    2-小时总量曲线，3-日总量曲线，4-月总量曲线
+*****************************************************/
+/*** Beginheader dispOxis */
+void dispOxis(char table, struct tm *t);
+/*** endheader */
+void dispOxis(char table, struct tm *t)
+{
+   auto int x1, y1;
+   auto int i, xdis, xcnt;
+
+   glBuffLock();
+   _glBlankRegion( 0, 20, 320, 200);
+   if(table == 4)       //一年的月总量曲线，12个月
+   {
+      xdis = 25;
+      xcnt = 12;
+      glXPutBitmap (166, 20, 13, 16, BoconMonth_bmp);
+   }
+   else if(table == 3)  //一个月的日总量曲线，31天
+   {
+      xdis = 20;
+      xcnt = 15;
+      glXPutBitmap (168, 20, 11, 16, BoconDay_bmp);
+   }
+   else if(table == 2)  //一日的小时总量曲线
+   {
+      xdis = 25;
+      xcnt = 12;
+      glXPutBitmap (148, 20, 31, 16, BoconHour2_bmp);
+   }
+   #ifdef CURVE_AVG
+   glXPutBitmap ( 180, 20, 31, 16, BoconAverage_bmp);
+   #else
+   glXPutBitmap ( 180, 20, 30, 15, BoconSum_bmp);
+   #endif
+
+   glPrintf(10 +   2, 22, &fi12x16, "%02d",t->tm_year - 100);
+   glXPutBitmap (10 +  26, 20, 15, 16, BoconYear_bmp);
+   if(table < 4)
+   {
+      glPrintf(10 +  44, 22, &fi12x16, "%02d",t->tm_mon);
+      glXPutBitmap (10 +  70, 20, 13, 16, BoconMonth_bmp);
+   }
+   if(table < 3)
+   {
+      glPrintf(10 + 88, 22, &fi12x16, "%02d",t->tm_mday);
+      glXPutBitmap (10 + 114, 20, 11, 16, BoconDay_bmp);
+   }
+
+   x1 = 10;
+   y1 = 219;
+   glPlotLine(x1, y1, x1 + 300, y1);   //X轴     x1 ~ x1+300 = 10 ~ 310
+   glPlotLine(x1, y1, x1, y1 - 180);   //Y轴     y1 ~ y1-180 = 220 ~ 40
+
+   for(i=1;i<xcnt;i++)  //X轴标记
+   {
+      glPlotLine(x1 + i * xdis, y1, x1 + i * xdis, y1 - 5);
+      if(table == 4) glPrintf(x1 + i * xdis - 5, y1-15, &fi6x8, "%02d", i+1);
+      else if(table == 3)
+      {
+         glPrintf(x1 + i * xdis - 5, y1-15, &fi6x8, "%02d", i*2+1);
+      }
+      else// if(table == 2)
+      {
+         glPrintf(x1 + i * xdis - 5, y1-15, &fi6x8, "%02d", i*2);
+      }
+   }
+   for(i=1;i<10;i++)    //Y轴标记
+   {
+      glPlotLine(x1, y1 - i * 20, x1 + 5, y1 - i * 20);
+   }
+   glBuffUnlock();
+}
+
+/*******************************************************************************
+功能：   从指定的位置起画一条线
+pos      需要显示的数据的参数表位置
+*******************************************************************************/
+/*** Beginheader dispCurve */
+void dispCurve(char table, struct tm *t);
+/*** endheader */
+void dispCurve(char table, struct tm *t)
+{
+   auto int x1, x2, y1, y2;
+   auto char c, xdis;
+   auto float max, min, f;
+
+   dispOxis(table, t);
+
+   max = 0.0;
+   min = 10000000.0;
+   for(c=0;c<curveCnt;c++) //查找污染物极大值
+   {
+      if(curveBuf[c] > max) max = curveBuf[c];
+      if(curveBuf[c] < min) min = curveBuf[c];
+   }
+   if(max < (min + 1)) max = min + 1;
+   if(min > 0) min = 0;
+   //max *= 1.2;
+   //if(max < 10) max = 10;
+   //else if(max < 100) max = 100;
+   //else if(max < 1000) max = 1000;
+   //else if(max < 10000) max = 10000;
+
+   if(table == 4) xdis = 25;
+   else if(table == 3) xdis = 10;
+   else if(table == 2) xdis = 12;
+
+   glBuffLock();
+   glPrintf( 12, 41, &fi6x8, "%.1f", max);   //y轴最大值
+   glPrintf( 12, 191, &fi6x8, "%.1f", min);  //y轴最小值
+   max -= min; //Y轴代表的数据范围
+   for(c=0;c<(curveCnt-1);c++)
+   {
+      if(table == 2)
+      {
+         x1 = 10 + c * xdis + c / 2;
+         x2 = x1 + xdis;
+         if(c % 2) x2 += 1;
+      }
+      else
+      {
+         x1 = 10 + c * xdis;
+         x2 = x1 + xdis;
+      }
+
+      f = (curveBuf[c] - min) / max;
+      f *= 160;
+      y1 = 199 - (int)f;
+
+      f = (curveBuf[c+1] - min) / max;
+      f *= 160;
+      y2 = 199 - (int)f;
+      glPlotLine(x1, y1, x2, y2);
+   }
+   glBuffUnlock();
+}
+
+/*** Beginheader queryHistoryCurve */
+int queryHistoryCurve(char table);
+/*** endheader */
+int queryHistoryCurve(char table)
+{
+   static int status;
+   static unsigned long t_begin, t_end;
+   static unsigned char index;
+   auto char c;
+   static char d;
+   static float f1, f2;
+   auto int i;
+
+   costate
+   {
+      status = 0;
+
+      t_begin = hisTim;
+      if(table == 2)    //读小时统计数据，画一天内各小时的总量曲线
+      {
+         mktm(&rtc1, hisTim);
+         rtc1.tm_hour = 0;
+         rtc1.tm_min = 59;
+         rtc1.tm_sec = 59;
+         t_begin = mktime(&rtc1);//取一日内的第一条小时记录的时间
+
+         rtc1.tm_hour = 23;
+         t_end = mktime(&rtc1);  //取一日内的最后一小时记录时间
+      }
+      else if(table == 3)  //读日统计数据，画一个月内各天的总量曲线
+      {
+         mktm(&rtc1, hisTim);
+         rtc1.tm_mday = 1;
+         rtc1.tm_hour = 23;
+         rtc1.tm_min = 59;
+         rtc1.tm_sec = 59;
+         t_begin = mktime(&rtc1);//取一月内的第一条日记录的时间
+
+         if(++rtc1.tm_mon > 12)
+         {
+            rtc1.tm_mon = 1;
+            rtc1.tm_year ++;
+         }
+         rtc1.tm_mday = 1;
+         rtc1.tm_hour = 0;
+         rtc1.tm_min = 0;
+         rtc1.tm_sec = 0;
+         t_end = mktime(&rtc1);  //取一月内的最后一条日记录的时间
+         t_end --;
+      }
+      else if(table == 4)  //读月统计数据，画一年内各月的总量曲线
+      {
+         mktm(&rtc1, hisTim);
+         rtc1.tm_mon = 1;
+         rtc1.tm_mday = 31;
+         rtc1.tm_hour = 23;
+         rtc1.tm_min = 59;
+         rtc1.tm_sec = 59;
+         t_begin = mktime(&rtc1);//取一年内的一月记录的时间
+
+         rtc1.tm_mon = 12;
+         t_end = mktime(&rtc1);  //取一年内的十二月记录的时间
+
+
+         t_begin = adj_month_sec(hisTim, 2);
+         t_begin += 1;
+         t_end = adj_month_sec(hisTim, 0);//01:31:23:59:59
+      }
+
+      waitfor(selectCodeMenu());    //等待选择污染物，自动显示有效的污染物名称
+      index = menuNo;               //得到污染物编码
+      if(index == 0xff) status = 1; //用户取消操作
+
+      tm_ts = SEC_TIMER;
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+         dispSearching();           //显示正在查找
+
+         curveCnt = 0;
+         memset(curveBuf, 0x00, sizeof(curveBuf));
+         onemsg_rd.Btime = t_begin;
+         //while((onemsg_rd.Btime >= t_begin)&&(onemsg_rd.Btime <= t_end))
+         while(onemsg_rd.Btime <= t_end)
+         {  //搜索所有的记录，取出需要的数据，存放到曲线显示的缓冲区
+            c = getHisData(&onemsg_rd, table, t_begin, 1, 3);
+            DBG(disp_data_struct(&onemsg_rd);)
+            i = (int)(onemsg_rd.Btime - t_begin);
+
+            if((c == 2) && (abs(i) < 3600))
+            {
+               for(c=0;c<ALLADCHANNELS;c++)
+               {
+                  if(onemsg_rd.AI_Val[c].polIndex == index) break;
+               }
+               if(c < ALLADCHANNELS)
+               {
+                  if(onemsg_rd.AI_Val[c].polIndex == 1)
+                  {
+                     curveBuf[curveCnt] = onemsg_rd.AI_Val[c].Avg; //pH
+                  }
+                  else
+                  {
+                     #ifdef CURVE_AVG
+                     curveBuf[curveCnt] = onemsg_rd.AI_Val[c].Avg; //找到
+                     #else
+                     curveBuf[curveCnt] = onemsg_rd.AI_Val[c].Sum; //找到
+                     #endif
+                  }
+               }
+               else curveBuf[curveCnt] = 0.0;  //没有找到，置为0
+            }
+            else curveBuf[curveCnt] = 0.0;
+            curveCnt ++;
+            if((table == 4) && (curveCnt >= 12))//每年最多12个月
+            {
+               curveCnt = 12;
+               break;
+            }
+            else if((table == 3) && (curveCnt >= 31))//每月最多31天
+            {
+               curveCnt = 31;
+               break;
+            }
+            else if((table == 2) && (curveCnt >= 24))//每天最多24小时
+            {
+               curveCnt = 24;
+               break;
+            }
+            wKey = keyGet();
+            if(wKey == 'C') break;
+            waitfor(DelayMs(20));
+
+            if(table == 2) t_begin += 3600L;
+            else if(table == 3) t_begin += 86400L;
+            else if(table == 4) t_begin = adj_month_sec(t_begin, 1);
+         }//while
+         if(wKey == 'C')   //用户取消操作，设为超时退出
+         {
+            tm_ts = SEC_TIMER - 300;
+         }
+         else              //正常显示曲线
+         {
+            mktm(&rtc1, t_end);
+            //test
+            //for(c=0;c<24;c++)
+            //{
+            // if(c%2==0) curveBuf[c] = (c+1) * 2.2;
+            //   else curveBuf[c] = (c+1) * 1.1;
+            //}
+            //curveCnt = 24;
+            //end of test
+            dispCurve(table, &rtc1);
+            tm_ts = SEC_TIMER;
+         }
+         waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         switch(wKey)
+         {
+            case 'D':   //Next record
+               t_begin = t_end;
+               if(table == 2) t_end += 86400L;     //下日
+               else if(table == 3) t_end = adj_month_sec(t_end, 1);//下月
+               tm_ts = SEC_TIMER;
+               break;
+            case 'U':
+               if(table == 2)
+               {
+                  t_end -= 86400L;
+                  t_begin = t_end - 86400L;        //上日
+               }
+               else if(table == 3)
+               {
+                  t_end = adj_month_sec(t_end, 2); //上月
+                  t_begin = adj_month_sec(t_end, 2);
+               }
+               tm_ts = SEC_TIMER;
+               break;
+            case 'E':   //Enter key
+            case 'C':   //Cencal key
+            default:    //超时退出
+               menuNo = 0;
+               status = 1;
+               break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+//上报给服务器的记录的时间、导出和显示的时间都用这个函数格式化取整
+/*** Beginheader format_his_time */
+void format_his_time(char table);
+/*** endheader */
+void format_his_time(char table)
+{
+   rtc1.tm_sec = 0;                 //分钟数据的秒置为0
+   /*if(table == 1)
+   {
+      if(sampleInterval<60)sampleInterval=60;
+      rtc1.tm_min /= (sampleInterval / 60);
+      rtc1.tm_min *= (sampleInterval / 60);
+   } */
+
+   if(table > 1) rtc1.tm_min = 0;   //小时数据的分置为0
+   if(table > 2) rtc1.tm_hour = 0;  //日数据的小时置为0
+}
+
+/*******************************************************************************
+               K37历史纪录查询 -- 统计报表的显示函数
+*******************************************************************************/
+/*******************************************************************************
+以表格的方式显示历史数据
+如果一条记录需要分页显示，则msgpage为子页号
+table    1 - 一条分钟记录，2 - 小时统计，3 - 日统计，4 - 月统计
+msgnum   为当前查看的纪录条数，分钟记录时有效，其他无效
+flag     为0显示均值和总量，为0显示最大最小值
+         为2显示折算值均值总量，为3显示折算值最大最小值，此时只有由折算值的参数才会显示
+*******************************************************************************/
+/*** Beginheader disp_his_record */
+void disp_his_record(char table, char msgpage, char flag);
+/*** endheader */
+void disp_his_record(char table, char msgpage, char flag)
+{
+   auto char j;
+   auto char lines, pages; //总行数，总页数
+   auto char start_line;   //本页开始行
+   auto char no;           //本页行数计数
+   auto int y;             //显示行的纵坐标
+
+   xmem2root(&onemsg_rd, onemsg_buf[3], MSGSIZE);  //首先从xmem缓冲区取出数据
+
+   hisTim = onemsg_rd.Btime;
+   start_line = 0;
+   for(j=0;j<ALLADCHANNELS;j++)
+   {
+      if((onemsg_rd.AI_Val[j].polIndex >= 0) && (onemsg_rd.AI_Val[j].polIndex < BOCON_NO_OF_POL))
+      {
+         start_line ++;
+         if(start_line > msgpage * 8)
+         {
+            start_line = j;
+            break;   //查找起始行位置
+         }
+      }
+   }
+
+   glBuffLock();
+   _glBlankRegion( 0,  20, 320, 200);
+
+   mktm(&rtc1, onemsg_rd.Btime);//取得时间
+   format_his_time(table);       //时间格式化，取整
+   //glPrintf( 3, 20, &fi12x16, "%02d/%02d/%02d %02d:%02d:%02d", rtc1.tm_year - 100, rtc1.tm_mon,
+   //       rtc1.tm_mday, rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+
+   glPrintf(4, 23, &fi12x16, "%02d", rtc1.tm_year - 100);
+   glXPutBitmap (30, 20, 15, 16, BoconYear_bmp);
+   glPrintf(47, 23, &fi12x16, "%02d",rtc1.tm_mon);
+   glXPutBitmap (73, 20, 13, 16, BoconMonth_bmp);
+   if(table < 4)
+   {
+      glPrintf(88, 23, &fi12x16, "%02d",rtc1.tm_mday);
+      glXPutBitmap (114, 20, 11, 16, BoconDay_bmp);
+      if(table < 3)
+      {
+         glPrintf(127, 23, &fi12x16, "%02d",rtc1.tm_hour);
+         glXPutBitmap (153, 20, 15, 16, BoconHour_bmp);
+         if(table < 2)
+         {
+            glPrintf(170, 23, &fi12x16, "%02d",rtc1.tm_min);
+            glXPutBitmap (196, 20, 16, 16, BoconMinute_bmp);
+            glPrintf(214, 23, &fi12x16, "%02d",rtc1.tm_sec);
+            glXPutBitmap (240, 20, 16, 16, BoconSecond_bmp);
+         }
+      }
+   }
+
+   glXPutBitmap (  4, 40, 46, 16, BoconPolution_bmp);
+   if(table == 2)       //小时
+   {
+      glXPutBitmap (102, 40, 31, 16, BoconHour2_bmp);
+      glXPutBitmap (211, 40, 31, 16, BoconHour2_bmp);
+   }
+   else if(table == 3)  //日
+   {
+      glXPutBitmap (122, 40, 11, 16, BoconDay_bmp);
+      glXPutBitmap (231, 40, 11, 16, BoconDay_bmp);
+   }
+   else if(table == 4)  //月
+   {
+      glXPutBitmap (120, 40, 13, 16, BoconMonth_bmp);
+      glXPutBitmap (229, 40, 13, 16, BoconMonth_bmp);
+   }
+   else                 //单条记录，无指示
+   {
+   }
+
+   if((flag == 0) || (flag == 2))   //均值和总量
+   {
+      glXPutBitmap (134, 40, 31, 16, BoconAverage_bmp);
+      glXPutBitmap (243, 40, 30, 15, BoconSum_bmp);
+   }
+   else  //最小和最大值，月统计数据不支持最小最大值，因查询太耗时
+   {
+      glXPutBitmap (134, 40, 15, 16, bocon_zui_bmp);
+      glXPutBitmap (150, 40, 15, 16, bocon_xiao_bmp);
+      glXPutBitmap (166, 40, 15, 16, bocon_zhi_bmp);
+
+      glXPutBitmap (243, 40, 15, 16, bocon_zui_bmp);
+      glXPutBitmap (259, 40, 15, 16, bocon_da_bmp);
+      glXPutBitmap (275, 40, 15, 15, bocon_zhi_bmp);
+   }
+   glBuffUnlock();
+
+   no = 0;
+   for(j=start_line; j<ALLADCHANNELS; j++)
+   {
+      if((onemsg_rd.AI_Val[j].polIndex >= 0) && (onemsg_rd.AI_Val[j].polIndex < BOCON_NO_OF_POL))
+      {     //本通道在用，有数据
+         if((flag < 2) || (onemsg_rd.AI_Val[j].ZsFlag == 1))
+         {  //实测值直接显示，折算值需要有折算值标志才显示
+            y = 62 + (no % 8) * 20;    //设为数字显示的坐标
+            glBuffLock();
+            if(flag < 2) glDispPol(4, y-2, onemsg_rd.AI_Val[j].polIndex);//显示污染物名称
+            else glDispPol(4, y-2, onemsg_rd.AI_Val[j].polIndex + (BOCON_NO_OF_POL / 2));//显示污染物折算值名称
+
+            if(flag == 0)
+            {
+               if(onemsg_rd.AI_Val[j].Avg < 10000.0)
+                  glPrintf( 101, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].Avg);
+               else glPrintf( 101, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].Avg);
+
+               if(onemsg_rd.AI_Val[j].polIndex == 1)
+               {
+                  glPrintf( 210, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].Avg);
+               }
+               else
+               {
+                  if(onemsg_rd.AI_Val[j].Sum < 10000.0)
+                     glPrintf( 210, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].Sum);
+                  else glPrintf( 210, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].Sum);
+               }
+            }
+            else if(flag == 1)
+            {
+               if(onemsg_rd.AI_Val[j].Min < 10000.0)
+                  glPrintf( 101, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].Min);
+               else glPrintf( 101, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].Min);
+
+               if(onemsg_rd.AI_Val[j].Max < 10000.0)
+                  glPrintf( 210, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].Max);
+               else glPrintf( 210, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].Max);
+            }
+            else if(flag == 2)
+            {
+               if(onemsg_rd.AI_Val[j].ZsAvg < 10000.0)
+                  glPrintf( 101, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].ZsAvg);
+               else glPrintf( 101, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].ZsAvg);
+
+               if(onemsg_rd.AI_Val[j].ZsSum < 10000.0)
+                  glPrintf( 210, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].ZsSum);
+               else glPrintf( 210, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].ZsSum);
+            }
+            else
+            {
+               if(onemsg_rd.AI_Val[j].ZsMin < 10000.0)
+                  glPrintf( 101, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].ZsMin);
+               else glPrintf( 101, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].ZsMin);
+
+               if(onemsg_rd.AI_Val[j].ZsMax < 10000.0)
+                  glPrintf( 210, y, &fi12x16, "%.2f",onemsg_rd.AI_Val[j].ZsMax);
+               else glPrintf( 210, y, &fi12x16, "%.0f",onemsg_rd.AI_Val[j].ZsMax);
+            }
+
+            if(onemsg_rd.AI_Val[j].flag == 'T') //超标的参数高亮显示
+            {                                   //只有分钟和小时数据超标才有效
+               if((table == 1) || (table == 2) || (table == 5))
+               {
+                  glSetBrushType(PIXXOR);
+                  glFillRegion( 101, y-1, 106, 14, 0xff);
+                  glFillRegion( 210, y-1, 107, 14, 0xff);
+                  glSetBrushType(PIXBLACK);
+               }
+            }
+
+            glBuffUnlock();
+            if(++ no > 7) break; //每页最多8行
+         }
+      }
+   }
+
+   glBuffLock();
+   //画表格的横线
+   for(j=0;j<(no + 2);j++)
+   {
+      glPlotLine( 1, 38 + j * 20, 318, 38 + j * 20);
+   }
+//画表格的纵线
+   glPlotLine(  1, 38,   1, 58 + no * 20);
+   glPlotLine( 99, 38,  99, 58 + no * 20);
+   glPlotLine(208, 38, 208, 58 + no * 20);
+   glPlotLine(318, 38, 318, 58 + no * 20);
+   glBuffUnlock();
+}
+
+/*******************************************************************************
+查询历史数据，以表格的方式显示各时间段的统计数据
+      搜索历史数据库，得到指定时间点的一条记录并显示记录内容
+      根据用户操作，从指定时间点开始，可以连续向前和向后查找显示
+      按取消键退出，或者找不到有效记录就退出
+
+      由于每条记录都独立计算参数个数并显示参数名，
+      因此即使各页保存的参数个数不同，或者名称不同，都可以正确显示
+      不同于以前只能按照当前配置显示
+
+      1、按确定键进行切换分类显示，
+            0  ---   实时数据的均值和总量
+            1  ---   实时数据的最大最小值
+            2  ---   折算值的均值和总量
+            3  ---   折算值的最大最小值
+
+      2、按切换键在同一条记录的各个页面间切换
+      3、按上下键读取上一条和下一条记录
+      4、按取消键退出本函数
+
+      table       1 - 分钟，2 - 小时，3 - 日，4 - 月
+      hisTim      是指定的初始查询时间
+      onemsg_rd   读历史数据的缓冲区
+*******************************************************************************/
+/*** Beginheader queryHistoryRecord */
+int queryHistoryRecord(char table);
+/*** endheader */
+int queryHistoryRecord(char table)
+{
+   static int status;
+
+   static char sub_page, d;      //同一条记录的各数据页
+   static char rd_page_flag;     //需要读下页的标志
+   static char disAvgSum;        //显示均值标志，0表示均值和总量，1表示最大最小值
+
+   static char lines, lines_zs, pages, pages_zs;
+   auto char j;
+
+   costate
+   {
+      status = 0;
+      //lastUser = 10;    //将用户置为无效值，使之可以正确判断
+
+      d = getHisData(&onemsg_rd, table, hisTim, 1, 3);//搜索指定时间和类型的记录
+      if(d < 2)   //未找到
+      {
+         d = getNextData(table, hisTim, 2, 3);//为防止漏记录，向前读一条
+      }
+
+      tm_ts = SEC_TIMER;
+      sub_page = 0;
+      disAvgSum = 0;
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+         if( (d > 0) && ((onemsg_rd.type == table) || (onemsg_rd.type == 5) && (table == 1)) )
+         {  //找到一条有效数据
+            lines = 0;     //计算实际要显示的行数
+            lines_zs = 0;  //计算折算值行数
+            for(j=0; j<ALLADCHANNELS; j++)
+            {
+               if((onemsg_rd.AI_Val[j].polIndex >= 0) && (onemsg_rd.AI_Val[j].polIndex < BOCON_NO_OF_POL))
+               {
+                  lines++; //合计有多少个通道正在使用
+               }
+               if(onemsg_rd.AI_Val[j].ZsFlag == 1) lines_zs ++;
+            }
+            pages = (lines - 1) / 8 + 1;  //实际显示的页数
+            pages_zs = (lines_zs - 1) / 8 + 1;//折算值页数
+
+            hisTim = onemsg_rd.Btime;
+            tm_ts = SEC_TIMER;   //等待按键
+            rd_page_flag = 0;
+            while(rd_page_flag == 0)
+            {
+               disp_his_record(table, sub_page, disAvgSum); //找到记录，显示第sub_page页
+               waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+               if(SEC_TIMER > (tm_ts + 120))break;//of while()
+               switch (wKey)
+               {
+                  case 'E':   //在均值和总量、最大和最小值和折算值之间切换
+                     ++ disAvgSum;
+                     if((lines_zs == 0) && (disAvgSum > 1)) disAvgSum = 0;//无折算值，则不显示
+                     else if(disAvgSum == 2) sub_page = 0;//第一次显示折算值，从折算值第0页开始
+                     else if(disAvgSum > 3) disAvgSum = 0;
+                     tm_ts = SEC_TIMER;
+                     break;
+                  case 'S':   //在同一条记录的各页面间切换
+                     ++ sub_page;
+                     if((disAvgSum < 2) && (sub_page >= pages)) sub_page = 0;
+                     else if((disAvgSum > 1) && (sub_page >= pages_zs)) sub_page = 0;
+                     tm_ts = SEC_TIMER;
+                     break;
+                  case 'C':   //退出本函数
+                     menuNo = 0;
+                     status = 1;       //退出本函数的标志
+                     rd_page_flag = 1; //退出本页显示的标志
+                     break;
+                  case 'D':   //读后一页的数据
+                     d = getNextData(table, hisTim, 1, 3);
+                     tm_ts = SEC_TIMER;
+                     rd_page_flag = 1; //退出本页显示，需要读取下页
+                     break;
+                  case 'U':   //读前一页的数据
+                     d = getNextData(table, hisTim, 2, 3);
+                     tm_ts = SEC_TIMER;
+                     rd_page_flag = 1;
+                     break;
+                  default:
+                     break;
+               }//switch
+            }//同一页的循环
+         }
+         else//找不到
+         {
+            glBuffLock();
+            _glBlankRegion( 0, 20, 320, 200);
+            glXPutBitmap ( 136, 100, 47, 16, bocon_norecord_bmp);
+            glBuffUnlock();
+            waitfor(DelaySec(2));
+            status = 1;
+            break;
+         }
+      }//读页的循环
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+      K37历史数据导出的函数，自动连接电脑，输出指定时间起的所有数据
+      固定使用COM2，115200bps
+      首先等待上位机的连接请求，一旦请求有效，则自动开始发送数据
+      直到完成，或者收到上位机结束指令，或者用户键盘终止指令
+time     输出起始时间
+return   返回值为记录条数     ？？？
+*******************************************************************************/
+/*** Beginheader queryHistoryOutput */
+debug int queryHistoryOutput(void);
+/*** endheader */
+int queryHistoryOutput(void)
+{
+   static int status;
+   static char d, ch;
+   auto unsigned crc;
+   auto char crc1, crc2;
+   static unsigned long startTm,endTm;
+   auto char *point;
+   static char table;
+   static char channelPos;
+   auto unsigned char p;
+   auto union uf data;
+   static int k;
+   static char flag;
+   auto struct tm time;
+   auto char com_tbuf1[256];
+   static unsigned long BtimeBackup;//备份onemsg_rd.Btime时间
+   auto int rc;
+
+   costate
+   {
+      //count = 1L;
+      status = 0;
+      //lastUser = 10;    //将用户置为无效值，使之可以正确判断
+      table = 0;
+
+      com_open(0, 115200);
+      output_port_flag = 1;
+      tm_ts = SEC_TIMER;
+      //BtimeBackup = read_rtc();
+
+      while(SEC_TIMER < (tm_ts + 120))
+      {
+         glBuffLock();
+         _glBlankRegion( 0, 20, 320, 200);
+         glPrintf(60, 80, &fi12x16, "Connecting");
+         glBuffUnlock();
+
+         while(SEC_TIMER < (tm_ts + 120))
+         {//等待导出软件发送命令过来
+            if(keyGet() == 'C')
+            {
+               tm_ts = SEC_TIMER - 120;
+               break;
+            }
+
+            d = 0;
+            waitfor(DelayMs(200));
+            memset(com_rbuf, 0x00, sizeof(com_rbuf));
+            com_read(0);
+            if (com_rlen > 2)
+            {
+               crc = CRC16(com_rbuf, (com_rlen-2));
+               crc1 = (char)(crc & 0x00ff);
+               crc2 = (char)(crc >> 8);
+               if((crc1 == com_rbuf[com_rlen-2]) &&
+                  (crc2 == com_rbuf[com_rlen-1]))
+               {
+                  if(strncmp(com_rbuf, "minute", 6) == 0)
+                  {
+                     table = 1;
+                     d = 1;
+                  }
+                  else if(strncmp(com_rbuf, "hour", 4) == 0)
+                  {
+                     table = 2;
+                     d = 1;
+                  }
+                  else if(strncmp(com_rbuf, "daily", 5) == 0)
+                  {
+                     table = 3;
+                     d = 1;
+                  }
+                  else if(strncmp(com_rbuf, "month", 5) == 0)
+                  {
+                     table = 4;
+                     d = 1;
+                  }
+                  else if(strncmp(com_rbuf, "next data", 9) == 0)
+                  {
+                     memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                     strcpy(com_tbuf1, "export end");
+                     sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                  }
+
+                  if(d == 1)
+                  {
+                     point = strstr(com_rbuf, "startTime=");
+                     if(point != NULL)
+                     {
+                        point += 12;
+                        if(chk_time(point) == 6)
+                        {
+                           startTm = mktime(&rtc1);
+                           #ifdef DEBUG_PRINTF
+                           printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                              rtc1.tm_year+1900,rtc1.tm_mon,rtc1.tm_mday,
+                              rtc1.tm_hour,rtc1.tm_min,rtc1.tm_sec);
+                           #endif
+                        }
+                     }
+
+                     point = strstr(com_rbuf, "endTime=");
+                     if(point != NULL)
+                     {
+                        point += 10;
+                        if(chk_time(point) == 6)
+                        {
+                           endTm = mktime(&rtc1);
+                           #ifdef DEBUG_PRINTF
+                           printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                              rtc1.tm_year+1900,rtc1.tm_mon,rtc1.tm_mday,
+                              rtc1.tm_hour,rtc1.tm_min,rtc1.tm_sec);
+                           #endif
+                        }
+                     }
+
+                     if(startTm < endTm)
+                     {
+                        d = getHisData(&onemsg_rd, table, startTm, 1, 3);//搜索指定时间和类型的记录
+                        if(d < 2)         //未找到
+                        {
+                           d = getNextData(table, startTm, 2, 3);//为防止漏记录，向前读一条
+                        }
+                        if(d == 0)
+                        {
+                           memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                           strcpy(com_tbuf1, "export time error");
+                           sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                           //glPrintf(60, 80, &fi12x16, "Not found");
+                        }
+                        else
+                        {
+                           memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                           strcpy(com_tbuf1, "link success");
+                           sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                           d = 1;
+
+                           mktm(&time, onemsg_rd.Btime);
+                          // BtimeBackup = onemsg_rd.Btime;
+
+                        #ifdef DEBUG_PRINTF
+                        printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                           time.tm_year+1900, time.tm_mon, time.tm_mday,
+                           time.tm_hour, time.tm_min, time.tm_sec);
+                        #endif
+
+
+                           break;
+                        }
+                     }
+                     else
+                     {
+                        memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                        strcpy(com_tbuf1, "export time error");
+                        sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                        d = 0;
+                     }
+                  }//if(d == 1)
+               }
+            }//if (com_rlen > 2)
+         }//while(1)
+         if(d == 1)
+         {
+            glBuffLock();
+            _glBlankRegion( 0, 20, 320, 200);
+            glPrintf(60, 80, &fi12x16, "Output ...");
+            glBuffUnlock();
+
+            channelPos = 0;
+            flag = 1;
+            while(status == 0)
+            {
+               if(keyGet() == 'C')
+               {
+                  tm_ts = SEC_TIMER - 120;
+                  memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                  strcpy(com_tbuf1, "export end");
+                  sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                  break;
+               }
+
+               memset(com_rbuf, 0x00, sizeof(com_rbuf));
+               com_read(0);
+               if (com_rlen > 2)
+               {
+               	xmem2root(&onemsg_rd, onemsg_buf[3], MSGSIZE);	//首先从xmem缓冲区取出数据
+                  if(onemsg_rd.Btime > endTm)
+                  {
+                     memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                     strcpy(com_tbuf1, "export end");
+                     sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                     tm_ts = SEC_TIMER;
+
+                     mktm(&rtc1, onemsg_rd.Btime);
+                     #ifdef DEBUG_PRINTF
+                           printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                              rtc1.tm_year+1900,rtc1.tm_mon,rtc1.tm_mday,
+                              rtc1.tm_hour,rtc1.tm_min,rtc1.tm_sec);
+                     #endif
+
+                     mktm(&rtc1, endTm);
+                     #ifdef DEBUG_PRINTF
+                           printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                              rtc1.tm_year+1900,rtc1.tm_mon,rtc1.tm_mday,
+                              rtc1.tm_hour,rtc1.tm_min,rtc1.tm_sec);
+                     #endif
+                     break;
+                  }
+
+                  crc = CRC16(com_rbuf, (com_rlen-2));
+                  crc1 = (char)(crc & 0x00ff);
+                  crc2 = (char)(crc >> 8);
+                  if((crc1 == com_rbuf[com_rlen-2]) &&
+                     (crc2 == com_rbuf[com_rlen-1]))
+                  {
+                     if(strncmp(com_rbuf, "next data", 9) == 0)
+                     {
+                        memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                        k = 8;
+                        for(ch=channelPos;ch<ALLADCHANNELS;ch++)
+                        {
+                           p = onemsg_rd.AI_Val[ch].polIndex;
+                           if((p >= 0) && (p < BOCON_NO_OF_POL))
+                           {
+                              if(com_tbuf1[7] >= 12)
+                              {//进行分包
+                                 #ifdef DEBUG_PRINTF
+                                 printf("com_tbuf[7] >= 12 \n");
+                                 #endif
+                                 channelPos = ch;
+                                 break;
+                              }
+                              if(onemsg_rd.AI_Val[ch].ZsFlag == 1)   //本通道还有折算数据
+                              {
+                                 #ifdef DEBUG_PRINTF
+                                 printf("%s \n", PolCode[p]);
+                                 #endif
+                                 com_tbuf1[k++] = p;
+                                 data.f = onemsg_rd.AI_Val[ch].Min;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].Avg;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].Max;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].Sum;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+
+                                 com_tbuf1[k++] = p+100; //折算值
+                                 #ifdef DEBUG_PRINTF
+                                 printf("%s-Zs \n", PolCode[p]);
+                                 #endif
+                                 data.f = onemsg_rd.AI_Val[ch].ZsMin;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].ZsAvg;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].ZsMax;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = 0.0;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 com_tbuf1[7] += 2;
+                              }
+                              else
+                              {
+                                 #ifdef DEBUG_PRINTF
+                                 printf("%s \n", PolCode[p]);
+                                 #endif
+                                 com_tbuf1[k++] = p;
+                                 data.f = onemsg_rd.AI_Val[ch].Min;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].Avg;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].Max;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 data.f = onemsg_rd.AI_Val[ch].Sum;
+                                 com_tbuf1[k++] = data.ch[0];
+                                 com_tbuf1[k++] = data.ch[1];
+                                 com_tbuf1[k++] = data.ch[2];
+                                 com_tbuf1[k++] = data.ch[3];
+                                 com_tbuf1[7] += 1;
+                              }
+                           }
+                        }//for
+
+                        if(ch >= ALLADCHANNELS)
+                        {
+                           channelPos = 0;
+                           if(flag == 2)
+                           {
+                              com_tbuf1[0] = 3;
+                           }
+                           else
+                           {
+                              com_tbuf1[0] = 1;
+                           }
+                           flag = 1;
+                        }
+                        else
+                        {
+                           //channelPos = 12;
+                           flag = 2;
+                           com_tbuf1[0] = 2;
+                        }
+
+                        mktm(&time, onemsg_rd.Btime);
+                        com_tbuf1[1] = time.tm_year;
+                        com_tbuf1[2] = time.tm_mon;
+                        com_tbuf1[3] = time.tm_mday;
+                        com_tbuf1[4] = time.tm_hour;
+                        com_tbuf1[5] = time.tm_min;
+                        com_tbuf1[6] = time.tm_sec;
+
+
+                        #ifdef DEBUG_PRINTF
+                        printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                           time.tm_year+1900, time.tm_mon, time.tm_mday,
+                           time.tm_hour, time.tm_min, time.tm_sec);
+                        #endif
+
+
+                        sendExportPacket(com_tbuf1, k);
+
+                        if(channelPos == 0)
+                        {
+                           startTm = onemsg_rd.Btime;
+                           d = getNextData(table, startTm, 1, 3);
+                           if(d == 0)
+                           {
+                              #ifdef DEBUG_PRINTF
+                              printf("d==0 \n");
+                              #endif
+                              memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                        		strcpy(com_tbuf1, "export end");
+                        		sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                              tm_ts = SEC_TIMER;
+                              break;
+                           }
+                        }
+                     }
+                     else if(strncmp(com_rbuf, "pause export", 12) == 0)
+                     {
+                        #ifdef DEBUG_PRINTF
+                        printf("pause export \n");
+                        #endif
+
+                        memset(com_tbuf1, 0x00, sizeof(com_tbuf1));
+                        strcpy(com_tbuf1, "export end");
+                        sendExportPacket(com_tbuf1, strlen(com_tbuf1));
+                        tm_ts = SEC_TIMER;
+                        break;
+                     }
+                  }
+               }
+               waitfor(DelayMs(10));
+            }
+         }
+      }//while(1)
+      output_port_flag = 0;   //恢复采样
+      status = 1;
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader sendExportPacket*/
+void sendExportPacket(char com_tbuf[], int com_tlen);
+/*** EndHeader */
+void sendExportPacket(char com_tbuf[], int com_tlen)
+{
+   auto unsigned crc;
+
+   crc = CRC16(com_tbuf, com_tlen);
+   com_tbuf[com_tlen++] = (char)(crc & 0x00ff);
+   com_tbuf[com_tlen++] = (char)(crc >> 8);
+   ser0write(com_tbuf, com_tlen);
+}
+
+/*******************************************************************************
+               K37历史记录查询子菜单的功能函数结束
+*******************************************************************************/
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

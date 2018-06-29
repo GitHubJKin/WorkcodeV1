@@ -1,0 +1,54 @@
+
+/*** BeginHeader */
+#ifndef rd_4013_ph_PHG_210_lib
+#define rd_4013_ph_PHG_210_lib
+/*** EndHeader */
+
+
+/*******************************************************
+PHT-210 ¶ÁÈ¡PH
+·¢ËÍ£º02 03 00 01 00 01 D5 F9
+·µ»Ø£º02 03 02 02 AE 7C 98
+02 AE(686) --> 6.86
+*******************************************************/
+
+/*** BeginHeader rd_4013_ph_PHG_210 */
+int rd_ph_PHG_210( char port );
+/*** EndHeader */
+int rd_ph_PHG_210( char port )
+{
+    static int status;
+    auto union uf f;
+    costate
+    {
+         status = 0;
+
+         pack_modbus_cmd(0x02,0x03,0x01,0x01);
+		 com_write(port);
+		 waitfor(DelaySec(1));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x02) && (com_rbuf[1] == 0x03))
+		{
+			f.ch[1] = com_rbuf[3];
+			f.ch[0] = com_rbuf[4];
+			com_f[0] = f.i[0] / 100.0;		//ph
+
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+    }
+    return status;
+
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

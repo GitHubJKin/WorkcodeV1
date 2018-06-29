@@ -1,0 +1,80 @@
+
+/*** BeginHeader */
+#ifndef rd_1022_flux_jiangsu_lib
+#define rd_1022_flux_jiangsu_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+江苏
+明渠流量计，RS-485，9600，Modbus RTU协议
+*******************************************************************************/
+/*** BeginHeader rd_flux_jiangsu */
+int rd_flux_jiangsu( char port );
+/*** EndHeader */
+int rd_flux_jiangsu( char port )
+{
+   static int status;
+   union  uf AI;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x252, 0x02);
+      com_write(port);
+      waitfor(DelayMs(2000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 8)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03))
+      {
+         AI.ch[3] = com_rbuf[3];
+         AI.ch[2] = com_rbuf[4];
+         AI.ch[1] = com_rbuf[5];
+         AI.ch[0] = com_rbuf[6];
+         com_f[0] = AI.f;           //瞬时流量
+         printf("s:%f\n",com_f[0]);
+
+         pack_modbus_cmd(0x01, 0x03, 0x310, 0x02);
+         com_write(port);
+         waitfor(DelayMs(2000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if((com_rlen > 8)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03))
+         {
+            AI.ch[3] = com_rbuf[3];
+            AI.ch[2] = com_rbuf[4];
+            AI.ch[1] = com_rbuf[5];
+            AI.ch[0] = com_rbuf[6];
+            com_f[1] = AI.l;        //累计流量
+            printf("s:%.0f\n",com_f[1]);
+         }
+         status = 1;
+      }
+      if(status == 0)
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();         //时间
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+

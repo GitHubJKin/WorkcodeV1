@@ -1,0 +1,132 @@
+
+
+/*** BeginHeader */
+#ifndef rd_3004_andan_YSM_C_lib
+#define rd_3004_andan_YSM_C_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_andan_YSM_C*/
+int rd_andan_YSM_C( char port );
+/*** EndHeader */
+int rd_andan_YSM_C( char port )
+{
+   auto char i, flag;
+   static int status;
+   auto long templ;
+   auto  char tempBuf[8]; //临时变量
+   auto  char tmpc[5];
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+      //3A 30 30 34 31 30 30 44 42 0D 0A
+      com_tbuf[0] = 0x3A;
+      com_tbuf[1] = 0x30;
+      com_tbuf[2] = 0x30;
+      com_tbuf[3] = 0x34;
+      com_tbuf[4] = 0x31;
+      com_tbuf[5] = 0x30;
+      com_tbuf[6] = 0x30;
+      com_tbuf[7] = 0x44;
+      com_tbuf[8] = 0x42;
+      com_tbuf[9] = 0x0D;
+      com_tbuf[10] = 0x0A;
+
+      com_tlen = 11;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      //3A  30  30  34  31  30  30  30  30  30  31  32  33  30  35  30  34  31  36  33  30  32  32  0D  0A
+      //起始字节（1字节）：      3A（：）
+      //地址（2字节）：    30  30 （00  本机地址）
+      //命令（4字节）：    34  31 （41  取实时数据）   30 30 （00  无具体内容）
+      //COD值（6字节）：      30  30  30  31  32  33（COD值 000123=123）
+      //检测时间（8字节）：        30  35  30  34  31  36  33  30
+      //（检测数据时间  05月04日16时30分）
+      //校验码（2字节）：     32  32 （22  计算得到）
+      //结束符（2字节）：     0D  0A
+      //
+      if(com_rlen >= 25 && com_rbuf[0] == 0x3A && com_rbuf[1] == 0x30 && com_rbuf[2] == 0x30  && com_rbuf[23] == 0x0D && com_rbuf[24] == 0x0A)
+      {
+         memset(tempBuf, 0x00,sizeof(tempBuf));
+         strncpy(tempBuf, &com_rbuf[7], 6);
+         templ = atol(tempBuf);
+         com_f[0] = (float)templ;//值
+         com_f[0] = com_f[0] / 10.0;
+
+         //com_rbuf[13]
+//时间解析
+
+            /*memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[8];
+            tmpc[1] = com_rbuf[9];
+         comTime.tm_year = atoi(tmpc) + 2000 -1900;//年//*/
+         mktm(&comTime, SEC_TIMER);//得到 comTime.tm_year 年
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[13];
+            tmpc[1] = com_rbuf[14];
+         comTime.tm_mon  = atoi(tmpc);//月
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[15];
+            tmpc[1] = com_rbuf[16];
+         comTime.tm_mday = atoi(tmpc);//日
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[17];
+            tmpc[1] = com_rbuf[18];
+         comTime.tm_hour = atoi(tmpc);//时
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[19];
+            tmpc[1] = com_rbuf[20];
+         comTime.tm_min  = atoi(tmpc);//分
+            //memset(tmpc, 0x00, sizeof(tmpc));
+            //tmpc[0] = com_rbuf[?];
+            //tmpc[1] = com_rbuf[?];
+         comTime.tm_sec  = 0;//秒
+            printf("%d-%02d-%02d %02d:%02d:%02d\n",
+                     comTime.tm_year+1900, comTime.tm_mon, comTime.tm_mday,
+                     comTime.tm_hour, comTime.tm_min, comTime.tm_sec);
+            //*/
+         com_sec = mktime(&comTime);//时间
+      }
+      else
+      {
+         printf("COD Error = (dev:20091  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+      if(status == 0)status = 1;
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

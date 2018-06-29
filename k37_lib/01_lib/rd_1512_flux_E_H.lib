@@ -1,0 +1,90 @@
+
+/*** BeginHeader */
+#ifndef rd_1512_flux_E_H_lib
+#define rd_1512_flux_E_H_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_flux_E_H*/
+int rd_flux_E_H( char port, char addr );
+/*** EndHeader */
+/*
+读取E+H电磁流量计
+瞬时流量，modbus地址2009
+发：
+**/
+int rd_flux_E_H( char port, char addr )
+{
+	static int status;
+   auto union uf data;
+   costate
+   {
+   	  status = 0;
+      memset(com_tbuf,0x00,sizeof(com_tbuf));
+      pack_modbus_cmd(addr,0x03,0x7D9,0x02);     //地址2009
+      com_write(port);
+      waitfor(DelaySec(2));
+      memset(com_rbuf,0x00,sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 6 && com_rbuf[0] == addr && com_rbuf[1] == 0x03)
+      {
+        data.ch[1] = com_rbuf[3];
+        data.ch[0] = com_rbuf[4];
+        data.ch[3] = com_rbuf[5];
+        data.ch[2] = com_rbuf[6];
+        com_f[0] = data.f;      //瞬时流量
+
+	    memset(com_tbuf,0x00,sizeof(com_tbuf));
+	    pack_modbus_cmd(addr,0x03,0xA32,0x02);     //地址2610
+	    com_write(port);
+	    waitfor(DelaySec(2));
+	    memset(com_rbuf,0x00,sizeof(com_rbuf));
+	    com_read(port);
+	    if(com_rlen >= 6 && com_rbuf[0] == addr && com_rbuf[1] == 0x03)
+	    {
+	        data.ch[1] = com_rbuf[3];
+	        data.ch[0] = com_rbuf[4];
+	        data.ch[3] = com_rbuf[5];
+	        data.ch[2] = com_rbuf[6];
+	        com_f[1] = data.f;      //累计流量
+
+	        status = 1;
+	    }
+
+      }
+      else
+      {
+      	 status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

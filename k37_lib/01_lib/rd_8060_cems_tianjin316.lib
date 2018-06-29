@@ -1,0 +1,103 @@
+
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8060_cems_tianjin316_lib
+#define rd_8060_cems_tianjin316_lib
+/*** EndHeader */
+
+//雪铁龙 天津地区协议
+/************************************
+发送指令: 				55 AA 01 FF FF FF FF FF FF FF 8F 47 33
+收到数据: 包头:			AA 55
+		  9个浮点数据:	43 1E 0C CD 42 6B D7 0A 42 6E AE 14 41 53 5C 29 42 BC 4C CD 41 6B 0A 3D C4 DA CB 85 40 E6 66 66 4B 25 5D B6
+		  运行状态:		00
+		  校验码:		CF 41
+		  包尾:			33
+************************************/
+/*** BeginHeader rd_cems_tianjin316*/
+int rd_cems_tianjin316( char port );
+/*** EndHeader */
+int rd_cems_tianjin316( char port )
+{
+   static int status;
+   auto int i;
+   auto union uf f;
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      com_tbuf[0] = 0x55;    //将需要发送的数据放入缓冲区
+      com_tbuf[1] = 0xAA;
+      com_tbuf[2] = 0x01;
+      com_tbuf[3] = 0xFF;
+      com_tbuf[4] = 0xFF;
+      com_tbuf[5] = 0xFF;
+      com_tbuf[6] = 0xFF;
+      com_tbuf[7] = 0xFF;
+      com_tbuf[8] = 0xFF;
+      com_tbuf[9] = 0xFF;
+      com_tbuf[10] = 0x8F;
+      com_tbuf[11] = 0x47;
+      com_tbuf[12] = 0x33;
+      com_tlen = 13;          //发送数据长度
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelayMs(2000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if((com_rlen >= 42)&&
+		  (com_rbuf[0] == 0xAA)&&
+		  (com_rbuf[1] == 0x55)&&
+		  (com_rbuf[38] == 0x00)&&
+		  (com_rbuf[41] == 0x33))
+      {
+  		  for(i = 0;i < 9;i++)
+  		  {
+  		  	f.ch[3] = com_rbuf[i*4+2];
+  		  	f.ch[2] = com_rbuf[i*4+3];
+  		  	f.ch[1] = com_rbuf[i*4+4];
+  		  	f.ch[0] = com_rbuf[i*4+5];
+
+  		  	com_f[i] = f.f;
+
+  		  	if(i == 6)
+  		  	{
+  		  		com_f[i] /= 1000.0;//转换烟气压力Pa 为 kPa单位.
+				}
+  		  	else if(i == 8)
+  		  	{
+  		  		com_f[i] /= 3600.0;//转换热态废气m3/h为m3/s单位
+				}
+			}
+
+      }
+      else
+      {
+         for(i = 0;i < 9;i++)
+         {
+         	com_f[i] = 0.0;
+         }
+         status = 2;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+

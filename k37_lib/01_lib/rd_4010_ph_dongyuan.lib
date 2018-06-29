@@ -1,0 +1,54 @@
+
+/*** BeginHeader */
+#ifndef rd_4010_ph_dongyuan_lib
+#define rd_4010_ph_dongyuan_lib
+/*** EndHeader */
+
+
+/*******************************************************
+  无锡东源PH计 Modbus-RTU协议                      
+发送: 01 04 9C 40 00 02 CRC
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_ph_dongyuan */
+int rd_ph_dongyuan( char port );
+/*** EndHeader */
+int rd_ph_dongyuan( char port )
+{
+    static int status;
+    auto union uf f;
+    costate
+    {
+       status = 0;
+
+       pack_modbus_cmd(0x01,0x04,0x9c40,0x02);
+		 com_write(port);
+		 waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x04))
+		{
+			f.ch[3] = com_rbuf[3];
+			f.ch[2] = com_rbuf[4];
+			f.ch[1] = com_rbuf[5];
+			f.ch[0] = com_rbuf[6];
+			com_f[0] = f.f;		//PH值
+
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

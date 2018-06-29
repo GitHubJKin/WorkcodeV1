@@ -1,0 +1,218 @@
+
+/*** BeginHeader */
+#ifndef rd_8017_xuedilong_cems1_lib
+#define rd_8017_xuedilong_cems1_lib
+/*** EndHeader */
+
+
+
+/****************************************************************
+0x23,0x23,0x01,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+0x11,0x22,0x26,0x26
+****************************************************************/
+/*** BeginHeader rd_xuedilong_cems1 */
+int rd_xuedilong_cems1( char port );
+/*** EndHeader */
+int rd_xuedilong_cems1( char port )
+{
+   static int status;
+   auto char portPosition;
+   auto char p;
+   auto int i;
+   auto char str[5];
+   auto int position;
+   auto union uf data;
+   auto char zsFlag;    //折算标志
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = 0x23;
+      com_tbuf[1] = 0x23;
+      com_tbuf[2] = 0x01;
+      com_tbuf[3] = 0xFF;
+      com_tbuf[4] = 0xFF;
+      com_tbuf[5] = 0xFF;
+      com_tbuf[6] = 0xFF;
+      com_tbuf[7] = 0xFF;
+      com_tbuf[8] = 0xFF;
+      com_tbuf[9] = 0xFF;
+      com_tbuf[10] = 0xFF;
+      com_tbuf[11] = 0xFF;
+      com_tbuf[12] = 0xFF;
+      com_tbuf[13] = 0xFF;
+      com_tbuf[14] = 0xFF;
+      com_tbuf[15] = 0x26;
+      com_tbuf[16] = 0x26;
+      com_tlen = 17;
+      com_write(port);
+
+      waitfor(DelaySec(10));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen > 4) && (com_rbuf[0] == '#') && (com_rbuf[1] == '#')
+          && (com_rbuf[com_rlen-2] == '&') && (com_rbuf[com_rlen-1] == '&'))
+      {
+         position = 13;
+         while(1)
+         {
+            if(com_rbuf[6] <= 0) break;
+            com_rbuf[6]--;
+
+            memset(str, 0x00, sizeof(str));
+            if((com_rbuf[position+2] == 0x2D) &&
+               ((com_rbuf[position+3] == 0x52) || (com_rbuf[position+3] == 0x5A)))
+            {//编码是两个字节
+               strncpy(str, &com_rbuf[position], 2);
+               zsFlag = com_rbuf[position+3];
+               position += 5;
+
+            }
+            else
+            {//编码是三个字节
+               strncpy(str, &com_rbuf[position], 3);
+               zsFlag = com_rbuf[position+4];
+               position += 6;
+
+            }
+            data.ch[3] = com_rbuf[position++];
+            data.ch[2] = com_rbuf[position++];
+            data.ch[1] = com_rbuf[position++];
+            data.ch[0] = com_rbuf[position++];
+
+            portPosition = port + 8;    //计算出是哪个通道的
+            p = ai_param[portPosition].polIndex;  //取出污染物编码位置
+            if(zsFlag == 0x52) //R        && p >= 0 && p < 100
+            {
+               if(p >= 0 && p < 100)
+               {
+                  if(strcmp(str, PolCode[p])==0)
+                  {
+                     com_f[0] = data.f;
+                  }
+                  else
+                  {
+                     for (i = 0; i < 20; i++)
+                     {
+                        if(ai_param_extend[i].port == port) //是同一个串口的
+                        {
+                           p = ai_param_extend[i].polIndex;
+                           if(p >= 0 && p < 100)
+                           {
+                              if(strcmp(str, PolCode[p])==0)
+                              {
+                                 com_f[i+1] = data.f;
+                                 break;
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+               else
+               {
+                  for (i = 0; i < 20; i++)
+                  {
+                     if(ai_param_extend[i].port == port) //是同一个串口的
+                     {
+                        p = ai_param_extend[i].polIndex;
+                        if(p >= 0 && p < 100)
+                        {
+                           if(strcmp(str, PolCode[p])==0)
+                           {
+                              com_f[i+1] = data.f;
+                              break;
+                           }
+                        }
+                     }
+                  }
+               }
+            }//if(zsFlag == 0x52)
+            else if(zsFlag == 0x5a) //R
+            {
+               if(p >= 100 && p < 200)
+               {
+                  if(strcmp(str, PolCode[p-100])==0)
+                  {
+                     com_f[0] = data.f;
+                  }
+                  else
+                  {
+                     for (i = 0; i < 20; i++)
+                     {
+                        if(ai_param_extend[i].port == port) //是同一个串口的
+                        {
+                           p = ai_param_extend[i].polIndex;
+                           if(p >= 100 && p < 200)
+                           {
+                              if(strcmp(str, PolCode[p-100])==0)
+                              {
+                                 com_f[i+1] = data.f;
+                                 break;
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+               else
+               {
+                  for (i = 0; i < 20; i++)
+                  {
+                     if(ai_param_extend[i].port == port) //是同一个串口的
+                     {
+                        p = ai_param_extend[i].polIndex;
+                        if(p >= 100 && p < 200)
+                        {
+                           if(strcmp(str, PolCode[p-100])==0)
+                           {
+                              com_f[i+1] = data.f;
+                              break;
+                           }
+                        }
+                     }
+                  }
+               }
+            }//else if(zsFlag == 0x5a)
+            position++;
+         }
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

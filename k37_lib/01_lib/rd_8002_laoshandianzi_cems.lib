@@ -1,0 +1,165 @@
+
+/*** BeginHeader */
+#ifndef rd_8002_laoshandianzi_cems_lib
+#define rd_8002_laoshandianzi_cems_lib
+/*** EndHeader */
+
+
+/*******************************************************
+青岛崂山电子的 工控机程序 __主值SO2,也取得其他值                //8200---OK   与8100不同的时,8200不向外发任何数据
+9600 N 8 1                                                      //正常一分钟收一条数据
+A;2005-05-27;16:20:30;<CR><LF>   //CR=0x0d  LF=0x0a
+A;数据1;数据2; . . . ;数据27;<CR><LF>CRC校验值;END
+2+9+9+2=22            9+9+2=20            7+2=9    4+2=6 8+2=10    5+2=7  5+2=7  9+9+2=20            9+9+2=20            8+2=10    9+9+2=20             1+1+2+1=5    3 = 159
+A;000229.9;000229.9;N;000007.2;000007.2;N;0000047;N;146;N;-0000.2;N;07.0;N;11.8;N;000383.0;000383.0;N;######.#;######.#;N;0001331;N;######.#;######.#;N;<CR><LF>6480;END    //水泥厂实测
+A;000170.4;000113.6;N;000832.2;000555.0;N;102890X;N;110;N;+0000.3;N;##.#;N;11.0;N;000344.3;000229.6;N;######.#;######.#;N;0000027;N;######.#;######.#;N;<CR><LF>9E7A;END
+A;000015.0;000015.0;N;000813.9;000813.9;N;0000033;N;057;N;-0000.3;N;05.0;N;14.6;N;000080.4;000080.4;N;######.#;######.#;N;0019494;N;######.#;######.#;N;<CR><LF>8801;END    //奔马实测
+烟尘折算   烟尘实测 N SO2折算  SO2实测 N 烟气流量N 温度N 烟气压力N 湿度N   氧气N 氮氧折算 氮氧实测 N  CO折算   CO实测  N  烟气总 N 氨气折算 氨气实测 N 回车 换行 CRC
+mg/m3      mg/m3      mg/m3     mg/m3      m3/h     'C      kPa      %       %    mg/m3     mg/m3      mg/m3    mg/m3      w m3     mg/m3    mg/m3
+           val2                 val        val3     val6    val5            val4            val7                           val8
+  2        11         22        31         42       52    58        68     75     82       91                             122
+
+2  22   81
+//需要
+SO2、烟尘、流量, 含氧量， 压力 ， 温度， 氮氧化物      烟气总量      湿度
+02   01    S02   S01      S08     S03    03                          S05
+val  val2  val3  val4     val5    val6   val7           val8         val01
+*******************************************************/
+/*** BeginHeader rd_laoshandianzi_cems */
+int rd_laoshandianzi_cems( char port, char flag );
+/*** EndHeader */
+int rd_laoshandianzi_cems( char port, char flag )
+{
+   static int status;
+   static unsigned long tmpt;
+   auto struct tm comTime;
+   auto char * p;
+   costate
+   {
+      status = 0;
+
+      if(flag == 1)
+      {
+         com_sec = read_rtc();
+         mktm(&comTime, com_sec);
+
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         sprintf(com_tbuf, "A;%04d-%02d-%02d;%02d:%02d:%02d;",
+                        comTime.tm_year+1900, comTime.tm_mon, comTime.tm_mday,
+                        comTime.tm_hour, comTime.tm_min, comTime.tm_sec);
+         com_tlen = strlen(com_tbuf);
+         com_tbuf[com_tlen]=0x0d;
+         com_tbuf[com_tlen+1]=0x0a;
+         com_tlen +=2;
+         com_write(port);
+      }
+
+      tmpt = SEC_TIMER;
+      while(SEC_TIMER < (tmpt + 70))
+      {
+         waitfor(DelayMs(2000));
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if(com_rlen >= 162) break;
+      }
+      if(com_rlen >= 162 && com_rbuf[0]=='A' && com_rbuf[1]==';' &&
+         com_rbuf[159]=='E' && com_rbuf[160]=='N' && com_rbuf[161]=='D')
+      {
+         p = &com_rbuf[2];
+         com_f[0] = atof(p);     //烟尘折算
+         p = strchr(p, ';');
+         p ++;
+         com_f[1] = atof(p);     //烟尘实测
+         p = strchr(p, ';');
+         p += 3;  //跳过标记，指向下一个数据
+
+         com_f[2] = atof(p);     //SO2折算
+         p = strchr(p, ';');
+         p ++;
+         com_f[3] = atof(p);     //SO2实测
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[4] = atof(p);     //烟气流速
+         com_f[4] *= 3600;       //单位：m3/s -> m3/h
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[5] = atof(p);     //烟气温度
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[6] = atof(p);     //烟气压力
+         com_f[6] /= 10;         //单位：KPa -> MPa
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[7] = atof(p);     //烟气湿度
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[8] = atof(p);     //含氧量
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[9] = atof(p);     //氮氧化物折算值
+         p = strchr(p, ';');
+         p ++;
+         com_f[10] = atof(p);    //氮氧化物实测值
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[11] = atof(p);    //CO折算值
+         p = strchr(p, ';');
+         p ++;
+         com_f[12] = atof(p);    //CO实测值
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[13] = atof(p);    //烟气排放总量
+         com_f[13] *= 10000;     //单位：万立方 -> m3
+         p = strchr(p, ';');
+         p += 3;  //跳过标记
+
+         com_f[14] = atof(p);    //氨气折算值
+         p = strchr(p, ';');
+         p ++;
+         com_f[15] = atof(p);    //氨气实测值
+         status = 1;
+      }
+      if(status == 0)
+      {
+         //printf("LaoShan Error = (dev:8200  ,  com:%02d)\n", port+1);
+         memset(com_f, 0x00, sizeof(com_f));
+         status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+

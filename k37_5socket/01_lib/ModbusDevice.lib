@@ -1,0 +1,1670 @@
+/*** BeginHeader */
+#ifndef __MODBUSPROTOCOLSTANDARD_LIB1
+#define __MODBUSPROTOCOLSTANDARD_LIB1
+/*** EndHeader */
+
+/*	在串口设备入口函数中调用
+
+标准Modbus：
+    case 3333:		   //通用标准MOBUS协议，功能码 04
+       waitfor(status = rd_modbus(port,4));
+       break;
+    case 4444:		   //通用标准MOBUS协议，功能码 03
+       waitfor(status = rd_modbus(port,3));
+       break;
+非标准：
+    case 1015://西安三全
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 6, 6, rd_flux_1015sanquan));
+       break;
+    case 1017://大连弗朗
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 4, 4112, 10, rd_flux_1017folang));
+       break;
+    case 1021://cod
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 1009, 32, rd_cod_1021multiranger(0)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 0, 2, rd_cod_1021multiranger(1)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 3, 3, 0, 2, rd_cod_1021multiranger(2)));
+       break;
+    case 1022://江苏明渠流量计
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 594, 2, rd_flux_1022jiangsu(0)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 784, 2, rd_flux_1022jiangsu(1)));
+       break;
+    case 1024://博克斯ph
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 6, rd_ph_1024bokesi(0)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 0, 4, rd_ph_1024bokesi(1)));
+       break;
+    case 1025://鸿凯
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 10, rd_flux_1025hongkai));
+       break;
+    case 1026://天信
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 1, 6, rd_flux_1026tianxin));
+       break;
+    case 1029://电磁流量计
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 7, rd_flux_1029dianci));
+       break;
+    case 1030://绿洁流量计
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 2, 6, rd_flux_1030lvjie));
+       break;
+    case 1032://湖北中碧流量计
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 1, 4, rd_flux_1032zhongbi));
+       break;
+    case 10321://江苏博克斯流量计V2版
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 2, 4, rd_flux_10321boersi));
+       break;
+    case 1033://奇力流量积算仪
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 2, 8, rd_flux_1033qili));
+       break;
+    case 1035://广州奇宁化工
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 0, 22, rd_flux_1035qining));
+       break;
+    case 1037://MBMAG电磁流量计
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 4112, 6, rd_flux_1037MBMAG));
+       break;
+    case 1038://帆扬FYCS-2000
+       waitfor(status = rd_modbus_ascii_protocol_define_handle(port, 1, 3, 0, 12, rd_flux_1038FYCS));
+       break;
+    case 1043://金湖金诺
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 8, 4, rd_flux_1043jinhujinnuo));
+       break;
+    case 2001://哈希COMmax
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 6, rd_hach_handleFunction));
+       break;
+    case 20010://哈希COMmax
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 3, 3, 0, 7, rd_hach_20010(0)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 0, 2, rd_hach_20010(1)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 2, rd_hach_20010(2)));
+       break;
+    case 20012://哈希COMmax
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 0, 6, rd_hach_handleFunction));
+       break;
+    case 20013://哈希COMmax
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 3, 3, 0, 6, rd_hach_handleFunction));
+       break;
+    case 1043://河北先河
+    case 2004://河北先河
+    case 3002://河北先河
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 12, rd_2004xianhe));
+       break;
+    case 2016://爱华仪器
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 6808, 4, rd_cod_2016aihua));
+       break;
+    case 20201://TETHYS环保设备
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 36, 4, rd_cod_20201tethys_v1));
+       break;
+    case 2021://无锡创辰科技重金属仪器
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 4, 2, 9, rd_2021_ahong2hao));
+       break;
+    case 2024://河北先河
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 10, 2, rd_cod_2024xianhe));
+       break;
+    case 2032://雪迪龙
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 4, 0, 9, rd_cod_2032xuedilong));
+       break;
+    case 2050://华时捷仪器通讯协议(485口接多个仪表,地址位为01,...) 14-03-19
+       waitfor(status = rd_some_huashijie_2050(port));
+       break;
+
+    case 3010://岛津氨氮 读一个值
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 10, 4, 8, 22, rd_cod_3010daojinandan));
+       break;
+    case 3011://岛津氨氮 读两个值
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 10, 4, 8, 22, rd_cod_3011daojinandan));
+       break;
+    case 3105://南京泽美
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 1002, 4, rd_andan_3105daozemei));
+       break;
+    case 3106://adam_4117
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 1, rd_3016_adam4117));
+       break;
+    case 4017://福建富铭 ph
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 1, rd_ph_4007fuming));
+       break;
+    case 4011://台湾比特 PH计
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 1, rd_ph_4011elph));
+       break;
+    case 4012://读取博控K27F
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 6, rd_bocon_4012K27f));
+       break;
+    case 4013://PHT-210
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 1, 1, rd_ph_4011elph));
+       break;
+    case 6010://无锡点创重金属
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 4250, 8, rd_metal_6010dianchuang));
+       break;
+    case 6021://怡文重金属
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 1, 1, rd_cu_6021yiwen));
+       break;
+    case 8005://山西省污染源
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 18, rd_shanxi_8005(0)));
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 500, 2, rd_shanxi_8005(1)));
+       break;
+    case 8020://明日环保
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 201, 3, 0, 6, rd_water_8020));
+       break;
+    case 8062://南京奇崛烟气
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 1, 3, 0, 20, rd_shanxi_8062));
+       break;
+    case 9002://河北先河      UV硝酸盐氮
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 2, 3, 0, 12, rd_2004xianhe));
+       break;
+    case 9003://河北先河	  叶绿素
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 3, 3, 0, 12, rd_2004xianhe));
+       break;
+    case 9004://河北先河      水中油
+       waitfor(status = rd_modbus_rtu_protocol_define_handle(port, 4, 3, 0, 12, rd_2004xianhe));
+       break;
+
+*/
+
+/*** BeginHeader LRC*/
+unsigned char LRC(char chkdata[], unsigned int chklen);
+/*** EndHeader */
+unsigned char LRC(char chkdata[], unsigned int chklen)
+{
+    auto unsigned char lrcValue;
+    auto unsigned int i;
+
+    lrcValue = 0;
+    for (i = 1; i < chklen; i++)
+    {
+	lrcValue += chkdata[i];
+    }
+    lrcValue = (unsigned char)(-((char)lrcValue));
+    return lrcValue;
+}
+
+/*** BeginHeader modbusAsciiPacket*/
+void modbusAsciiPacket(char devAddr, char function, unsigned int readAdd, unsigned int readCount);
+/*** EndHeader */
+void modbusAsciiPacket(char devAddr, char function, unsigned int readAdd, unsigned int readCount)
+{
+    auto char sendData[10];
+    auto CHARTOINTTY intchr;
+
+    memset(com_tbuf, 0x00, sizeof(com_tbuf));
+    memset(sendData, 0x00, sizeof(sendData));
+
+    sendData[1] = devAddr;
+    sendData[2] = function;
+    intchr.i = readAdd;
+    sendData[3] = intchr.c[1];
+    sendData[4] = intchr.c[0];
+    intchr.i = readCount;
+    sendData[5] = intchr.c[1];
+    sendData[6] = intchr.c[0];
+    sendData[7] = LRC(sendData, 7);
+    sprintf(com_tbuf, ":%02X%02X%02X%02X%02X%02X%02X",
+	    sendData[1], sendData[2], sendData[3], sendData[4], sendData[5], sendData[6], sendData[7]);
+    com_tbuf[15] = 0x0D;
+    com_tbuf[16] = 0x0A;
+    com_tbuf[17] = '\0';
+    com_tlen = 17;
+}
+
+//流量计
+/*** BeginHeader rd_flux_handleFunction*/
+int rd_flux_handleFunction(void);
+/*** EndHeader */
+int rd_flux_handleFunction(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat1032(0, 0, com_rbuf);
+
+    status = 1;
+
+    return status;
+}
+
+//大连弗朗流量计，地址1,功能码4
+/*** BeginHeader rd_flux_1017folang*/
+int rd_flux_1017folang(void);
+/*** EndHeader */
+int rd_flux_1017folang(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(4112, 4112, com_rbuf);              //瞬时流量
+    com_f[1] = getModbusRtuLongInverse(4112, 4120, com_rbuf);            //累计流量
+    status = 1;
+
+    return status;
+}
+
+//博克斯流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1017boersi*/
+int rd_flux_1017boersi(void);
+/*** EndHeader */
+int rd_flux_1017boersi(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat0123(1, 1, com_rbuf);                //瞬时流量
+    com_f[1] = (float)getModbusRtuLong0123(1, 21, com_rbuf) / 10;      //累计流量
+    status = 1;
+
+    return status;
+}
+//
+/*** BeginHeader rd_cod_1021multiranger*/
+int rd_cod_1021multiranger(char flag);
+/*** EndHeader */
+int rd_cod_1021multiranger(char flag)
+{
+    auto int status;
+
+    status = 0;
+    if (flag == 0)
+    {
+	com_f[0] = (float)getModbusRtuUnsigned(1009, 1009, com_rbuf) / 10000.0 * 250.83;   //瞬时流量
+	com_f[1] = (float)getModbusRtuLongInverse(1009, 1039, com_rbuf) / 100.0;
+    }
+    if (flag == 1) com_f[2] = getModbusRtuFloat1032(0, 0, com_rbuf);
+    if (flag == 2) com_f[3] = getModbusRtuFloat1032(0, 0, com_rbuf);
+    status = 1;
+
+    return status;
+}
+//江苏明渠流量计
+/*** BeginHeader rd_flux_1022jiangsu*/
+int rd_flux_1022jiangsu(char flag);
+/*** EndHeader */
+int rd_flux_1022jiangsu(char flag)
+{
+    auto int status;
+
+    status = 0;
+    if (flag == 0)
+    {
+	com_f[0] = getModbusRtuFloat3210(594, 594, com_rbuf);    //瞬时流量
+    }
+    if (flag == 1) com_f[1] = getModbusRtuLongInverse(784, 784, com_rbuf);  //累计流量
+    status = 1;
+
+    return status;
+}
+//
+/*** BeginHeader rd_ph_1024bokesi*/
+int rd_ph_1024bokesi(char flag);
+/*** EndHeader */
+int rd_ph_1024bokesi(char flag)
+{
+    auto int status;
+
+    status = 0;
+    if (flag == 0)
+    {
+	com_f[0] = (float)getModbusRtuLongInverse(0, 1, com_rbuf) / 36.0;
+	com_f[1] = (float)getModbusRtuLongInverse(0, 3, com_rbuf);
+    }
+    if (flag == 1) com_f[2] = (float)getModbusRtuUnsigned(0, 1, com_rbuf) / 1000.0;
+    status = 1;
+
+    return status;
+}
+//鸿恺流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1025hongkai*/
+int rd_flux_1025hongkai(void);
+/*** EndHeader */
+int rd_flux_1025hongkai(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat1032(0, 0, com_rbuf) / 3.6;                //瞬时流量
+    com_f[1] = getModbusRtuLongInverse(0, 8, com_rbuf);                  //累计流量
+    status = 1;
+
+    return status;
+}
+//天信流量计，地址2,功能码3
+/*** BeginHeader rd_flux_1026tianxin*/
+int rd_flux_1026tianxin(void);
+/*** EndHeader */
+int rd_flux_1026tianxin(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(1, 1, com_rbuf) * 1000000;
+    com_f[0] += getModbusRtuFloat3210(1, 3, com_rbuf);                   //总量
+    com_f[1] = getModbusRtuFloat3210(1, 5, com_rbuf);                    //标况流量
+    status = 1;
+
+    return status;
+}
+//电磁量计，地址1,功能码3
+/*** BeginHeader rd_flux_1029dianci*/
+int rd_flux_1029dianci(void);
+/*** EndHeader */
+int rd_flux_1029dianci(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(1, 1, com_rbuf);                    //瞬时流量
+    com_f[1] = getModbusRtuLongInverse(1, 3, com_rbuf);                  //总量
+    com_f[1] += getModbusRtuFloat3210(1, 5, com_rbuf);
+    status = 1;
+
+    return status;
+}
+//绿洁流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1030lvjie*/
+int rd_flux_1030lvjie(void);
+/*** EndHeader */
+int rd_flux_1030lvjie(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(2, 2, com_rbuf);                    //瞬时流量
+    com_f[1] = getModbusRtuFloat3210(2, 6, com_rbuf);                    //总量
+    com_f[1] += (float)getModbusRtuLongInverse(2, 4, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+//湖北中碧流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1032zhongbi*/
+int rd_flux_1032zhongbi(void);
+/*** EndHeader */
+int rd_flux_1032zhongbi(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = (float)getModbusRtuLongInverse(1, 1, com_rbuf) / 36.0;      //瞬时流量	//采集单位m3/h,显示单位L/s
+    com_f[1] = getModbusRtuLongInverse(2, 4, com_rbuf);                  //总量
+    status = 1;
+
+    return status;
+}
+//江苏博克斯流量计V2版，地址1,功能码3
+/*** BeginHeader rd_flux_10321boersi*/
+int rd_flux_10321boersi(void);
+/*** EndHeader */
+int rd_flux_10321boersi(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = (float)getModbusRtuLongInverse(2, 2, com_rbuf) / 10.0;      //瞬时流量	单位m3/h
+    com_f[1] = getModbusRtuLongInverse(2, 4, com_rbuf);                  //总量
+    status = 1;
+
+    return status;
+}
+//奇力流量积算仪，地址1,功能码3
+/*** BeginHeader rd_flux_1033qili*/
+int rd_flux_1033qili(void);
+/*** EndHeader */
+int rd_flux_1033qili(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(2, 2, com_rbuf);                    //瞬时流量
+    com_f[1] = getModbusRtuFloat3210(2, 8, com_rbuf);                    //总量
+    status = 1;
+
+    return status;
+}
+//广州奇宁化工，地址2,功能码3
+/*** BeginHeader rd_flux_1035qining*/
+int rd_flux_1035qining(void);
+/*** EndHeader */
+int rd_flux_1035qining(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(0, 0, com_rbuf);                    //瞬时流量
+    com_f[1] = getModbusRtuLongInverse(0, 20, com_rbuf);                 //总量
+    status = 1;
+
+    return status;
+}
+
+//MBMAG电磁流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1037MBMAG*/
+int rd_flux_1037MBMAG(void);
+/*** EndHeader */
+int rd_flux_1037MBMAG(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(4112, 4112, com_rbuf);                  //瞬时流量
+    com_f[1] = getModbusRtuFloat3210(4112, 4114, com_rbuf);
+    com_f[1] += (float)getModbusRtuLongInverse(4112, 4116, com_rbuf);        //总量
+    status = 1;
+
+    return status;
+}
+//帆扬FYCS-2000流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1038FYCS*/
+int rd_flux_1038FYCS(void);
+/*** EndHeader */
+int rd_flux_1038FYCS(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusAsciiFloat3210(0, 0, com_rbuf);                  //瞬时流量
+    com_f[1] = getModbusRtuLongInverse(4112, 4114, com_rbuf);
+    com_f[1] += getModbusRtuFloat3210(4112, 4116, com_rbuf);     //总量
+    status = 1;
+
+    return status;
+}
+//金湖金诺流量计，地址1,功能码3
+/*** BeginHeader rd_flux_1043jinhujinnuo*/
+int rd_flux_1043jinhujinnuo(void);
+/*** EndHeader */
+int rd_flux_1043jinhujinnuo(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(8, 8, com_rbuf) / 3.6;                //瞬时流量
+    com_f[1] = getModbusRtuFloat3210(8, 10, com_rbuf);                   //总量
+    status = 1;
+
+    return status;
+}
+
+
+//哈希Cod
+/*** BeginHeader rd_hach_20010*/
+int rd_hach_20010(char flag);
+/*** EndHeader */
+int rd_hach_20010(char flag)
+{
+    auto int status;
+
+    status = 0;
+    if (flag == 0)
+    {
+	com_f[0] = getModbusRtuFloat3210(0, 0, com_rbuf);
+	com_f[1] = getModbusRtuLongInverse(0, 3, com_rbuf);
+	com_f[1] += getModbusRtuFloat3210(0, 5, com_rbuf);
+    }
+    if (flag == 1)
+    {
+	com_f[2] = getModbusRtuFloat1032(0, 0, com_rbuf);
+    }
+    if (flag == 2)
+    {
+	com_f[3] = getModbusRtuFloat1032(0, 0, com_rbuf);
+    }
+    status = 1;
+
+    return status;
+}
+
+//哈希Cod
+/*** BeginHeader rd_hach_handleFunction*/
+int rd_hach_handleFunction(void);
+/*** EndHeader */
+int rd_hach_handleFunction(void)
+{
+    auto int status;
+    auto struct tm comTime;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat1032(0, 0, com_rbuf);
+
+    comTime.tm_year = hex2dec(com_rbuf[7]) * 100 + hex2dec(com_rbuf[8]) - 1900;
+    comTime.tm_mon  = hex2dec(com_rbuf[9]);
+    comTime.tm_mday = hex2dec(com_rbuf[10]);
+    comTime.tm_hour = hex2dec(com_rbuf[11]);
+    comTime.tm_min  = hex2dec(com_rbuf[12]);
+    comTime.tm_sec  = 0;
+    com_sec = mktime(&comTime); //时间
+    status = 1;
+
+    return status;
+}
+
+//河北先河流量计，地址1,功能码3
+/*** BeginHeader rd_2004xianhe*/
+int rd_2004xianhe(void);
+/*** EndHeader */
+int rd_2004xianhe(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuUnsigned(0, 0, com_rbuf) / 10.0;    //测量值，COD、硝酸盐、叶绿素等
+    com_f[1] = getModbusRtuUnsigned(0, 4, com_rbuf) / 10.0;    //参比电压，COD、硝酸盐
+    com_f[2] = getModbusRtuUnsigned(0, 5, com_rbuf) / 10.0;    //测量电压，COD、硝酸盐
+    com_f[3] = getModbusRtuUnsigned(0, 10, com_rbuf) / 10.0;   //水中油电压、叶绿素电压
+    status = 1;
+
+    return status;
+}
+
+//爱华COD，地址1,功能码3
+/*** BeginHeader rd_cod_2016aihua*/
+int rd_cod_2016aihua(void);
+/*** EndHeader */
+int rd_cod_2016aihua(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(6808, 6808, com_rbuf);
+    com_f[1] = getModbusRtuFloat3210(6808, 6810, com_rbuf);
+    if (com_f[0] < 0)		com_f[0] = 0.0;
+    if (com_f[1] < 0)		com_f[1] = 0.0;
+    status = 1;
+
+    return status;
+}
+
+//TETHYS环保设备，地址1,功能码3
+/*** BeginHeader rd_cod_20201tethys_v1*/
+int rd_cod_20201tethys_v1(void);
+/*** EndHeader */
+int rd_cod_20201tethys_v1(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat1032(36, 36, com_rbuf);
+    com_f[1] = getModbusRtuFloat1032(36, 38, com_rbuf);
+    if (com_f[0] < 0)		com_f[0] = 0.0;
+    if (com_f[1] < 0)		com_f[1] = 0.0;
+    status = 1;
+
+    return status;
+}
+
+//无锡创辰科技重金属
+/*** BeginHeader rd_2021_ahong2hao*/
+int rd_2021_ahong2hao(void);
+/*** EndHeader */
+int rd_2021_ahong2hao(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat0123(2, 4, com_rbuf);
+    com_sec = getModebusRtuDatetime(2, 6, com_rbuf);       //时间
+
+    status = 1;
+
+    return status;
+}
+
+//河北先河型号XH-9005，地址1,功能码3
+/*** BeginHeader rd_cod_2024xianhe*/
+int rd_cod_2024xianhe(void);
+/*** EndHeader */
+int rd_cod_2024xianhe(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(10, 10, com_rbuf);
+    if (com_f[0] > 200)		com_f[0] = 200.0;
+    status = 1;
+
+    return status;
+}
+//雪迪龙，地址1,功能码3
+/*** BeginHeader rd_cod_2032xuedilong*/
+int rd_cod_2032xuedilong(void);
+/*** EndHeader */
+int rd_cod_2032xuedilong(void)
+{
+    auto int status;
+    auto struct tm comTime;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat0123(0, 2, com_rbuf);
+    comTime.tm_year = com_rbuf[11] * 256 + com_rbuf[12] - 1900;
+    comTime.tm_mon  = com_rbuf[14];
+    comTime.tm_mday = com_rbuf[16];
+    comTime.tm_hour = com_rbuf[18];
+    comTime.tm_min  = com_rbuf[20];
+    comTime.tm_sec  = 0;
+    com_sec = mktime(&comTime); //测量时间
+    status = 1;
+
+    return status;
+}
+/*** BeginHeader rd_some_huashijie_2050 */      //case 2050:华时捷仪器通讯协议(485口接多个仪表,地址位为01,...) 14-03-19
+int rd_some_huashijie_2050(char port);
+/*** EndHeader */
+int rd_some_huashijie_2050(char port)
+{
+    static int status;
+    auto int i;
+    static int someAdd;
+
+    costate
+    {
+	status = 0;
+	for (someAdd = 0; someAdd < ai_param[15].alarm_L; someAdd++)
+	{
+	    memset(com_tbuf, 0x00, sizeof(com_tbuf));
+	    pack_modbus_cmd(someAdd + 1, 0x03, 0x00, 0x0A);
+	    com_write(port);
+	    waitfor(DelayMs(3000));
+
+	    memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	    com_read(port);
+
+	    if ((com_rlen >= 25) && (com_rbuf[0] == (someAdd + 1)) && (com_rbuf[1] == 0x03)) //&&(com_rbuf[2]==(0x30+someAdd+1))&&(com_rbuf[3]==0x30))
+	    {
+		com_f[someAdd] = getModbusRtuFloat3210(0, 0, com_rbuf)
+
+		if (com_rbuf[22] == 0x01)
+		{
+		    com_f[someAdd] *= 1000.0;
+		}
+		else if (com_rbuf[22] == 0x03)
+		{
+		    com_f[someAdd] /= 1000.0;
+		}
+		old_com_f[someAdd] = com_f[someAdd];
+		com_sec = read_rtc();
+		printf("com_f[%d] = %f \n", someAdd, com_f[someAdd]);
+
+		someDeviceStatus[someAdd] = 0;
+	    }
+	    else
+	    {
+		if (someDeviceStatus[someAdd] < 3)
+		{
+		    com_f[someAdd] = old_com_f[someAdd];
+		    someDeviceStatus[someAdd]++;
+		}
+		else
+		{
+		    com_f[someAdd] = 0.0;
+		    someDeviceStatus[someAdd]++;
+		}
+	    }
+	    waitfor(DelayMs(2000));
+	}
+
+	for (someAdd = 0; someAdd < ai_param[15].alarm_L; someAdd++)
+	{
+	    if (someDeviceStatus[someAdd] <= 3)
+	    {
+		break;
+	    }
+	    else
+	    {
+		com_f[someAdd] = 0.0;
+	    }
+	}
+	status = 1;
+	com_sec = read_rtc();
+	if (status == 0) status = 1;
+    }
+
+    return status;
+
+}
+
+//岛津氨氮，地址1,功能码4
+/*** BeginHeader rd_cod_3010daojinandan*/
+int rd_cod_3010daojinandan(void);
+/*** EndHeader */
+int rd_cod_3010daojinandan(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(8, 8, com_rbuf);
+    status = 1;
+
+    return status;
+}
+//岛津氨氮，地址1,功能码4
+/*** BeginHeader rd_cod_3011daojinandan*/
+int rd_cod_3011daojinandan(void);
+/*** EndHeader */
+int rd_cod_3011daojinandan(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(8, 8, com_rbuf);
+    com_f[1] = getModbusRtuFloat3210(8, 28, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+//南京泽美，地址1,功能码3
+/*** BeginHeader rd_andan_3105daozemei*/
+int rd_andan_3105daozemei(void);
+/*** EndHeader */
+int rd_andan_3105daozemei(void)
+{
+    auto int status;
+
+    status = 0;
+    time.tm_year = hex2dec(com_rbuf[3]) + 100;
+    time.tm_mon  = hex2dec(com_rbuf[4]);
+    time.tm_mday = hex2dec(com_rbuf[5]);
+    time.tm_hour = hex2dec(com_rbuf[6]);
+    time.tm_min  = hex2dec(com_rbuf[7]);
+    time.tm_sec  = hex2dec(com_rbuf[8]);
+    com_sec = mktime(&time);
+
+    com_f[0] = getModbusRtuFloat3210(8, 8, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+//adam_4117，地址1,功能码3
+/*** BeginHeader rd_3016_adam4117*/
+int rd_3016_adam4117(void);
+/*** EndHeader */
+int rd_3016_adam4117(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = ((float)getModbusRtuUnsigned(0, 0, com_rbuf) / 65535.0) * 15;
+    status = 1;
+
+    return status;
+}
+//福建福铭的PH，地址1,功能码3
+/*** BeginHeader rd_ph_4007fuming*/
+int rd_ph_4007fuming(void);
+/*** EndHeader */
+int rd_ph_4007fuming(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = (float)getModbusRtuUnsigned(0, 0, com_rbuf) / 100.0;
+    status = 1;
+
+    return status;
+}
+
+//  台湾比特，ELPH-2010，地址1,功能码3			 		4013共用
+/*** BeginHeader rd_ph_4011elph*/
+int rd_ph_4011elph(void);
+/*** EndHeader */
+int rd_ph_4011elph(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = (float)getModbusRtuUnsigned(1, 1, com_rbuf) / 100.0;
+    status = 1;
+
+    return status;
+}
+
+//博控K27F ，地址1,功能码3
+/*** BeginHeader rd_bocon_4012K27f*/
+int rd_bocon_4012K27f(void);
+/*** EndHeader */
+int rd_bocon_4012K27f(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(0, 0, com_rbuf);    //铜比重
+    com_f[1] = getModbusRtuFloat3210(0, 2, com_rbuf);    //ORP
+    com_f[2] = getModbusRtuFloat3210(0, 4, com_rbuf);    //温度
+    status = 1;
+
+    return status;
+}
+//无锡点创重金属，地址1,功能码3
+/*** BeginHeader rd_metal_6010dianchuang*/
+int rd_metal_6010dianchuang(void);
+/*** EndHeader */
+int rd_metal_6010dianchuang(void)
+{
+    auto int status;
+    auto struct tm rtc;
+
+    status = 0;
+    rtc.tm_year = hex2dec(com_rbuf[7]) * 100 + hex2dec(com_rbuf[8]) - 1900;
+    rtc.tm_mon  = hex2dec(com_rbuf[10]);
+    rtc.tm_mday = hex2dec(com_rbuf[12]);
+    rtc.tm_hour = hex2dec(com_rbuf[14]);
+    rtc.tm_min  = hex2dec(com_rbuf[16]);
+    rtc.tm_sec  = hex2dec(com_rbuf[18]);
+    com_sec = mktime(&rtc);
+
+    com_f[0] = getModbusRtuFloat1032(4250, 4250, com_rbuf) / 1000.0;
+    status = 1;
+
+    return status;
+}
+
+//怡文重金属 ，地址1,功能码3
+/*** BeginHeader rd_cu_6021yiwen*/
+int rd_cu_6021yiwen(void);
+/*** EndHeader */
+int rd_cu_6021yiwen(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat1032(1, 1, com_rbuf);
+    com_f[1] = getModbusRtuFloat1032(1, 2, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+//山西省污染源 ，地址1,功能码3
+/*** BeginHeader rd_shanxi_8005*/
+int rd_shanxi_8005(char flag);
+/*** EndHeader */
+int rd_shanxi_8005(char flag)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat1032(0, 0, com_rbuf);
+    com_f[1] = getModbusRtuFloat1032(1, 2, com_rbuf);
+    if (flag == 1) com_f[2] = getModbusRtuFloat1032(500, 500, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+//明日环保 ，地址201,功能码3
+/*** BeginHeader rd_water_8020*/
+int rd_water_8020(char flag);
+/*** EndHeader */
+int rd_water_8020(char flag)
+{
+    auto int status;
+
+    status = 0;
+    com_f[2] = getModbusRtuFloat1032(0, 0, com_rbuf);
+    com_f[0] = getModbusRtuFloat1032(0, 2, com_rbuf);
+    if (onemsg_wr.AI_Val[ch_flux].Sum < 0.0)
+    {
+	onemsg_wr.AI_Val[ch_flux].Sum = 0.0;
+    }
+    time = SEC_TIMER - backupTm;
+    com_f[1] = onemsg_wr.AI_Val[ch_flux].Sum + com_f[0] * time / 1000.0; //流量为吨
+    backupTm = SEC_TIMER;
+    com_f[3] = getModbusRtuFloat1032(0, 4, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+//南京奇崛烟气     ，地址1,功能码3
+/*** BeginHeader rd_shanxi_8062*/
+int rd_shanxi_8062(void);
+/*** EndHeader */
+int rd_shanxi_8062(void)
+{
+    auto int status;
+
+    status = 0;
+    com_f[0] = getModbusRtuFloat3210(0, 0, com_rbuf);
+    com_f[1] = getModbusRtuFloat3210(0, 2, com_rbuf);
+    com_f[2] = getModbusRtuFloat3210(0, 4, com_rbuf);
+    com_f[3] = getModbusRtuFloat3210(0, 6, com_rbuf);
+    com_f[4] = getModbusRtuFloat3210(0, 8, com_rbuf);
+    com_f[5] = getModbusRtuFloat3210(0, 10, com_rbuf);
+    com_f[6] = getModbusRtuFloat3210(0, 12, com_rbuf);
+    com_f[7] = getModbusRtuFloat3210(0, 14, com_rbuf);
+    com_f[8] = getModbusRtuFloat3210(0, 16, com_rbuf);
+    com_f[9] = getModbusRtuFloat3210(0, 18, com_rbuf);
+    com_f[10] = getModbusRtuFloat3210(0, 20, com_rbuf);
+    status = 1;
+
+    return status;
+}
+
+/************************modbus串口驱动********************************/
+
+/*** BeginHeader rd_modbus*/
+int rd_modbus(char port, char comport, char func, char flag);
+/*** EndHeader */
+int rd_modbus(char port, char comport, char func, char flag)
+{
+    static int status;
+    costate
+    {
+	status = 0;
+
+	if (modbusConfig[port].type == 0)      //RTU
+	    waitfor(status = rd_modbus_rtu_protocol(port, modbusConfig[comport].devAddr, func, modbusConfig[comport].beginRegister, modbusConfig[comport].registerCounter, modbusConfig[comport].dataSort, flag, modbusConfig[comport].ratedata));
+	else                                  //ACSII
+	    waitfor(status = rd_modbus_Ascii_protocol(port, modbusConfig[comport].devAddr, func, modbusConfig[comport].beginRegister, modbusConfig[comport].registerCounter, modbusConfig[comport].dataSort, flag, modbusConfig[comport].ratedata));
+	if (!status) status = 2;
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+/*** BeginHeader rd_modbus_rtu_protocol*/
+int rd_modbus_rtu_protocol(char port, char devAddr, char func, unsigned bReg, unsigned cReg, char dataType, char flag, char rat);
+/*** EndHeader */
+int rd_modbus_rtu_protocol(char port, char devAddr, char func, unsigned bReg, unsigned cReg, char dataType, char flag, char rat)
+{
+    static int status;
+    auto union uf f;
+    auto int offset;
+    auto unsigned dataCounter;
+    auto unsigned ValueStartReg;
+
+    costate
+    {
+	status = 0;
+	if (flag == 1)
+	{
+	    com_parity(port, PARAM_2STOP);
+	    com_databits(port, PARAM_7BIT);
+	}
+	pack_modbus_cmd(devAddr, func, bReg, cReg);
+	com_write(port);
+	waitfor(DelayMs(3000));
+
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+
+	if (isModbusRtuPackErr(devAddr, func)) goto RETURN_MARK;
+
+	if (dataType == DT_INT || dataType == DT_UNSIGNED)
+	{
+	    dataCounter = cReg;
+	}
+	else
+	{
+	    dataCounter = cReg / 2;
+	}
+	if (dataCounter > 20) dataCounter = 20;
+
+	ValueStartReg = bReg;
+	for (offset = 0; offset < dataCounter; offset++)
+	{
+	    switch (dataType)
+	    {
+	    case DT_INT:
+		com_f[offset] = getModbusRtuSigned(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 1;
+		break;
+	    case DT_UNSIGNED:
+		com_f[offset] = getModbusRtuUnsigned(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 1;
+		break;
+	    case DT_LONG:
+		com_f[offset] = getModbusRtuLong(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_LONG_INVERSE:
+		com_f[offset] = getModbusRtuLongInverse(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_LONG_0123:
+		com_f[offset] = getModbusRtuLong0123(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_FLOAT:
+		com_f[offset] = getModbusRtuFloat1032(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_FLOAT_INVERSE:
+		com_f[offset] = getModbusRtuFloat3210(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_FLOAT_0123:
+		com_f[offset] = getModbusRtuFloat0123(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    }
+
+	    switch (rat)
+	    {
+	    case RATE_10:
+		com_f[offset] *= 10;
+		break;
+	    case RATE_100:
+		com_f[offset] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[offset] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[offset] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[offset] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[offset] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[offset] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[offset] /= 10000;
+		break;
+	    }
+	}
+
+
+	status = 1;
+
+    RETURN_MARK:
+	if (!status) status = 2;
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+/*** BeginHeader rd_modbus_rtu_protocol_define_handle*/
+int rd_modbus_rtu_protocol_define_handle(char port, char devAddr, char func, unsigned bReg, unsigned cReg, int (*rd_handleFunction)());
+/*** EndHeader */
+int rd_modbus_rtu_protocol_define_handle(char port, char devAddr, char func, unsigned bReg, unsigned cReg, int (*rd_handleFunction)())
+{
+    static int status;
+    auto union uf f;
+    auto int offset;
+    auto unsigned dataCounter;
+    auto unsigned ValueStartReg;
+
+    costate
+    {
+	status = 0;
+	com_sec = 0L;
+
+	pack_modbus_cmd(devAddr, func, bReg, cReg);
+	com_write(port);
+	waitfor(DelayMs(1000));
+
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+
+	if (isModbusRtuPackErr(devAddr, func)) goto RETURN_MARK;
+
+	status = rd_handleFunction();
+
+    RETURN_MARK:
+	if (!status) status = 2;
+	if (!com_sec) com_sec = read_rtc();
+    }
+    return status;
+}
+
+/*** BeginHeader rd_modbus_ascii_protocol_define_handle*/
+int rd_modbus_ascii_protocol_define_handle(char port, char devAddr, char func, unsigned bReg, unsigned cReg, int (*rd_handleFunction)());
+/*** EndHeader */
+int rd_modbus_ascii_protocol_define_handle(char port, char devAddr, char func, unsigned bReg, unsigned cReg, int (*rd_handleFunction)())
+{
+    static int status;
+    auto union uf f;
+    auto int offset;
+    auto unsigned dataCounter;
+    auto unsigned ValueStartReg;
+
+    costate
+    {
+	status = 0;
+	com_sec = 0L;
+
+	modbusAsciiPacket(devAddr, func, bReg, cReg);
+	com_write(port);
+	waitfor(DelayMs(1000));
+
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+
+	if (isModbusAsciiPackErr(devAddr, func)) goto RETURN_MARK;
+
+	status = rd_handleFunction();
+
+    RETURN_MARK:
+	if (!status) status = 2;
+	if (!com_sec) com_sec = read_rtc();
+    }
+    return status;
+}
+
+/**************modbus-RTU***************/
+
+/*** BeginHeader isModbusRtuPackErr*/
+int isModbusRtuPackErr(char devAddr, char func);
+/*** EndHeader */
+int isModbusRtuPackErr(char devAddr, char func)
+{
+    auto int status;
+    auto unsigned crc;
+
+    status = 1;
+
+    if (com_rlen < 7) goto RETURN_MARK;
+    if (com_rbuf[0] != devAddr) goto RETURN_MARK;
+    if (com_rbuf[1] != func) goto RETURN_MARK;
+
+    crc = msrCRC(com_rbuf, com_rlen - 2);
+    if ((com_rbuf[com_rlen - 2] != (char)(crc >> 8)) ||
+	(com_rbuf[com_rlen - 1] != (char)(crc & 0xff))) goto RETURN_MARK;
+
+    status = 0;
+
+RETURN_MARK:
+    return status;
+}
+
+/*** BeginHeader calCharOffset*/
+unsigned calCharOffset(unsigned ReadStartReg, unsigned ValueStartReg);
+/*** EndHeader */
+unsigned calCharOffset(unsigned ReadStartReg, unsigned ValueStartReg)
+{
+    if (ValueStartReg < ReadStartReg) return 0;
+
+    return (2 * (ValueStartReg - ReadStartReg) + 3);
+}
+
+/*** BeginHeader getModbusRtuFloat1032*/
+float getModbusRtuFloat1032(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuFloat1032(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0.0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[0] = com_rbuf[charOffset++];
+    f.ch[3] = com_rbuf[charOffset++];
+    f.ch[2] = com_rbuf[charOffset];
+
+    return f.f;
+}
+
+/*** BeginHeader getModbusRtuFloat3210*/
+float getModbusRtuFloat3210(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuFloat3210(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0.0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[3] = com_rbuf[charOffset++];
+    f.ch[2] = com_rbuf[charOffset++];
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[0] = com_rbuf[charOffset];
+
+    return f.f;
+}
+
+/*** BeginHeader getModbusRtuFloat0123*/
+float getModbusRtuFloat0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuFloat0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0.0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[0] = com_rbuf[charOffset++];
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[2] = com_rbuf[charOffset++];
+    f.ch[3] = com_rbuf[charOffset];
+
+    return f.f;
+}
+
+/*** BeginHeader getModebusRtuDatetime*/
+unsigned long getModebusRtuDatetime(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+unsigned long getModebusRtuDatetime(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto struct tm rtc;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+
+    rtc.tm_year = getModbusRtuUnsigned(ReadStartReg, ValueStartReg, com_rbuf) + 2000 - 1900;
+    rtc.tm_mon = getModbusRtuUnsigned(ReadStartReg, ValueStartReg + 1, com_rbuf);
+    rtc.tm_mday = getModbusRtuUnsigned(ReadStartReg, ValueStartReg + 2, com_rbuf);
+    rtc.tm_hour = getModbusRtuUnsigned(ReadStartReg, ValueStartReg + 3, com_rbuf);
+    rtc.tm_min = getModbusRtuUnsigned(ReadStartReg, ValueStartReg + 4, com_rbuf);
+    rtc.tm_sec = getModbusRtuUnsigned(ReadStartReg, ValueStartReg + 5, com_rbuf);
+    return mktime(&rtc);
+}
+
+/*** BeginHeader getModbusRtuUnsigned*/
+unsigned getModbusRtuUnsigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+unsigned getModbusRtuUnsigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[0] = com_rbuf[charOffset++];
+
+    return f.i[0];
+}
+
+/*** BeginHeader getModbusRtuSigned*/
+float getModbusRtuSigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuSigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[0] = com_rbuf[charOffset++];
+
+    return ((float)f.signed[0]);
+}
+
+/*** BeginHeader getModbusRtuLong*/
+float getModbusRtuLong(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuLong(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[0] = com_rbuf[charOffset++];
+    f.ch[3] = com_rbuf[charOffset++];
+    f.ch[2] = com_rbuf[charOffset];
+
+    return ((float)f.l);
+}
+
+/*** BeginHeader getModbusRtuLongInverse*/
+float getModbusRtuLongInverse(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuLongInverse(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[3] = com_rbuf[charOffset++];
+    f.ch[2] = com_rbuf[charOffset++];
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[0] = com_rbuf[charOffset];
+
+    return ((float)f.l);
+}
+
+/*** BeginHeader getModbusRtuLong0123*/
+float getModbusRtuLong0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusRtuLong0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg);
+    f.ch[0] = com_rbuf[charOffset++];
+    f.ch[1] = com_rbuf[charOffset++];
+    f.ch[2] = com_rbuf[charOffset++];
+    f.ch[3] = com_rbuf[charOffset];
+
+    return ((float)f.l);
+}
+
+/**************modbus-RTU***************/
+
+/*************modbus-ASCII**************/
+/*** BeginHeader isModbusAsciiPackErr*/
+int isModbusAsciiPackErr(char devAddr, char func);
+/*** EndHeader */
+int isModbusAsciiPackErr(char devAddr, char func)
+{
+    auto int status;
+    auto unsigned crc;
+
+    status = 1;
+
+    if (com_rlen < 7) goto RETURN_MARK;
+    if (com_rbuf[0] != ':') goto RETURN_MARK;
+    if ((strhexTohex(com_rbuf[1]) * 0x10 + strhexTohex(com_rbuf[2])) != devAddr) goto RETURN_MARK;
+    if ((strhexTohex(com_rbuf[3]) * 0x10 + strhexTohex(com_rbuf[4])) != func) goto RETURN_MARK;
+
+//   crc = msrCRC(com_rbuf, com_rlen - 2);
+//   if(((strhexTohex(com_rbuf[com_rlen-6])*0x10 + strhexTohex(com_rbuf[com_rlen-5])) != (char)(crc >> 8)) ||
+//      ((strhexTohex(com_rbuf[com_rlen-5])*0x10 + strhexTohex(com_rbuf[com_rlen-4])) != (char)(crc & 0xff)))
+//      goto RETURN_MARK;
+
+    status = 0;
+
+RETURN_MARK:
+    return status;
+}
+
+
+/*** BeginHeader getModbusAsciiFloat1032*/
+float getModbusAsciiFloat1032(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiFloat1032(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0.0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[3] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[2] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return f.f;
+}
+
+
+/*** BeginHeader getModbusAsciiFloat3210*/
+float getModbusAsciiFloat3210(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiFloat3210(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0.0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[3] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[2] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return f.f;
+}
+
+/*** BeginHeader getModbusAsciiFloat0123*/
+float getModbusAsciiFloat0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiFloat0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0.0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[2] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[3] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return f.f;
+}
+
+
+/*** BeginHeader getModebusAsciiDatetime*/
+unsigned long getModebusAsciiDatetime(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+unsigned long getModebusAsciiDatetime(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto struct tm rtc;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+
+    rtc.tm_year = getModbusAsciiUnsigned(ReadStartReg, ValueStartReg, com_rbuf) + 2000 - 1900;
+    rtc.tm_mon  = getModbusAsciiUnsigned(ReadStartReg, ValueStartReg + 1, com_rbuf);
+    rtc.tm_mday = getModbusAsciiUnsigned(ReadStartReg, ValueStartReg + 2, com_rbuf);
+    rtc.tm_hour = getModbusAsciiUnsigned(ReadStartReg, ValueStartReg + 3, com_rbuf);
+    rtc.tm_min  = getModbusAsciiUnsigned(ReadStartReg, ValueStartReg + 4, com_rbuf);
+    rtc.tm_sec  = getModbusAsciiUnsigned(ReadStartReg, ValueStartReg + 5, com_rbuf);
+    return mktime(&rtc);
+}
+
+/*** BeginHeader getModbusAsciiUnsigned*/
+unsigned getModbusAsciiUnsigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+unsigned getModbusAsciiUnsigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return f.i[0];
+}
+
+/*** BeginHeader getModbusAsciiSigned*/
+float getModbusAsciiSigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiSigned(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0;
+
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+    return ((float)f.signed[0]);
+}
+
+/*** BeginHeader getModbusAsciiLong*/
+float getModbusAsciiLong(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiLong(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[3] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[2] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return ((float)f.l);
+}
+
+/*** BeginHeader getModbusAsciiLongInverse*/
+float getModbusAsciiLongInverse(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiLongInverse(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[3] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[2] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return ((float)f.l);
+}
+
+/*** BeginHeader getModbusAsciiLong0123*/
+float getModbusAsciiLong0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf);
+/*** EndHeader */
+float getModbusAsciiLong0123(unsigned ReadStartReg, unsigned ValueStartReg, char *com_rbuf)
+{
+    auto unsigned charOffset;
+    auto union uf f;
+
+    if (ValueStartReg < ReadStartReg) return 0L;
+    charOffset = calCharOffset(ReadStartReg, ValueStartReg) * 2 + 1;
+    f.ch[0] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[1] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[2] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset++]);
+    f.ch[3] = strhexTohex(com_rbuf[charOffset++]) * 0x10 + strhexTohex(com_rbuf[charOffset]);
+
+    return ((float)f.l);
+}
+
+
+/*** BeginHeader rd_modbus_Ascii_protocol*/
+int rd_modbus_Ascii_protocol(char port, char devAddr, char func, unsigned bReg, unsigned cReg, char dataType, char flag, char rat);
+/*** EndHeader */
+int rd_modbus_Ascii_protocol(char port, char devAddr, char func, unsigned bReg, unsigned cReg, char dataType, char flag, char rat)
+{
+    static int status;
+    auto union uf f;
+    auto int offset;
+    auto unsigned dataCounter;
+    auto unsigned ValueStartReg;
+
+    costate
+    {
+	status = 0;
+	if (flag == 1)
+	{
+	    com_parity(port, PARAM_2STOP);
+	    com_databits(port, PARAM_7BIT);
+	}
+	modbusAsciiPacket(devAddr, func, bReg, cReg);
+	com_write(port);
+	waitfor(DelayMs(1000));
+
+	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	com_read(port);
+
+	if (isModbusAsciiPackErr(devAddr, func)) goto RETURN_MARK;
+
+	if (dataType == DT_INT || dataType == DT_UNSIGNED)
+	{
+	    dataCounter = cReg;
+	}
+	else
+	{
+	    dataCounter = cReg / 2;
+	}
+	if (dataCounter > 20) dataCounter = 20;
+
+	ValueStartReg = bReg;
+	for (offset = 0; offset < dataCounter; offset++)
+	{
+	    switch (dataType)
+	    {
+	    case DT_INT:
+		com_f[offset] = getModbusAsciiSigned(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 1;
+		break;
+	    case DT_UNSIGNED:
+		com_f[offset] = getModbusAsciiUnsigned(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 1;
+		break;
+	    case DT_LONG:
+		com_f[offset] = getModbusAsciiLong(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_LONG_INVERSE:
+		com_f[offset] = getModbusAsciiLongInverse(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_LONG_0123:
+		com_f[offset] = getModbusAsciiLong0123(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_FLOAT:
+		com_f[offset] = getModbusAsciiFloat1032(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_FLOAT_INVERSE:
+		com_f[offset] = getModbusAsciiFloat3210(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    case DT_FLOAT_0123:
+		com_f[offset] = getModbusAsciiFloat0123(bReg, ValueStartReg, com_rbuf);
+		ValueStartReg += 2;
+		break;
+	    }
+	    switch (rat)
+	    {
+	    case RATE_10:
+		com_f[offset] *= 10;
+		break;
+	    case RATE_100:
+		com_f[offset] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[offset] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[offset] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[offset] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[offset] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[offset] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[offset] /= 10000;
+		break;
+	    }
+	}
+
+	status = 1;
+
+    RETURN_MARK:
+	if (!status) status = 2;
+	com_sec = read_rtc();
+    }
+    return status;
+}
+/*************modbus-ASCII**************/
+
+/************************modbus串口驱动********************************/
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

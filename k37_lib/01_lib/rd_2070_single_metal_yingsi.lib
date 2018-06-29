@@ -1,0 +1,100 @@
+/*******************************************************************************
+广州盈思 重金属监测仪表 (松下PLC协议)
+devAdd : 设备地址号
+*******************************************************************************/
+/*** BeginHeader rd_single_metal_yingsi*/
+int rd_single_metal_yingsi(char port, Rate rate, char devAdd);
+/*** EndHeader */
+int rd_single_metal_yingsi(char port, Rate rate, char devAdd)
+{
+    static int status;
+    auto char str[9];
+    auto union uf f; //uf这在K36的驱动库里已定义
+    auto CHARTOINTTY i;
+    costate
+    {
+        status = 0;
+        memset(com_tbuf, 0x00, sizeof(com_tbuf));
+        strcpy(com_tbuf, "%00#RDD0048100484**\r");
+        com_tbuf[2] += devAdd;
+
+        com_tlen = strlen(com_tbuf);
+        com_write(port);
+        waitfor(DelayMs(1500));
+
+        memset(com_rbuf, 0x00, sizeof(com_rbuf));
+        com_read(port);
+        if ((com_rlen > 24) && (com_rbuf[24] == 0x0D) && (com_rbuf[0] == '%') && (com_rbuf[2] == devAdd + 48))
+        {
+            com_f[0] = (asc2hex(com_rbuf[20]) * 0x1000) + (asc2hex(com_rbuf[21]) * 0x100) + (asc2hex(com_rbuf[18]) * 0x10) + (asc2hex(com_rbuf[19]));
+            switch (rate)
+            {
+            case RATE_10:
+                com_f[0] *= 10;
+                break;
+            case RATE_100:
+                com_f[0] *= 100;
+                break;
+            case RATE_1000:
+                com_f[0] *= 1000;
+                break;
+            case RATE_10000:
+                com_f[0] *= 10000;
+                break;
+            case RATE_0_10:
+                com_f[0] /= 10;
+                break;
+            case RATE_0_100:
+                com_f[0] /= 100;
+                break;
+            case RATE_0_1000:
+                com_f[0] /= 1000;
+                break;
+            case RATE_0_10000:
+                com_f[0] /= 10000;
+                break;
+            default:
+                break;
+            }
+
+
+            com_sec = read_rtc(); //时间
+
+            status = 1;
+        }
+        else
+        {
+            status = 2;
+            com_f[0] = 0.0;
+            com_sec = read_rtc();
+        }
+    }
+    return status;
+}
+
+/*******************************************************************************
+函数功能:	将一个ASCII码转换为十六进制数返回
+*******************************************************************************/
+/*** BeginHeader asc2hex*/
+char asc2hex(char c);
+/*** EndHeader */
+char asc2hex(char c)
+{
+    auto char result;
+    result = 0;
+
+    if ((c >= 0x30) && (c <= 0x39))
+    {
+        result = c - 0x30;
+    }
+    else if ((c >= 0x41) && (c <= 0x46))
+    {
+        result = c - 0x37;
+    }
+    else if ((c >= 0x61) && (c <= 0x66))
+    {
+        result = c - 0x56;
+    }
+
+    return result;
+}

@@ -1,0 +1,82 @@
+
+/*** BeginHeader */
+#ifndef rd_8044_qingheZs_dust_lib
+#define rd_8044_qingheZs_dust_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_qingheZs_dust*/
+int rd_qingheZs_dust( char port );
+/*** EndHeader */
+int rd_qingheZs_dust( char port )
+{
+   auto char ch;
+   static float f1, f2, f3;
+
+   //²éÕÒÕÛËãÖµ
+      if(getSampleChannel("S01", &ch, 1, &f2) == 1)
+      {
+         f2 = 21.0 - f2;
+         if(f2 > 0.0)
+         {
+            f2 = 10.0 / f2;
+            if(getSampleChannel("01", &ch, 1, &f1) == 1)
+            {
+               com_f[0] = f1 * f2;
+            }
+
+            if(getSampleChannel("02", &ch, 1, &f1) == 1)
+            {
+               com_f[1] = f1 * f2;
+            }
+
+            if(getSampleChannel("03", &ch, 1, &f1) == 1)
+            {
+               com_f[2] = f1 * f2;
+            }
+            if(getSampleChannel("04", &ch, 1, &f1) == 1)
+            {
+               com_f[3] = f1 * f2;
+            }
+         }
+         else
+         {
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+            com_f[2] = 0.0;
+            com_f[3] = 0.0;
+         }
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+         com_f[3] = 0.0;
+      }
+      com_sec = read_rtc();
+      return 1;
+
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

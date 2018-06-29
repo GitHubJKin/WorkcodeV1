@@ -1,0 +1,99 @@
+
+
+/*** BeginHeader */
+#ifndef rd_2052_cod_houtian_lib
+#define rd_2052_cod_houtian_lib
+/*** EndHeader */
+
+
+
+
+/*******************************************************************************
+厚天COD 的协议:
+23 23 01 FF FF FF FF FF FF FF FF FF FF   FF FF 26 26
+
+23 23 00 1b 32 52 01 11 04 21 15 30 00 30 32 33 2d 52 4e 40 b1 60 42 ff ff 26 26
+
+*******************************************************************************/
+/*** BeginHeader rd_cod_houtian*/
+int rd_cod_houtian( char port );
+/*** EndHeader */
+int rd_cod_houtian( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;
+
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = 0x23;
+      com_tbuf[1] = 0x23;
+      com_tbuf[2] = 0x01;
+      memset(&com_tbuf[3],0xff,10);
+      com_tbuf[13] = 0x11;
+      com_tbuf[14] = 0x22;
+      com_tbuf[15] = 0x26;
+      com_tbuf[16] = 0x26;
+      com_tlen = 17;
+      com_write(port);
+      waitfor(DelaySec(3));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 26)&&(com_rbuf[0] == 0x23)&&(com_rbuf[1] == 0x23))
+      {
+         f.ch[3] = com_rbuf[19];
+         f.ch[2] = com_rbuf[20];
+         f.ch[1] = com_rbuf[21];
+         f.ch[0] = com_rbuf[22];
+         com_f[0] = f.f;
+         old_com_f[0] = com_f[0];
+         printf("com_f[0]=%f \n", com_f[0]);
+
+         com_sec = read_rtc();
+         //deviceStatus = 0;
+         status = 1;
+
+      }
+      else
+      {
+         //if(deviceStatus < 100)
+         //{
+         //   deviceStatus++;
+         //   com_f[0] = old_com_f[0];
+         //   status = 1;
+         //}
+         //else
+         //{
+            status = 2;
+            com_f[0] = 0.0;
+         //}
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+

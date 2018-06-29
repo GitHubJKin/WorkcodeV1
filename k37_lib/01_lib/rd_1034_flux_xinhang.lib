@@ -1,0 +1,66 @@
+
+/*** BeginHeader */
+#ifndef rd_1034_flux_xinhang_lib
+#define rd_1034_flux_xinhang_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+河南新航TUF-2000流量计  Modbus 9600,N,8,1	     -1034
+*******************************************************************************/
+/*** BeginHeader rd_flux_xinhang */
+int rd_flux_xinhang( char port );
+/*** EndHeader */
+int rd_flux_xinhang( char port )
+{
+	static int status;
+	auto union uf f;
+	costate
+	{
+		status = 0;
+		pack_modbus_cmd(0x01, 0x03, 0x00, 0x02);	//从00H地址开始读2寄存器
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		memset(com_rbuf,0x00,sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+		{
+	      f.ch[1] = com_rbuf[3];
+	   	f.ch[0] = com_rbuf[4];
+	   	f.ch[3] = com_rbuf[5];
+	   	f.ch[2] = com_rbuf[6];
+	   	com_f[0] = (float)f.f;//瞬时流量	  单位：立方米/小时
+
+	   	status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();//时间
+	}
+	return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+

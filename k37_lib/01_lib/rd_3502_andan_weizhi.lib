@@ -1,0 +1,80 @@
+
+/*** BeginHeader */
+#ifndef rd_3502_andan_weizhi_lib
+#define rd_3502_andan_weizhi_lib
+/*** EndHeader */
+
+
+/*******************************************************
+未知仪表厂家 读氨氮                  
+发送:
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_andan_weizhi */
+int rd_andan_weizhi( char port );
+/*** EndHeader */
+int rd_andan_weizhi( char port )
+{
+	auto int status;
+   union  uf AI;
+   static float value;
+   auto unsigned char i;
+   auto unsigned char buff_3502[240];
+   auto unsigned char pos_3502;
+
+   costate
+   {
+   	status = 0;
+      waitfor(DelaySec(1));
+      memset(buff_3502, 0x00, sizeof(buff_3502));
+      pos_3502 = 0;
+      while(1)
+      {
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if(com_rlen > 0)
+         {
+            if((pos_3502 + com_rlen) >= sizeof(buff_3502)) break;
+            memcpy(&buff_3502[pos_3502], com_rbuf, com_rlen);
+            pos_3502 += com_rlen;
+         }
+         else break;
+      }
+      //printf("com_rlen=%d \n", pos_3502);
+      //for (i = 0; i < pos_3502; i++)
+     // {
+     //    printf("%c", buff_3502[i]);
+     // }
+     // printf(" \n");
+
+      for(i=0;i<pos_3502;i++ )
+      {
+        if(buff_3502[i]==0x0a)
+        {
+         if(i>=6 && buff_3502[i-1]==0x0d && buff_3502[i-3]=='.'
+         && buff_3502[i-2]>='0' && buff_3502[i-2]<='9'
+         && buff_3502[i-4]>='0'&& buff_3502[i-4]<='9'
+         && buff_3502[i-5]>='0'&& buff_3502[i-5]<='9'
+         && buff_3502[i-6]>='0'&& buff_3502[i-6]<='9'
+         )
+         {
+            value = 100.0*(buff_3502[i-6]-'0')+10.0*(buff_3502[i-5]-'0')+(buff_3502[i-4]-'0')+0.1*(buff_3502[i-2]-'0');
+            //printf("value=%f \r\n", value);
+            value_3502 = value;
+         }
+
+        }
+      }
+      com_f[0] = value_3502;
+      status = 1;
+
+      com_sec = read_rtc();			//时间
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

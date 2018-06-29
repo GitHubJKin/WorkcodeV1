@@ -1,0 +1,85 @@
+
+/*** BeginHeader */
+#ifndef rd_8010_weihedianchang_lib
+#define rd_8010_weihedianchang_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_weihedianchang*/
+int rd_weihedianchang( char port );
+/*** EndHeader */
+int rd_weihedianchang( char port )
+{
+   auto char ch;
+   static float f1,f2,f3;
+
+   //查找折算值
+   if(getSampleChannel("S05", &ch, 1, &f2) == 1)
+   {
+      if(getSampleChannel("S01", &ch, 1, &f3) == 1)
+      {
+         if((f2 == 100.0) || (f3 == 21.0))
+         {
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+            com_f[2] = 0.0;
+         }
+         else
+         {
+            if(getSampleChannel("01", &ch, 1, &f1) == 1)
+            {
+               com_f[0] = (f1/(1-f2/100)) * (21/(21-f3)/1.4);
+               if(com_f[0] < 0.0) com_f[0] = 0.0;
+            }
+
+            if(getSampleChannel("02", &ch, 1, &f1) == 1)
+            {
+               com_f[1] = (f1/(1-f2/100)) * (21/(21-f3)/1.4);
+               if(com_f[1] < 0.0) com_f[1] = 0.0;
+            }
+
+            if(getSampleChannel("03", &ch, 1, &f1) == 1)
+            {
+               com_f[2] = (f1/(1-f2/100)) * (21/(21-f3)/1.4);
+               if(com_f[2] < 0.0) com_f[2] = 0.0;
+            }
+         }
+      }
+   }
+
+   //压力(静压S04),现另外加入全压S08
+   if(getSampleChannel("S04", &ch, 1, &f1) == 1)
+   {
+      com_f[3] = f1 + 101325.0;
+   }
+
+   return 1;
+}    
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

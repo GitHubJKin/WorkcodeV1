@@ -1,0 +1,106 @@
+/*** BeginHeader */
+#ifndef rd_1005_flux_lanshen_lib
+#define rd_1005_flux_lanshen_lib
+/*** EndHeader */ 
+
+
+/*******************************************************************************
+沈阳兰申 MAG511系列 电磁流量计，兼容光华流量计           -- 1005
+标准RS-232，波特率9600，8位数据位，1位起始位，1位停止位
+*******************************************************************************/
+/*** BeginHeader rd_flux_lanshen */
+int rd_flux_lanshen( char port );
+/*** EndHeader */
+int rd_flux_lanshen( char port )
+{
+   static int status;
+   static char fluxAddr, fluxDir;
+   auto unsigned long l;
+   auto char m, i;
+
+   costate
+   {
+      status = 0;
+      fluxAddr = 0x01;
+      fluxDir = 0x00;      //Positive
+
+      com_parity(port, PARAM_EPARITY);
+      com_tbuf[0] = fluxAddr;
+      com_tbuf[1] = 0x00;
+      com_tlen = 2;
+      com_write(port);
+      //com_putc(port, fluxAddr);   //Address, Parity bit = 1
+      //com_putc(port, 0x00);    //Function,0-flux,4-total, Parity bit = 0
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, '\0', sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen > 9)&&(com_rbuf[0]==fluxAddr)&&(com_rbuf[1]==0x00)&&(com_rbuf[9]==0xaa))
+      {
+         l = (((com_rbuf[6] * 100 + com_rbuf[5]) * 100
+             + com_rbuf[4]) * 100 + com_rbuf[3]) * 100 + com_rbuf[2];
+         if(l > 0x80000000) fluxDir = 1;
+         else fluxDir = 0;
+         l &= 0x7FFFFFFF;
+         m = com_rbuf[7] & 0x0f;
+         com_f[0] = l * 1.0;                 //瞬时流量
+         if((m > 3)&&(m < 9)) for(i=9;i>m;i--)  com_f[0] *= 0.1;
+         else if((m > 9)&&(m < 14)) for(i=9;i<m;i++) com_f[0] *= 10.0;
+
+         com_parity(port, PARAM_EPARITY);
+         com_tbuf[0] = fluxAddr;
+         com_tlen = 1;
+         com_write(port);
+         //com_putc(port, fluxAddr);        //Address
+         if(fluxDir == 0)  com_parity(port, PARAM_OPARITY);
+         else com_parity(port, PARAM_EPARITY);
+         com_tbuf[0] = fluxAddr + 0x04;
+         com_tlen = 1;
+         com_write(port);
+         //com_putc(port, fluxDir + 0x04);  //Function,4-P_total,5-N_total
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, '\0', sizeof(com_rbuf));
+         com_read(port);
+         if((com_rlen > 9)&&(com_rbuf[0]==fluxAddr)&&(com_rbuf[1]==(fluxDir+0x04))&&(com_rbuf[9]==0xaa))
+         {
+            l = (((com_rbuf[6] * 100 + com_rbuf[5]) * 100
+             + com_rbuf[4]) * 100 + com_rbuf[3]) * 100 + com_rbuf[2];
+            //l = 0L;
+            //l += ((unsigned long)com_rbuf[6] * 100000000L);
+            //l += ((unsigned long)com_rbuf[5] * 1000000L);
+            //l += ((unsigned long)com_rbuf[4] * 10000L);
+            //l += ((unsigned long)com_rbuf[3] * 100L);
+            //l += (unsigned long)com_rbuf[2];
+            m = com_rbuf[7] & 0x0f;
+            if(m >= 4) m -= 4;
+            com_f[1] = l * 1.0;
+            if((m > 0)&&(m < 8))
+            {
+               for(i=0;i<m;i++)
+               {
+                  com_f[1] *= 0.1;     //累计流量
+               }
+            }
+         }
+         else com_f[1] = 0.0;
+         status = 1;
+      }
+      if(status == 0)
+      {
+         //printf("FLU Error = (dev:1005  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();            //采样时间
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

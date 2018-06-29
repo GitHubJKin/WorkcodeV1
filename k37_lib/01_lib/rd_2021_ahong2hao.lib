@@ -1,0 +1,100 @@
+
+/*** BeginHeader */
+#ifndef rd_2021_ahong2hao_lib
+#define rd_2021_ahong2hao_lib
+/*** EndHeader */
+
+
+
+//无锡创辰科技重金属仪器-通讯协议
+
+/*** BeginHeader rd_ahong2hao*/
+ int rd_ahong2hao( char port );
+/*** EndHeader */
+int rd_ahong2hao( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+
+      pack_modbus_cmd(0x01, 0x04, 0x02, 0x09);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+
+      if((com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x04))
+      {
+         f.ch[0] = com_rbuf[7];
+         f.ch[1] = com_rbuf[8];
+         f.ch[2] = com_rbuf[9];
+         f.ch[3] = com_rbuf[10];
+         com_f[0] = f.f;        //当前测量值时值
+
+         f.ch[1] = com_rbuf[11];f.ch[0] = com_rbuf[12];
+         comTime.tm_year = (unsigned char)(f.i[0] -1900);
+
+         f.ch[1] = com_rbuf[13];f.ch[0] = com_rbuf[14];
+         comTime.tm_mon  = (unsigned char)f.i[0];
+
+         f.ch[1] = com_rbuf[15];f.ch[0] = com_rbuf[16];
+         comTime.tm_mday = (unsigned char)f.i[0];
+
+         f.ch[1] = com_rbuf[17];f.ch[0] = com_rbuf[18];
+         comTime.tm_hour = (unsigned char)f.i[0];
+
+         f.ch[1] = com_rbuf[19];f.ch[0] = com_rbuf[20];
+         comTime.tm_min  = (unsigned char)f.i[0];
+
+         comTime.tm_sec  = 0;
+         com_sec = mktime(&comTime);//时间
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0.0;        //当前测量值时值
+         com_sec = read_rtc();
+         status = 2;
+      }
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,194 @@
+
+/*** BeginHeader */
+#ifndef rd_8014_guobiao_2011_TCP_lib
+#define rd_8014_guobiao_2011_TCP_lib
+/*** EndHeader */
+
+//网口8014功能，读取服务器5的数据
+
+/*******************************************************
+这个串口程序是根据国标2011实时数据包来解释的，数据包是仪表
+自动上传上来的
+*******************************************************/
+/*** BeginHeader rd_guobiao_2011_TCP_V1 */
+int rd_guobiao_2011_TCP_V1(char port);
+/*** EndHeader */
+int rd_guobiao_2011_TCP_V1(char port)
+{
+    static int status;
+    auto char portPosition;
+    auto char p;
+    auto char *point;
+    auto char *startoffset;
+    auto int i;
+    auto int len;
+    auto char ch;
+
+    costate
+    {
+	status = 0;
+	len = 0;
+
+	tcp_rlen[4] = sock_xfastread(&sock[4], tcp_rbuf[4], TCPGPRSBUF);
+	if (tcp_rlen[4] > 0)
+	{
+	    xmem2root(deal_buf, tcp_rbuf[4], tcp_rlen[4]);
+	}
+	else
+	{
+	    goto RETURN_MARK;
+	}
+	len = tcp_rlen[4];
+	if (len <= 0)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	point = strstr(deal_buf, "CN=2011");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	point = strstr(deal_buf, "CP=&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	point = strstr(point, "CP=&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	startoffset = point;
+
+	point += 5;
+	point = strstr(point, "&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	portPosition = port + 8;    //计算出是哪个通道的
+	p = ai_param[portPosition].polIndex;  //取出污染物编码位置
+	com_f[0] = parseGuoBiaoValue(startoffset, p, port);
+
+	for (i = 0; i < 20; i++)
+	{
+	    if (ai_param_extend[i].port != port) continue; //是同一个串口的
+	    if (p >= BOCON_NO_OF_POL) continue;
+	    p = ai_param_extend[i].polIndex;           //本参数通道污染物编码
+	    com_f[ai_param_extend[i].position] = parseGuoBiaoValue(startoffset, p, port);
+	}
+
+	status = 1;
+
+    RETURN_MARK:
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+/*** BeginHeader rd_guobiao_2011_TCP*/
+int rd_guobiao_2011_TCP(char port, char *pbuf, char delayTime);
+/*** EndHeader */
+int rd_guobiao_2011_TCP(char port, char *pbuf, char delayTime)
+{
+    static int status;
+    auto char portPosition;
+    auto char p;
+    auto char *point;
+    auto char *startoffset;
+    auto int i;
+    auto int len;
+    auto char ch;
+
+    costate
+    {
+	status = 0;
+	waitfor(DelaySec(delayTime));
+	if (pbuf == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+	point = strstr(pbuf, "CN=2011");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+	point = strstr(pbuf, "CP=&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+	point = strstr(point, "CP=&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	startoffset = point;
+	point += 5;
+	point = strstr(point, "&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	portPosition = port + 8;    //计算出是哪个通道的
+	p = ai_param[portPosition].polIndex;  //取出污染物编码位置
+	com_f[0] = parseGuoBiaoValue(startoffset, p, port);
+
+	for (i = 0; i < 20; i++)
+	{
+	    if (ai_param_extend[i].port != port) continue; //是同一个串口的
+	    if (p >= BOCON_NO_OF_POL) continue;
+	    p = ai_param_extend[i].polIndex;           //本参数通道污染物编码
+	    com_f[ai_param_extend[i].position] = parseGuoBiaoValue(startoffset, p, port);
+	}
+
+	status = 1;
+
+    RETURN_MARK:
+	memset(pbuf, 0x00, sizeof(pbuf));
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

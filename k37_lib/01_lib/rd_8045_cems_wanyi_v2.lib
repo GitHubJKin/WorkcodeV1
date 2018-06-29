@@ -1,0 +1,248 @@
+
+/*** BeginHeader */
+#ifndef rd_8045_cems_wanyi_v2_lib
+#define rd_8045_cems_wanyi_v2_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+安徽皖仪烟气系统通信协议
+*******************************************************************************/
+/*** BeginHeader rd_cems_wanyi_v2 */
+int rd_cems_wanyi_v2(char port);
+/*** EndHeader */
+//每次都要先发送地址，再读参数
+int rd_cems_wanyi_v2(char port)
+{
+
+   static int status;
+   auto unsigned int val;
+   auto char databuf[8];
+   auto char *p1;
+   auto char *p2;
+   auto int i;
+   auto char buf[1024];
+   static int len;
+
+   costate
+   {
+      status = 0;
+      //memset(com_f, 0x00, sizeof(com_f));
+
+		waitfor(DelayMs(2000));
+		memset(buf,0,sizeof(buf));
+		len=0;
+
+		while(1)
+		{
+			memset(com_rbuf, 0x00, sizeof(com_rbuf));
+			com_read(port);
+			if(com_rlen>0)
+			{
+				if(len+com_rlen>=1024)	break;
+				memcpy(&buf[len],com_rbuf,com_rlen);
+				len+=com_rlen;
+			}
+			else break;
+		}
+
+		if((len >= 12)&&(buf[0] == 0x06)&&
+		(buf[1] == 0x31)&&(buf[2] == 0x33)&&
+		(buf[5] == 0x30))
+	  	{
+	  		memset(databuf, 0x00, sizeof(databuf));
+	  		strncpy(databuf, &buf[6], 6);
+	  		com_f[0] = atof(databuf);//烟尘
+	  		com_f[0] /= 100.0;
+	  		old_com_f[0] = com_f[0];
+
+		  	//151218
+	  		for(i = 1;i < 10;i++)
+	  		{
+	  			com_f[i] = old_com_f[i];
+		  	}
+
+	  		deviceStatus1 = 0;
+	  	}
+	  	else if((len >= 40)&&(buf[0] == 0x06)&&
+  		(buf[1] == 0x31)&&(buf[2] == 0x37)&&(buf[5] == 0x44))
+	  	{
+      		p1 = buf;
+	  		for(i = 0;i < 6;i++)
+	  		{
+      			p1 += 1;
+	  			p1 = strchr(p1, '=');
+	  			if(p1 != NULL)
+	  			{
+	  				p2 = strchr(p1, ',');
+            		memset(databuf, 0x00, sizeof(databuf));
+	  				strncpy(databuf, p1+1, p2-p1-1);
+	  				com_f[i+1] = atof(databuf);
+		  		}
+	  			else
+	  				break;
+	  		}
+	  		com_f[1] = com_f[1]*64/22.4;
+	  		com_f[2] = com_f[2]*30/22.4;
+	  		com_f[2] *= 1.53;
+	  		for(i = 0;i < 6;i++)
+	  		{
+	  			old_com_f[i+1] = com_f[i+1];
+		  	}
+		  	//151218
+		  	com_f[0] = old_com_f[0];
+		  	com_f[7] = old_com_f[7];
+		  	com_f[8] = old_com_f[8];
+		  	com_f[9] = old_com_f[9];
+
+		  	deviceStatus2 = 0;
+	  	}
+	  	else if((len >= 60)&&(buf[0] == 0x06)&&
+	  	(buf[1] == 0x32)&&(buf[2] == 0x38)&&
+	  	(buf[5] == 0x30)&&(buf[6] == 0x30))
+	  	{
+	  		memset(databuf, 0x00, sizeof(databuf));
+	  		p1 = strstr(buf, "T:");//烟气温度
+	  		if(p1 != NULL)
+	  		{
+	  			p1 += 2;
+	  			strncpy(databuf, p1, 5);
+	  			com_f[7] = atof(databuf);
+	  		}
+	  		else
+	  		{
+	  			com_f[7] = 0.0;
+	  		}
+
+			memset(databuf, 0x00, sizeof(databuf));
+	  		p1 = strstr(buf, "P:");//烟气压力
+	  		if(p1 != NULL)
+	  		{
+	  			p1 += 2;
+	  			strncpy(databuf, p1, 5);
+	  			com_f[8] = atof(databuf);
+	  			com_f[8] /= 1000;
+	  		}
+	  		else
+	  		{
+	  			com_f[8] = 0.0;
+	  		}
+
+			memset(databuf, 0x00, sizeof(databuf));
+	  		p1 = strstr(buf, "V:");//烟气流速
+	  		if(p1 != NULL)
+	  		{
+	  			p1 += 2;
+	  			strncpy(databuf, p1, 5);
+	  			com_f[9] = atof(databuf);
+	  		}
+	  		else
+	  		{
+	  			com_f[9] = 0.0;
+	  		}
+			old_com_f[7] = com_f[7];
+			old_com_f[8] = com_f[8];
+			old_com_f[9] = com_f[9];
+
+			//151218
+			for(i=0;i<7;i++)
+			{
+				com_f[i] = old_com_f[i];
+			}
+
+			deviceStatus3 = 0;
+	  	}
+	  	else
+	  	{/*
+	  		if(deviceStatus1 < 200)
+	  		{
+	  			com_f[0] = old_com_f[0];
+		  	}
+		  	else
+		  	{
+		  		com_f[0] = 0.0;
+		  		old_com_f[0] = 0.0;
+		  	}
+		  	if(deviceStatus2 < 200)
+	  		{
+	  			com_f[1] = old_com_f[1];
+	  			com_f[2] = old_com_f[2];
+	  			com_f[3] = old_com_f[3];
+	  			com_f[4] = old_com_f[4];
+	  			com_f[5] = old_com_f[5];
+	  			com_f[6] = old_com_f[6];
+		  	}
+		  	else
+		  	{
+		  		com_f[1] = 0.0;
+		  		com_f[2] = 0.0;
+		  		com_f[3] = 0.0;
+			  	com_f[4] = 0.0;
+			  	com_f[5] = 0.0;
+			  	com_f[6] = 0.0;
+		  		old_com_f[1] = 0.0;
+		  		old_com_f[2] = 0.0;
+		  		old_com_f[3] = 0.0;
+		  		old_com_f[4] = 0.0;
+		  		old_com_f[5] = 0.0;
+		  		old_com_f[6] = 0.0;
+		  	}
+	  		if(deviceStatus3 < 200)
+	  		{
+	  			com_f[7] = old_com_f[7];
+	  			com_f[8] = old_com_f[8];
+	  			com_f[9] = old_com_f[9];
+		  	}
+		  	else
+		  	{
+		  		com_f[7] = 0.0;
+		  		com_f[8] = 0.0;
+		  		com_f[9] = 0.0;
+		  		old_com_f[7] = 0.0;
+		  		old_com_f[8] = 0.0;
+		  		old_com_f[9] = 0.0;
+		  	}*/
+		  	if(deviceStatus1 < 200)
+	  		{
+ 				for(i=0;i<10;i++)
+ 				{
+	  				com_f[i] = old_com_f[i];
+ 				}
+ 				deviceStatus1++;
+		  	}
+		  	else
+		  	{
+		  		for(i=0;i<10;i++)
+		  		{
+		  			com_f[0] = 0.0;
+		  			old_com_f[0] = 0.0;
+		  		}
+		  	}
+	  	}
+      status = 1;
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

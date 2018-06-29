@@ -1,0 +1,512 @@
+Encrypted file symbols will show as "####"
+// Compilers view of MMU. Note these values are determined by the origin statements in the BIOS.
+//Segment           Origin     Size
+Root Code           00:0000    009917
+Root Data           80:c2fc    fffffee6
+Xmem Code           fe:ee12    0001c5
+
+
+
+// Function mapping and source reference.
+// * The size of labels is indeterminate and so is denoted with an asterisk.
+//  Addr     Size   Function                        File                         Line Num
+    1c84      497   k37_hmi_init                    \BOCON_K37_MENU_5SOCKET.LIB       171
+    1e75      203   _check_rtc                      \BOCON_K37_MENU_5SOCKET.LIB       221
+    1f40     1332   dispTime                        \BOCON_K37_MENU_5SOCKET.LIB       249
+    2474     1000   chk_time                        \BOCON_K37_MENU_5SOCKET.LIB       377
+    285c      476   k37RunDisp                      \BOCON_K37_MENU_5SOCKET.LIB       461
+    2a38       64   dispCancel                      \BOCON_K37_MENU_5SOCKET.LIB       531
+    2a78       64   dispModifyFail                  \BOCON_K37_MENU_5SOCKET.LIB       538
+    2ab8       64   dispInputErr                    \BOCON_K37_MENU_5SOCKET.LIB       545
+    2af8       64   dispModifyOK                    \BOCON_K37_MENU_5SOCKET.LIB       552
+    2b38       64   dispSearching                   \BOCON_K37_MENU_5SOCKET.LIB       559
+    2b78     3357   dispParamName                   \BOCON_K37_MENU_5SOCKET.LIB       573
+    3895     7740   saveParam                       \BOCON_K37_MENU_5SOCKET.LIB       914
+    56d1     2687   modifyParam                     \BOCON_K37_MENU_5SOCKET.LIB      1650
+    6150     2947   inputPwd                        \BOCON_K37_MENU_5SOCKET.LIB      1829
+    6cd3     1650   inputTime                       \BOCON_K37_MENU_5SOCKET.LIB      2036
+    7345       64   disp_select                     \BOCON_K37_MENU_5SOCKET.LIB      2169
+    7385      379   dispSetupDevnoData              \BOCON_K37_MENU_5SOCKET.LIB      2188
+    7500      441   dispSetupDevnoNo                \BOCON_K37_MENU_5SOCKET.LIB      2236
+    76b9       60   dispSetupDevnoSelect            \BOCON_K37_MENU_5SOCKET.LIB      2297
+    76f5      328   dispSetupDevno                  \BOCON_K37_MENU_5SOCKET.LIB      2306
+    783d      617   setupDevno                      \BOCON_K37_MENU_5SOCKET.LIB      2335
+    7aa6      163   dispSetupNetData                \BOCON_K37_MENU_5SOCKET.LIB      2403
+    7b49      340   dispSetupNetNo                  \BOCON_K37_MENU_5SOCKET.LIB      2421
+    7c9d      132   dispSetupNetSelect              \BOCON_K37_MENU_5SOCKET.LIB      2464
+    7d21      273   dispSetupNet                    \BOCON_K37_MENU_5SOCKET.LIB      2483
+    7e32      768   setupNetwork                    \BOCON_K37_MENU_5SOCKET.LIB      2520
+    8132      186   dispServerSubNo                 \BOCON_K37_MENU_5SOCKET.LIB      2594
+    81ec       51   dispServerSubSelect             \BOCON_K37_MENU_5SOCKET.LIB      2615
+    821f      449   dispServerSubmenu               \BOCON_K37_MENU_5SOCKET.LIB      2623
+    83e0      746   setupServerSubmenu              \BOCON_K37_MENU_5SOCKET.LIB      2656
+    86ca      505   dispSetupServerData             \BOCON_K37_MENU_5SOCKET.LIB      2743
+    88c3      465   dispSetupServerNo               \BOCON_K37_MENU_5SOCKET.LIB      2787
+    8a94       55   dispSetupServerSelect           \BOCON_K37_MENU_5SOCKET.LIB      2833
+    8acb      602   dispSetupServer                 \BOCON_K37_MENU_5SOCKET.LIB      2841
+    8d25      788   setupServer                     \BOCON_K37_MENU_5SOCKET.LIB      2877
+    9039      149   dispSetupServerDataBz           \BOCON_K37_MENU_5SOCKET.LIB      2957
+    90ce      342   dispSetupServerNoBz             \BOCON_K37_MENU_5SOCKET.LIB      2978
+    9224       55   dispSetupServerSelectBz         \BOCON_K37_MENU_5SOCKET.LIB      3011
+    925b      385   dispSetupServerBz               \BOCON_K37_MENU_5SOCKET.LIB      3019
+    93dc     1339   setupServerBz                   \BOCON_K37_MENU_5SOCKET.LIB      3049
+ fe:efd0        *   dispCommDataTag                 \BOCON_K37_MENU_5SOCKET.LIB      3192
+
+
+// Global/static data symbol mapping and source reference.
+//  Addr     Size   Symbol                          File                         Line Num  Type
+ 10:00a2      200   PolCode2017                     ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1376  const char* const []
+ 10:03ee      200   PolCode                         ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1394  const char* const []
+ 80:c417        0   CodePosition                    \BOCON_POL_TABLE_5SOCKET.LIB      128  struct CodePosition[]
+ 80:c416        1   CodeNumber                      \BOCON_POL_TABLE_5SOCKET.LIB      129  char            
+ 80:caf3       40   ####                            \BOCON_K37_SW2LOADER.ELIB          17  char[]          
+ 80:c411        5   sampleUnit                      \UNITCTRL_5SOCKET.LIB              35  struct sampleUnit
+ 80:c40c        5   dataUnit                        \UNITCTRL_5SOCKET.LIB              36  struct dataUnit 
+ 80:c408        4   tm_ts                           \BOCON_K37_MENU_5SOCKET.LIB        24  unsigned long   
+ 80:c407        1   aiCh                            \BOCON_K37_MENU_5SOCKET.LIB        25  char            
+ 80:c406        1   com_param_pos                   \BOCON_K37_MENU_5SOCKET.LIB        26  char            
+ 80:c405        1   extend_pos                      \BOCON_K37_MENU_5SOCKET.LIB        27  char            
+ 80:c401        4   batVolt                         \BOCON_K37_MENU_5SOCKET.LIB        28  float           
+ 80:c400        1   userMode                        \BOCON_K37_MENU_5SOCKET.LIB        29  char            
+ 80:c3ff        1   disp_di_flag                    \BOCON_K37_MENU_5SOCKET.LIB        30  char            
+ 80:c3fe        1   pol_modify_flag                 \BOCON_K37_MENU_5SOCKET.LIB        31  char            
+ 80:c3f7        7   rtc                             \BOCON_K37_MENU_5SOCKET.LIB        33  struct rtc      
+ 80:c3f0        7   rtc1                            \BOCON_K37_MENU_5SOCKET.LIB        34  struct rtc1     
+ 80:c3ec        4   t0                              \BOCON_K37_MENU_5SOCKET.LIB        35  unsigned long   
+ 80:c3e8        4   hisTim                          \BOCON_K37_MENU_5SOCKET.LIB        35  unsigned long   
+ 80:c3e7        1   dispOnoffFlag                   \BOCON_K37_MENU_5SOCKET.LIB        37  char            
+ 80:c3e6        1   dispDataPage                    \BOCON_K37_MENU_5SOCKET.LIB        38  char            
+ 80:c3e5        1   wKey                            \BOCON_K37_MENU_5SOCKET.LIB        40  char            
+ 80:c3e4        1   oldKey                          \BOCON_K37_MENU_5SOCKET.LIB        41  char            
+ 80:c3e3        1   keyCount                        \BOCON_K37_MENU_5SOCKET.LIB        42  char            
+ 80:c3e1        2   keyPos                          \BOCON_K37_MENU_5SOCKET.LIB        43  int             
+ 80:c3e0        1   keyMode                         \BOCON_K37_MENU_5SOCKET.LIB        44  char            
+ 80:c3b0       48   keyBuf                          \BOCON_K37_MENU_5SOCKET.LIB        45  char[]          
+ 80:c3af        1   menuNo                          \BOCON_K37_MENU_5SOCKET.LIB        46  char            
+ 80:c3ae        1   menuNoOld                       \BOCON_K37_MENU_5SOCKET.LIB        47  char            
+ 80:c3ad        1   menuFlag                        \BOCON_K37_MENU_5SOCKET.LIB        48  char            
+ 80:c3ab        2   count_disp_real                 \BOCON_K37_MENU_5SOCKET.LIB        52  unsigned int    
+ 80:c3a7        4   tm_dispoff                      \BOCON_K37_MENU_5SOCKET.LIB        53  unsigned long   
+ 80:c3a6        1   serverNoBz                      \BOCON_K37_MENU_5SOCKET.LIB        55  char            
+ 80:c399       13   startTimeBz                     \BOCON_K37_MENU_5SOCKET.LIB        56  char[]          
+ 80:c38c       13   endTimeBz                       \BOCON_K37_MENU_5SOCKET.LIB        57  char[]          
+ 80:c38c        0   bz_rdP_start                    \BOCON_K37_MENU_5SOCKET.LIB        58  unsigned long[] 
+ 80:c38c        0   bz_rdP_end                      \BOCON_K37_MENU_5SOCKET.LIB        59  unsigned long[] 
+ 80:c38b        1   noMin                           \BOCON_K37_MENU_5SOCKET.LIB        60  char            
+ 80:c38a        1   noMax                           \BOCON_K37_MENU_5SOCKET.LIB        60  char            
+ 80:c389        1   at_once_test_flag               \BOCON_K37_MENU_5SOCKET.LIB        61  char            
+ 80:c37c        2   k37RunDisp:status               \BOCON_K37_MENU_5SOCKET.LIB       463  int             
+ 80:c36f        2   modifyParam:status              \BOCON_K37_MENU_5SOCKET.LIB      1652  int             
+ 80:c36b        4   modifyParam:keyTime             \BOCON_K37_MENU_5SOCKET.LIB      1653  unsigned long   
+ 80:c35e        2   inputPwd:status                 \BOCON_K37_MENU_5SOCKET.LIB      1831  int             
+ 80:c35a        4   inputPwd:keyTime                \BOCON_K37_MENU_5SOCKET.LIB      1832  unsigned long   
+ 80:c34d        2   inputTime:status                \BOCON_K37_MENU_5SOCKET.LIB      2038  int             
+ 80:c340        2   setupDevno:status               \BOCON_K37_MENU_5SOCKET.LIB      2337  int             
+ 80:c33f        1   setupDevno:noMin                \BOCON_K37_MENU_5SOCKET.LIB      2338  char            
+ 80:c33e        1   setupDevno:noMax                \BOCON_K37_MENU_5SOCKET.LIB      2338  char            
+ 80:c331        2   setupNetwork:status             \BOCON_K37_MENU_5SOCKET.LIB      2522  int             
+ 80:c324        2   setupServerSubmenu:status       \BOCON_K37_MENU_5SOCKET.LIB      2658  int             
+ 80:c317        2   setupServer:status              \BOCON_K37_MENU_5SOCKET.LIB      2879  int             
+ 80:c316        1   setupServer:server              \BOCON_K37_MENU_5SOCKET.LIB      2880  char            
+ 80:c309        2   setupServerBz:status            \BOCON_K37_MENU_5SOCKET.LIB      3051  int             
+ 80:c308        1   setupServerBz:server            \BOCON_K37_MENU_5SOCKET.LIB      3052  char            
+
+// Parameter and local auto symbol mapping and source reference.
+//Offset Rel. to     Size   Symbol                          File                         Line Num  Type
+       5      SP        0   k37_hmi_init:_____ZW00000107    \BOCON_K37_MENU_5SOCKET.LIB       171  void            
+       1      SP        4   k37_hmi_init:timeval            \BOCON_K37_MENU_5SOCKET.LIB       173  unsigned long   
+       0      SP        1   k37_hmi_init:c                  \BOCON_K37_MENU_5SOCKET.LIB       174  char            
+       2      SP        0   _check_rtc:_____ZW00000123      \BOCON_K37_MENU_5SOCKET.LIB       221  void            
+       0      SP        2   _check_rtc:i                    \BOCON_K37_MENU_5SOCKET.LIB       223  int             
+       6      SP        0   dispTime:_____ZW00000132        \BOCON_K37_MENU_5SOCKET.LIB       249  void            
+       2      SP        4   dispTime:bmp                    \BOCON_K37_MENU_5SOCKET.LIB       251  unsigned long   
+       1      SP        1   dispTime:c                      \BOCON_K37_MENU_5SOCKET.LIB       252  char            
+       0      SP        1   dispTime:flag                   \BOCON_K37_MENU_5SOCKET.LIB       253  char            
+      13      SP        2   chk_time:buf                    \BOCON_K37_MENU_5SOCKET.LIB       377  char*           
+       9      SP        2   chk_time:time_day               \BOCON_K37_MENU_5SOCKET.LIB       379  unsigned int    
+       1      SP        8   chk_time:sr                     \BOCON_K37_MENU_5SOCKET.LIB       380  char[]          
+       0      SP        1   chk_time:flag                   \BOCON_K37_MENU_5SOCKET.LIB       381  char            
+       0      SP        0   k37RunDisp:_____ZW000001C4      \BOCON_K37_MENU_5SOCKET.LIB       461  void            
+       0      SP        0   dispCancel:_____ZW000001ED      \BOCON_K37_MENU_5SOCKET.LIB       531  void            
+       0      SP        0   dispModifyFail:_____ZW000001F3  \BOCON_K37_MENU_5SOCKET.LIB       538  void            
+       0      SP        0   dispInputErr:_____ZW000001F9    \BOCON_K37_MENU_5SOCKET.LIB       545  void            
+       0      SP        0   dispModifyOK:_____ZW000001FF    \BOCON_K37_MENU_5SOCKET.LIB       552  void            
+       0      SP        0   dispSearching:_____ZW00000205   \BOCON_K37_MENU_5SOCKET.LIB       559  void            
+       2      SP        1   dispParamName:param             \BOCON_K37_MENU_5SOCKET.LIB       573  char            
+       4      SP        1   dispParamName:no                \BOCON_K37_MENU_5SOCKET.LIB       573  char            
+      17      SP        1   saveParam:param                 \BOCON_K37_MENU_5SOCKET.LIB       914  char            
+      19      SP        1   saveParam:no                    \BOCON_K37_MENU_5SOCKET.LIB       914  char            
+      11      SP        4   saveParam:f                     \BOCON_K37_MENU_5SOCKET.LIB       916  float           
+       7      SP        4   saveParam:p                     \BOCON_K37_MENU_5SOCKET.LIB       917  unsigned long   
+       3      SP        4   saveParam:l                     \BOCON_K37_MENU_5SOCKET.LIB       918  unsigned long   
+       2      SP        1   saveParam:flag                  \BOCON_K37_MENU_5SOCKET.LIB       919  char            
+       1      SP        1   saveParam:i                     \BOCON_K37_MENU_5SOCKET.LIB       919  char            
+       0      SP        1   saveParam:index                 \BOCON_K37_MENU_5SOCKET.LIB       920  char            
+       3      SP        1   modifyParam:no                  \BOCON_K37_MENU_5SOCKET.LIB      1650  char            
+       5      SP        1   modifyParam:server              \BOCON_K37_MENU_5SOCKET.LIB      1650  char            
+       0      SP        1   modifyParam:len                 \BOCON_K37_MENU_5SOCKET.LIB      1655  char            
+      23      SP        1   inputPwd:mode                   \BOCON_K37_MENU_5SOCKET.LIB      1829  char            
+      20      SP        1   inputPwd:len                    \BOCON_K37_MENU_5SOCKET.LIB      1833  char            
+      18      SP        2   inputPwd:i                      \BOCON_K37_MENU_5SOCKET.LIB      1834  int             
+       0      SP       18   inputPwd:str                    \BOCON_K37_MENU_5SOCKET.LIB      1835  char[]          
+       3      SP        1   inputTime:menu                  \BOCON_K37_MENU_5SOCKET.LIB      2036  char            
+       0      SP        1   inputTime:c                     \BOCON_K37_MENU_5SOCKET.LIB      2039  char            
+       2      SP        2   disp_select:x                   \BOCON_K37_MENU_5SOCKET.LIB      2169  int             
+       4      SP        2   disp_select:y                   \BOCON_K37_MENU_5SOCKET.LIB      2169  int             
+       6      SP        2   disp_select:xlen                \BOCON_K37_MENU_5SOCKET.LIB      2169  int             
+       2      SP        0   dispSetupDevnoData:_____ZW000005C3 \BOCON_K37_MENU_5SOCKET.LIB      2188  void            
+       0      SP        2   dispSetupDevnoData:x            \BOCON_K37_MENU_5SOCKET.LIB      2190  int             
+      14      SP        1   dispSetupDevnoNo:no             \BOCON_K37_MENU_5SOCKET.LIB      2236  char            
+      10      SP        2   dispSetupDevnoNo:x              \BOCON_K37_MENU_5SOCKET.LIB      2238  int             
+       8      SP        2   dispSetupDevnoNo:y              \BOCON_K37_MENU_5SOCKET.LIB      2238  int             
+       6      SP        2   dispSetupDevnoNo:w              \BOCON_K37_MENU_5SOCKET.LIB      2238  int             
+       4      SP        2   dispSetupDevnoNo:h              \BOCON_K37_MENU_5SOCKET.LIB      2238  int             
+       0      SP        4   dispSetupDevnoNo:bmp            \BOCON_K37_MENU_5SOCKET.LIB      2239  unsigned long   
+       6      SP        1   dispSetupDevnoSelect:no         \BOCON_K37_MENU_5SOCKET.LIB      2297  char            
+       2      SP        2   dispSetupDevnoSelect:x          \BOCON_K37_MENU_5SOCKET.LIB      2299  int             
+       0      SP        2   dispSetupDevnoSelect:y          \BOCON_K37_MENU_5SOCKET.LIB      2299  int             
+       3      SP        2   dispSetupDevno:no               \BOCON_K37_MENU_5SOCKET.LIB      2306  int             
+       5      SP        1   dispSetupDevno:noMin            \BOCON_K37_MENU_5SOCKET.LIB      2306  char            
+       7      SP        1   dispSetupDevno:noMax            \BOCON_K37_MENU_5SOCKET.LIB      2306  char            
+       0      SP        1   dispSetupDevno:c                \BOCON_K37_MENU_5SOCKET.LIB      2308  char            
+       0      SP        0   setupDevno:_____ZW00000602      \BOCON_K37_MENU_5SOCKET.LIB      2335  void            
+       1      SP        0   dispSetupNetData:_____ZW0000061E \BOCON_K37_MENU_5SOCKET.LIB      2403  void            
+       0      SP        1   dispSetupNetData:c              \BOCON_K37_MENU_5SOCKET.LIB      2405  char            
+      10      SP        1   dispSetupNetNo:no               \BOCON_K37_MENU_5SOCKET.LIB      2421  char            
+       6      SP        2   dispSetupNetNo:x                \BOCON_K37_MENU_5SOCKET.LIB      2423  int             
+       4      SP        2   dispSetupNetNo:y                \BOCON_K37_MENU_5SOCKET.LIB      2423  int             
+       0      SP        4   dispSetupNetNo:bmp              \BOCON_K37_MENU_5SOCKET.LIB      2424  unsigned long   
+       6      SP        1   dispSetupNetSelect:no           \BOCON_K37_MENU_5SOCKET.LIB      2464  char            
+       2      SP        2   dispSetupNetSelect:x            \BOCON_K37_MENU_5SOCKET.LIB      2466  int             
+       0      SP        2   dispSetupNetSelect:y            \BOCON_K37_MENU_5SOCKET.LIB      2466  int             
+       3      SP        2   dispSetupNet:no                 \BOCON_K37_MENU_5SOCKET.LIB      2483  int             
+       0      SP        1   dispSetupNet:c                  \BOCON_K37_MENU_5SOCKET.LIB      2485  char            
+       0      SP        0   setupNetwork:_____ZW00000654    \BOCON_K37_MENU_5SOCKET.LIB      2520  void            
+       6      SP        1   dispServerSubNo:no              \BOCON_K37_MENU_5SOCKET.LIB      2594  char            
+       2      SP        2   dispServerSubNo:x               \BOCON_K37_MENU_5SOCKET.LIB      2596  int             
+       0      SP        2   dispServerSubNo:y               \BOCON_K37_MENU_5SOCKET.LIB      2596  int             
+       2      SP        1   dispServerSubSelect:no          \BOCON_K37_MENU_5SOCKET.LIB      2615  char            
+       5      SP        2   dispServerSubmenu:no            \BOCON_K37_MENU_5SOCKET.LIB      2623  int             
+       2      SP        1   dispServerSubmenu:c             \BOCON_K37_MENU_5SOCKET.LIB      2625  char            
+       0      SP        2   dispServerSubmenu:i             \BOCON_K37_MENU_5SOCKET.LIB      2626  int             
+       1      SP        0   setupServerSubmenu:_____ZW00000699 \BOCON_K37_MENU_5SOCKET.LIB      2656  void            
+       0      SP        1   setupServerSubmenu:number_key   \BOCON_K37_MENU_5SOCKET.LIB      2659  char            
+       7      SP        1   dispSetupServerData:server      \BOCON_K37_MENU_5SOCKET.LIB      2743  char            
+       3      SP        2   dispSetupServerData:x           \BOCON_K37_MENU_5SOCKET.LIB      2745  int             
+       1      SP        2   dispSetupServerData:y           \BOCON_K37_MENU_5SOCKET.LIB      2745  int             
+       0      SP        1   dispSetupServerData:c           \BOCON_K37_MENU_5SOCKET.LIB      2746  char            
+       8      SP        1   dispSetupServerNo:no            \BOCON_K37_MENU_5SOCKET.LIB      2787  char            
+       4      SP        2   dispSetupServerNo:x             \BOCON_K37_MENU_5SOCKET.LIB      2789  int             
+       2      SP        2   dispSetupServerNo:y             \BOCON_K37_MENU_5SOCKET.LIB      2789  int             
+       0      SP        2   dispSetupServerNo:h             \BOCON_K37_MENU_5SOCKET.LIB      2789  int             
+       4      SP        1   dispSetupServerSelect:no        \BOCON_K37_MENU_5SOCKET.LIB      2833  char            
+       0      SP        2   dispSetupServerSelect:x         \BOCON_K37_MENU_5SOCKET.LIB      2835  int             
+       3      SP        1   dispSetupServer:server          \BOCON_K37_MENU_5SOCKET.LIB      2841  char            
+       5      SP        2   dispSetupServer:no              \BOCON_K37_MENU_5SOCKET.LIB      2841  int             
+       0      SP        1   dispSetupServer:c               \BOCON_K37_MENU_5SOCKET.LIB      2843  char            
+       2      SP        1   setupServer:no                  \BOCON_K37_MENU_5SOCKET.LIB      2877  char            
+       7      SP        1   dispSetupServerDataBz:server    \BOCON_K37_MENU_5SOCKET.LIB      2957  char            
+       3      SP        2   dispSetupServerDataBz:x         \BOCON_K37_MENU_5SOCKET.LIB      2959  int             
+       1      SP        2   dispSetupServerDataBz:y         \BOCON_K37_MENU_5SOCKET.LIB      2959  int             
+       0      SP        1   dispSetupServerDataBz:c         \BOCON_K37_MENU_5SOCKET.LIB      2960  char            
+       8      SP        1   dispSetupServerNoBz:no          \BOCON_K37_MENU_5SOCKET.LIB      2978  char            
+       4      SP        2   dispSetupServerNoBz:x           \BOCON_K37_MENU_5SOCKET.LIB      2980  int             
+       2      SP        2   dispSetupServerNoBz:y           \BOCON_K37_MENU_5SOCKET.LIB      2980  int             
+       0      SP        2   dispSetupServerNoBz:h           \BOCON_K37_MENU_5SOCKET.LIB      2980  int             
+       4      SP        1   dispSetupServerSelectBz:no      \BOCON_K37_MENU_5SOCKET.LIB      3011  char            
+       0      SP        2   dispSetupServerSelectBz:x       \BOCON_K37_MENU_5SOCKET.LIB      3013  int             
+       3      SP        1   dispSetupServerBz:server        \BOCON_K37_MENU_5SOCKET.LIB      3019  char            
+       5      SP        2   dispSetupServerBz:no            \BOCON_K37_MENU_5SOCKET.LIB      3019  int             
+       0      SP        1   dispSetupServerBz:c             \BOCON_K37_MENU_5SOCKET.LIB      3021  char            
+       3      SP        0   setupServerBz:_____ZW00000760   \BOCON_K37_MENU_5SOCKET.LIB      3049  void            
+       2      SP        1   setupServerBz:bz_flag           \BOCON_K37_MENU_5SOCKET.LIB      3053  char            
+       0      SP        2   setupServerBz:d                 \BOCON_K37_MENU_5SOCKET.LIB      3054  int             
+       0      SP        0   dispCommDataTag:_____ZW0000079F \BOCON_K37_MENU_5SOCKET.LIB      3192  void            
+
+
+// Macro listing and source reference.
+//  Name                           File                         Line Num
+   _RESTRICT_WATCHCODE_            
+   USE_PORTA_AUX_IO                \DEFAULT.H                         57
+   ZWORLD_RESERVED_SIZE            \DEFAULT.H                         71
+   __R3000_LIB__                   \R3000.LIB                         29
+   QD_DIVISOR                      \R3000.LIB                         32
+   QD_OVERFLOW                     \R3000.LIB                         34
+   QD_UNDERFLOW                    \R3000.LIB                         35
+   PWM_FREQ_FACTOR                 \R3000.LIB                        417
+   PWM_SPREAD                      \R3000.LIB                        469
+   PWM_OPENDRAIN                   \R3000.LIB                        470
+   SETUSERMODE                     \DEFAULT.H                         81
+   SETSYSMODE                      \DEFAULT.H                         82
+   _system                         \DEFAULT.H                         83
+   _SYS_CALL_VARS                  \DEFAULT.H                         84
+   _NET_SYSCALL                    \DEFAULT.H                         85
+   _rk_printf                      \DEFAULT.H                         86
+   _rk_sprintf                     \DEFAULT.H                         87
+   DK_ENABLE_BREAKPOINTS           \DEFAULT.H                        125
+   DK_ENABLE_ASMSINGLESTEP         \DEFAULT.H                        133
+   DK_ENABLE_WATCHEXPRESSIONS      \DEFAULT.H                        141
+   DK_ENABLE_TRACING               \DEFAULT.H                        149
+   DK_ENABLE_STACK_TRACING         \DEFAULT.H                        157
+   DK_SEND_STACK_LENGTH            \DEFAULT.H                        165
+   DK_ENABLE_DEBUGKERNEL           \DEFAULT.H                        167
+   __DKENTRY_LIB                   \DKENTRY.LIB                        2
+   __DKCOMMON_LIB                  \DKCOMMON.LIB                       2
+   __DKCORE_LIB                    \DKCORE.LIB                         2
+   TC_TYPE_DEBUG                   \DKCORE.LIB                        14
+   TC_DEBUG_NOREQUEST              \DKCORE.LIB                        16
+   TC_DEBUG_SINGLESTEP             \DKCORE.LIB                        17
+   TC_DEBUG_TOGGLEBREAKPOINT       \DKCORE.LIB                        18
+   TC_DEBUG_CLEARBREAKPOINTS       \DKCORE.LIB                        19
+   TC_DEBUG_TOGGLEALLBREAKPOINTS   \DKCORE.LIB                        20
+   TC_DEBUG_ATBREAKPOINT           \DKCORE.LIB                        21
+   TC_DEBUG_STARTPROGRAM           \DKCORE.LIB                        22
+   TC_DEBUG_RUNPROGRAM             \DKCORE.LIB                        23
+   TC_DEBUG_STOPPROGRAM            \DKCORE.LIB                        24
+   TC_DEBUG_ADDWATCH               \DKCORE.LIB                        25
+   TC_DEBUG_DELETEWATCH            \DKCORE.LIB                        26
+   TC_DEBUG_DELETEALLWATCHES       \DKCORE.LIB                        27
+   TC_DEBUG_EXECWATCH              \DKCORE.LIB                        28
+   TC_DEBUG_EXECALLWATCHES         \DKCORE.LIB                        29
+   TC_DEBUG_SENDCHAR               \DKCORE.LIB                        30
+   TC_DEBUG_RESET                  \DKCORE.LIB                        31
+   TC_DEBUG_SETSENDFLAGS           \DKCORE.LIB                        32
+   TC_DEBUG_REGDATA                \DKCORE.LIB                        33
+   TC_DEBUG_WATCHDATA              \DKCORE.LIB                        34
+   TC_DEBUG_ASMDATA                \DKCORE.LIB                        35
+   TC_DEBUG_STACKDATA              \DKCORE.LIB                        36
+   TC_DEBUG_STDIO                  \DKCORE.LIB                        37
+   TC_DEBUG_WRITEREGDATA           \DKCORE.LIB                        38
+   TC_DEBUG_STDIOCHARREADY         \DKCORE.LIB                        39
+   TC_DEBUG_NOOP                   \DKCORE.LIB                        40
+   TC_DEBUG_ENABLEDOPTIONS         \DKCORE.LIB                        41
+   TC_DEBUG_TRACEMSG               \DKCORE.LIB                        43
+   TC_DEBUG_SETTRACEFLAGS          \DKCORE.LIB                        44
+   DKF_STEP_INTO                   \DKCORE.LIB                        52
+   DKF_STEP_OVER                   \DKCORE.LIB                        53
+   DKF_STEP_ASM                    \DKCORE.LIB                        54
+   DKF_STEP_SOURCE                 \DKCORE.LIB                        55
+   DKF_STEP_CALL                   \DKCORE.LIB                        56
+   DKF_STEP_LCALL                  \DKCORE.LIB                        57
+   DKF_STAT_AT_BP                  \DKCORE.LIB                        60
+   DKF_STAT_AT_HARD_BP             \DKCORE.LIB                        61
+   DKF_STAT_RUNMODE                \DKCORE.LIB                        62
+   DKF_STAT_STEPMODE               \DKCORE.LIB                        63
+   DKF_STAT_ASMSTEPMODE            \DKCORE.LIB                        64
+   DKF_STAT_ATEXIT                 \DKCORE.LIB                        65
+   DKF_STAT_CONTEXTSWITCH          \DKCORE.LIB                        66
+   DKF_STAT_INWATCH                \DKCORE.LIB                        67
+   DKF_TRACE_FULL                  \DKCORE.LIB                        71
+   DKF_TRACE_WATCH                 \DKCORE.LIB                        72
+   DKF_TRACE_MACRO                 \DKCORE.LIB                        73
+   DKF_TRACE_RST                   \DKCORE.LIB                        74
+   DKF_TRACE_FENTRY                \DKCORE.LIB                        75
+   DKF_TRACE_FEXIT                 \DKCORE.LIB                        76
+   DKF_TRACE_INIT                  \DKCORE.LIB                        77
+   DKF_TRACE_ON                    \DKCORE.LIB                        78
+   DKF_TRACERESET_FUNC             \DKCORE.LIB                        80
+   _TRACE                          \DKCORE.LIB                       125
+   _TRACEON                        \DKCORE.LIB                       129
+   _TRACEOFF                       \DKCORE.LIB                       132
+   DK_SEND_ASM_LENGTH              \DKCORE.LIB                       141
+   DKF_SEND_STACK                  \DKCORE.LIB                       143
+   DKF_SEND_WATCHES                \DKCORE.LIB                       144
+   DKF_SEND_ASM                    \DKCORE.LIB                       145
+   DKF_SEND_REGS                   \DKCORE.LIB                       146
+   DKF_SEND_STATUS                 \DKCORE.LIB                       147
+   DKF_SEND_ACK                    \DKCORE.LIB                       148
+   DKF_SEND_TRACE                  \DKCORE.LIB                       150
+   DK_ERROR_BPNOTENABLED           \DKCORE.LIB                       159
+   DK_ERROR_ASMSINGLESTEPNOTENABLED \DKCORE.LIB                       160
+   DK_ERROR_WATCHNOTENABLED        \DKCORE.LIB                       161
+   DKF_STDIO_LOCK                  \DKCORE.LIB                       163
+   DKF_GETCHAR_LOCK                \DKCORE.LIB                       164
+   DKF_RESET_LOCK                  \DKCORE.LIB                       165
+   DKF_DK_LOCK                     \DKCORE.LIB                       166
+   DK_STDIO_TIMEOUT                \DKCORE.LIB                       167
+   DK_GETCHAR_TIMEOUT              \DKCORE.LIB                       168
+   dkIOI                           \DKCORE.LIB                       170
+   dkIOE                           \DKCORE.LIB                       171
+   dkALTD                          \DKCORE.LIB                       172
+   DK_RST20                        \DKCORE.LIB                       174
+   DK_RST28                        \DKCORE.LIB                       175
+   dkZZ                            \DKCORE.LIB                       182
+   dkZS                            \DKCORE.LIB                       183
+   dkZD                            \DKCORE.LIB                       184
+   dkZT                            \DKCORE.LIB                       185
+   dkSZ                            \DKCORE.LIB                       186
+   dkSS                            \DKCORE.LIB                       187
+   dkSD                            \DKCORE.LIB                       188
+   dkST                            \DKCORE.LIB                       189
+   dkDZ                            \DKCORE.LIB                       190
+   dkDS                            \DKCORE.LIB                       191
+   dkDD                            \DKCORE.LIB                       192
+   dkDT                            \DKCORE.LIB                       193
+   dkTZ                            \DKCORE.LIB                       194
+   dkTS                            \DKCORE.LIB                       195
+   dkTD                            \DKCORE.LIB                       196
+   dkTT                            \DKCORE.LIB                       197
+   DK_TRACEMSG_FULL                \DKCORE.LIB                       229
+   DK_TRACEMSG_FUNC                \DKCORE.LIB                       230
+   DK_TRACE_RUNNING                \DKCORE.LIB                       237
+   DK_TRACE_STEPPING               \DKCORE.LIB                       238
+   DK_TRACEMSG_MACRO               \DKCORE.LIB                       239
+   DK_TRACEMSG_RST                 \DKCORE.LIB                       240
+   DK_TRACEMSG_FENTRY              \DKCORE.LIB                       241
+   DK_TRACEMSG_FEXIT               \DKCORE.LIB                       242
+   DK_TRACE_FUNCRESET              \DKCORE.LIB                       243
+   DK_MAX_WATCHES                  \DKCORE.LIB                       274
+   DKF_BP_INACTIVE                 \DKCORE.LIB                       814
+   DKF_BP_ACTIVE                   \DKCORE.LIB                       815
+   DKF_BP_DELETED                  \DKCORE.LIB                       816
+   DKF_BP_CONDITIONAL              \DKCORE.LIB                       817
+   DKF_BP_HARD                     \DKCORE.LIB                       818
+   DKF_BP_INSERT                   \DKCORE.LIB                       821
+   DKF_BP_FOUND                    \DKCORE.LIB                       822
+   DKF_BP_NOTFOUND                 \DKCORE.LIB                       823
+   DKF_BP_EMPTYFOUND               \DKCORE.LIB                       824
+   DKF_BP_EXHAUSTED                \DKCORE.LIB                       825
+   DK_MAX_BREAKPOINTS              \DKCORE.LIB                       830
+   DK_BREAKPOINT_MASK              \DKCORE.LIB                       848
+   DKF_RST_RST28                   \DKCORE.LIB                      3249
+   DKF_RST_RST20                   \DKCORE.LIB                      3250
+   DKF_RST_RST18                   \DKCORE.LIB                      3251
+   __DKAPP_LIB                     \DKAPP.LIB                          2
+   DKF_OPTIONS_BREAKPOINTS         \DKAPP.LIB                         71
+   DKF_OPTIONS_ASMSINGLESTEP       \DKAPP.LIB                         72
+   DKF_OPTIONS_WATCHES             \DKAPP.LIB                         73
+   DK_BREAKPOINTS_ENABLED          \DKAPP.LIB                         75
+   DK_ASMSINGLESTEP_ENABLED        \DKAPP.LIB                         76
+   DK_WATCHES_ENABLED              \DKAPP.LIB                         77
+   __PROGRAM_LIB                   \PROGRAM.LIB                        2
+   _program_debug                  \PROGRAM.LIB                        4
+   _rk_mem_debug                   \MEM.LIB                            5
+   XALLOC_ANY                      \MEM.LIB                           12
+   XALLOC_BB                       \MEM.LIB                           13
+   XALLOC_NOTBB                    \MEM.LIB                           14
+   XALLOC_MAYBBB                   \MEM.LIB                           15
+   _RS_USER_XALLOC_START           \MEM.LIB                           80
+   _RS_XALLOC_START                \MEM.LIB                           81
+   _RS_XALLOC_END                  \MEM.LIB                           82
+   _xavail                         \MEM.LIB                          514
+   __BOCON_K37_MENU_LIB            \BOCON_K37_MENU_5SOCKET.LIB         3
+   ####                            \BOCON_K37_BMP.ELIB                 2
+   ####                            \BOCON_BMP_WATER.ELIB               2
+   __BOCON_POL_TABLE_LIB           \BOCON_POL_TABLE_5SOCKET.LIB        2
+   __BOCON_POL_TABLE_CUSTOM1_LIB   ON_POL_TABLE_CUSTOM_5SOCKET.LIB     2
+   __YANQI_LIHE_BMP_LIB            \YANQI_LIHE_BMP_5SOCKET.LIB         2
+   BOCON_NO_OF_POL                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB    19
+   glDispCustom_00                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1395
+   glDispCustom_01                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1396
+   glDispCustom_02                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1397
+   glDispCustom_03                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1398
+   glDispCustom_04                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1399
+   glDispCustom_05                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1400
+   glDispCustom_06                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1401
+   glDispCustom_07                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1402
+   glDispCustom_08                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1403
+   glDispCustom_09                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1404
+   glDispCustom_10                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1405
+   glDispCustom_11                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1406
+   glDispCustom_12                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1407
+   glDispCustom_13                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1408
+   glDispCustom_14                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1409
+   glDispCustom_15                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1410
+   glDispCustom_16                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1411
+   glDispCustom_17                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1412
+   glDispCustom_18                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1413
+   glDispCustom_19                 ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1414
+   END_____________________________ ON_POL_TABLE_CUSTOM_5SOCKET.LIB  1417
+   __BOCON_NEW_CODE_NAME_BMP_LIB   \BOCON_NEWCODENAME_5SOCKET.LIB      2
+   glDispWater_00                  \BOCON_POL_TABLE_5SOCKET.LIB       11
+   glDispWater_01                  \BOCON_POL_TABLE_5SOCKET.LIB       12
+   glDispWater_02                  \BOCON_POL_TABLE_5SOCKET.LIB       13
+   glDispWater_03                  \BOCON_POL_TABLE_5SOCKET.LIB       14
+   glDispWater_04                  \BOCON_POL_TABLE_5SOCKET.LIB       15
+   glDispWater_05                  \BOCON_POL_TABLE_5SOCKET.LIB       16
+   glDispWater_06                  \BOCON_POL_TABLE_5SOCKET.LIB       17
+   glDispWater_07                  \BOCON_POL_TABLE_5SOCKET.LIB       18
+   glDispWater_08                  \BOCON_POL_TABLE_5SOCKET.LIB       19
+   glDispWater_09                  \BOCON_POL_TABLE_5SOCKET.LIB       20
+   glDispWater_10                  \BOCON_POL_TABLE_5SOCKET.LIB       21
+   glDispWater_11                  \BOCON_POL_TABLE_5SOCKET.LIB       22
+   glDispWater_12                  \BOCON_POL_TABLE_5SOCKET.LIB       23
+   glDispWater_13                  \BOCON_POL_TABLE_5SOCKET.LIB       24
+   glDispWater_14                  \BOCON_POL_TABLE_5SOCKET.LIB       25
+   glDispWater_15                  \BOCON_POL_TABLE_5SOCKET.LIB       26
+   glDispWater_16                  \BOCON_POL_TABLE_5SOCKET.LIB       27
+   glDispWater_17                  \BOCON_POL_TABLE_5SOCKET.LIB       28
+   glDispWater_18                  \BOCON_POL_TABLE_5SOCKET.LIB       29
+   glDispWater_19                  \BOCON_POL_TABLE_5SOCKET.LIB       30
+   glDispWater_20                  \BOCON_POL_TABLE_5SOCKET.LIB       31
+   glDispWater_21                  \BOCON_POL_TABLE_5SOCKET.LIB       32
+   glDispWater_22                  \BOCON_POL_TABLE_5SOCKET.LIB       33
+   glDispWater_23                  \BOCON_POL_TABLE_5SOCKET.LIB       34
+   glDispWater_24                  \BOCON_POL_TABLE_5SOCKET.LIB       35
+   glDispWater_25                  \BOCON_POL_TABLE_5SOCKET.LIB       42
+   glDispWater_26                  \BOCON_POL_TABLE_5SOCKET.LIB       43
+   glDispWater_27                  \BOCON_POL_TABLE_5SOCKET.LIB       44
+   glDispWater_28                  \BOCON_POL_TABLE_5SOCKET.LIB       45
+   glDispWater_29                  \BOCON_POL_TABLE_5SOCKET.LIB       47
+   glDispWater_30                  \BOCON_POL_TABLE_5SOCKET.LIB       48
+   glDispWater_31                  \BOCON_POL_TABLE_5SOCKET.LIB       49
+   glDispWater_32                  \BOCON_POL_TABLE_5SOCKET.LIB       50
+   glDispWater_33                  \BOCON_POL_TABLE_5SOCKET.LIB       51
+   glDispSoot_00                   \BOCON_POL_TABLE_5SOCKET.LIB       60
+   glDispSoot_01                   \BOCON_POL_TABLE_5SOCKET.LIB       67
+   glDispSoot_02                   \BOCON_POL_TABLE_5SOCKET.LIB       70
+   glDispSoot_03                   \BOCON_POL_TABLE_5SOCKET.LIB       71
+   glDispSoot_04                   \BOCON_POL_TABLE_5SOCKET.LIB       72
+   glDispSoot_05                   \BOCON_POL_TABLE_5SOCKET.LIB       73
+   glDispSoot_06                   \BOCON_POL_TABLE_5SOCKET.LIB       74
+   glDispSoot_07                   \BOCON_POL_TABLE_5SOCKET.LIB       75
+   glDispSoot_08                   \BOCON_POL_TABLE_5SOCKET.LIB       76
+   glDispSoot_09                   \BOCON_POL_TABLE_5SOCKET.LIB       77
+   glDispSoot_10                   \BOCON_POL_TABLE_5SOCKET.LIB       78
+   glDispSoot_11                   \BOCON_POL_TABLE_5SOCKET.LIB       79
+   glDispSoot_12                   \BOCON_POL_TABLE_5SOCKET.LIB       80
+   glDispSoot_13                   \BOCON_POL_TABLE_5SOCKET.LIB       81
+   glDispSoot_14                   \BOCON_POL_TABLE_5SOCKET.LIB       82
+   glDispSoot_15                   \BOCON_POL_TABLE_5SOCKET.LIB       83
+   glDispSoot_16                   \BOCON_POL_TABLE_5SOCKET.LIB       84
+   glDispSoot_17                   \BOCON_POL_TABLE_5SOCKET.LIB       85
+   glDispSoot_18                   \BOCON_POL_TABLE_5SOCKET.LIB       86
+   glDispSoot_19                   \BOCON_POL_TABLE_5SOCKET.LIB       87
+   glDispSoot_20                   \BOCON_POL_TABLE_5SOCKET.LIB       88
+   glDispSoot_21                   \BOCON_POL_TABLE_5SOCKET.LIB       89
+   glDispSoot_22                   \BOCON_POL_TABLE_5SOCKET.LIB       90
+   glDispSoot_23                   \BOCON_POL_TABLE_5SOCKET.LIB       91
+   glDispSoot_24                   \BOCON_POL_TABLE_5SOCKET.LIB       92
+   glDispSoot_25                   \BOCON_POL_TABLE_5SOCKET.LIB       93
+   glDispSoot_26                   \BOCON_POL_TABLE_5SOCKET.LIB       94
+   glDispSoot_27                   \BOCON_POL_TABLE_5SOCKET.LIB       95
+   glDispSoot_28                   \BOCON_POL_TABLE_5SOCKET.LIB       96
+   glDispSoot_29                   \BOCON_POL_TABLE_5SOCKET.LIB       97
+   glDispSoot_30                   \BOCON_POL_TABLE_5SOCKET.LIB       98
+   glDispSoot_31                   \BOCON_POL_TABLE_5SOCKET.LIB       99
+   glDispSoot_32                   \BOCON_POL_TABLE_5SOCKET.LIB      100
+   glDispSoot_33                   \BOCON_POL_TABLE_5SOCKET.LIB      101
+   glDispSoot_34                   \BOCON_POL_TABLE_5SOCKET.LIB      102
+   glDispSoot_35                   \BOCON_POL_TABLE_5SOCKET.LIB      103
+   glDispSoot_36                   \BOCON_POL_TABLE_5SOCKET.LIB      104
+   glDispSoot_37                   \BOCON_POL_TABLE_5SOCKET.LIB      105
+   glDispSoot_38                   \BOCON_POL_TABLE_5SOCKET.LIB      106
+   glDispSoot_39                   \BOCON_POL_TABLE_5SOCKET.LIB      107
+   glDispSoot_40                   \BOCON_POL_TABLE_5SOCKET.LIB      108
+   glDispSoot_41                   \BOCON_POL_TABLE_5SOCKET.LIB      109
+   glDispSoot_42                   \BOCON_POL_TABLE_5SOCKET.LIB      110
+   glDispSoot_43                   \BOCON_POL_TABLE_5SOCKET.LIB      114
+   glDispSoot_44                   \BOCON_POL_TABLE_5SOCKET.LIB      116
+   glDispSoot_45                   \BOCON_POL_TABLE_5SOCKET.LIB      117
+   glDispZhe                       \BOCON_POL_TABLE_5SOCKET.LIB      120
+   ####                            \BOCON_K37_SW2LOADER.ELIB           2
+   ####                            \BOCON_K37_SW2LOADER.ELIB          21
+   __BOCON_K37_BMP_NEW_LIB         \BOCON_K37_BMP_NEW_5SOCKET.LIB      2
+   __BUZUSHUJU_BMP_LIB             \BUZUSHUJU_BMP_5SOCKET.LIB          2
+   _BOCON_EXPANDPARAMSET_BMP_LIB   OCON_EXPANDPARAMSET_5SOCKET.LIB     2
+   __UNITCTRL_LIB                  \UNITCTRL_5SOCKET.LIB               2
+   SCREENTIME                      \BOCON_K37_MENU_5SOCKET.LIB        22
+
+
+// Function call graph.
+No call graph information available.

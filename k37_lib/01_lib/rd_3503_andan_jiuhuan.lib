@@ -1,0 +1,50 @@
+
+/*** BeginHeader */
+#ifndef rd_3503_andan_jiuhuan_lib
+#define rd_3503_andan_jiuhuan_lib
+/*** EndHeader */
+
+
+/*******************************************************
+九环仪表COD,氨氮                      
+发送:01 03 00 00 00 02 CRC
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_andan_jiuhuan*/
+int rd_andan_jiuhuan(char port, char Addr);
+/*** EndHeader */
+int rd_andan_jiuhuan(char port, char Addr)
+{
+   static int status;
+   auto union uf f; 
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      pack_modbus_cmd(Addr, 0x03, 0x00, 0x02);
+      com_write(port);
+      waitfor(DelayMs(2000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if ((com_rlen >= 2*2+5) && (com_rbuf[0] == Addr) && (com_rbuf[1] == 0x03))
+      {
+         f.ch[3] = com_rbuf[3];
+         f.ch[2] = com_rbuf[4];
+         f.ch[1] = com_rbuf[5];
+         f.ch[0] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+	 status = 1;
+      }
+      else
+      {
+         com_f[0] = 0.0;         //即时值
+	 status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */

@@ -1,0 +1,98 @@
+
+/*** BeginHeader */
+#ifndef rd_8025_cems_huapeng_lib
+#define rd_8025_cems_huapeng_lib
+/*** EndHeader */
+
+
+
+//华彭RQ-200型烟气在线系统
+
+/*** BeginHeader rd_cems_huapeng */
+int rd_cems_huapeng( char port );
+/*** EndHeader */
+int rd_cems_huapeng( char port )
+{
+	static int status;
+	auto char *temp1;
+	auto char *temp2;
+	auto struct tm comTime;
+	auto union uf databuf;
+	auto int i;
+
+ 	costate
+   	{
+		status = 0;
+
+		memset(com_tbuf,0x00,sizeof(com_tbuf));
+		com_tbuf[0] = 0x02;
+		com_tbuf[1] = 0x01;
+		com_tbuf[2] = 0x03;
+		com_tlen = 3;
+		com_write(port);
+
+		waitfor(DelaySec(3));
+
+      	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      	com_read(port);
+
+		if((com_rlen >= 49)&&(com_rbuf[0]==0x02)&&(com_rbuf[7]==0x01)&&(com_rbuf[48]==0x03))
+	   	{
+	   		comTime.tm_year = com_rbuf[1]+100;
+	   		comTime.tm_mon  = com_rbuf[2];
+	   		comTime.tm_mday = com_rbuf[3];
+	   		comTime.tm_hour = com_rbuf[4];
+	   		comTime.tm_min  = com_rbuf[5];
+	   		comTime.tm_sec  = com_rbuf[6];
+	   		com_sec = mktime(&comTime);
+/*
+	   		printf("CEMS Time:%04d-%02d-%02d;%02d:%02d:%02d;",
+			   comTime.tm_year,comTime.tm_mon,comTime.tm_mday,
+			   comTime.tm_hour,comTime.tm_min,comTime.tm_sec);
+*/
+			for(i = 0;i < 10;i++)
+			{
+				databuf.ch[0] = com_rbuf[(i*4)+8];
+				databuf.ch[1] = com_rbuf[(i*4)+9];
+				databuf.ch[2] = com_rbuf[(i*4)+10];
+				databuf.ch[3] = com_rbuf[(i*4)+11];
+
+				com_f[i] = databuf.f;
+				//printf("com_f[%d] = %.2f\n",i,com_f[i]);
+			}
+
+			status = 1;
+   		}
+   		else
+   		{
+   			status = 2;
+	      	memset(com_f, 0x00, sizeof(com_f));
+	      	com_sec = read_rtc();
+   		}
+      	if(status == 0)
+      	{
+         	status = 1;
+      	}
+   	}
+
+   	return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,98 @@
+/*** BeginHeader */
+#ifndef rd_2001_cod_hach_lib
+#define rd_2001_cod_hach_lib
+/*** EndHeader */
+
+/*******************************************************
+广州哈希 CODmax COD在线监测仪                            //2001 ---OK
+查询瞬时值
+*******************************************************/
+/*** BeginHeader rd_cod_hach */
+int rd_cod_hach( char port, char addr );
+/*** EndHeader */
+int rd_cod_hach( char port, char addr )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      //com_tbuf[0] = 0x01;
+      //com_tbuf[1] = 0x03;
+      //com_tbuf[2] = 0x00;
+      //com_tbuf[3] = 0x00;
+      //com_tbuf[4] = 0x00;
+      //com_tbuf[5] = 0x02;
+      //crc = msrCRC(com_tbuf, 6);
+      //com_tbuf[6] = (char)(crc >> 8);//0xc4;
+      //com_tbuf[7] = (char)(crc & 0xff);//0x0b;
+      //com_tlen = 8;
+      pack_modbus_cmd(addr, 0x03, 0x00, 0x02);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == addr)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+
+//时间解析
+         //com_tbuf[0] = 0x01;
+         //com_tbuf[1] = 0x03;
+         //com_tbuf[2] = 0x00;
+         //com_tbuf[3] = 0x02;
+         //com_tbuf[4] = 0x00;
+         //com_tbuf[5] = 0x04;
+         //crc = msrCRC(com_tbuf, 6);
+         //com_tbuf[6] = (char)(crc >> 8);//0xe5;
+         //com_tbuf[7] = (char)(crc & 0xff);//0xc9;
+         //com_tlen = 8;
+         pack_modbus_cmd(addr, 0x03, 0x02, 0x04);
+         com_write(port);
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if( (com_rlen >= 9)&&(com_rbuf[0] == addr)&&(com_rbuf[1] == 0x03) )
+         {
+            comTime.tm_year = hex2dec(com_rbuf[3]) * 100 + hex2dec(com_rbuf[4]) -1900;
+            comTime.tm_mon  = hex2dec(com_rbuf[5]);
+            comTime.tm_mday = hex2dec(com_rbuf[6]);
+            comTime.tm_hour = hex2dec(com_rbuf[7]);
+            comTime.tm_min  = hex2dec(com_rbuf[8]);
+            comTime.tm_sec  = 0;
+            com_sec = mktime(&comTime);//时间
+         }
+         else
+         {
+            com_sec = read_rtc();
+         }
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2001  ,  com:%02d)\n", port+1);
+         status = 2;
+         #ifndef GZLS
+         com_f[0] = 0.0;
+         #else
+         status = 3;
+         #endif
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

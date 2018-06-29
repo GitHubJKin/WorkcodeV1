@@ -1,0 +1,534 @@
+/*** BeginHeader */
+#ifndef _bocon_k37_tcp_lib
+#define _bocon_k37_tcp_lib
+/*** EndHeader */
+/**************************************************************************
+    广 州 博 控 自 动 化 技 术 有 限 公 司
+    2010-1-15
+同时支持GPRS和以太网，每个Socket可以自行选择链路
+**************************************************************************/
+/*** BeginHeader */
+#memmap xmem
+unsigned char deal_buf[TCPGPRSBUF]; //数据处理的缓冲区
+unsigned long tcp_tbuf[SOCKET_NUMBER];  //TCP发送数据缓冲区
+unsigned long tcp_rbuf[SOCKET_NUMBER];  //TCP接收数据缓冲区
+int tcp_tlen[SOCKET_NUMBER];                //TCP发送数据长度
+int tcp_rlen[SOCKET_NUMBER];                //TCP接收数据长度
+char ADSL_OK;                   //ADSL连接是否成功的标志，1表示成功
+char GPRS_OK;                   //GPRS连接是否成功的标志，1表示成功
+char TCP_OK[SOCKET_NUMBER];             //TCP连接是否成功的标志，1表示成功
+unsigned long tm_out[SOCKET_NUMBER];    //TCP连接超时检测用的定时器
+unsigned long heartBeat[SOCKET_NUMBER]; //心跳包用的定时器
+
+char sipok[SOCKET_NUMBER][16];          //域名解析得到的服务器IP
+char myip[16];                  //拨号成功后得到的设备IP
+unsigned long tsip[SOCKET_NUMBER];
+char dialFailCnt;               //dial fail count
+
+tcp_Socket	sock[SOCKET_NUMBER];
+char tcp_conn_count[SOCKET_NUMBER];     //GPRS在线后，TCP连接的次数
+char LED2;                      //通信指示灯
+unsigned long MS_LED2;      //通信指示灯的定时器
+/*** EndHeader */
+
+/*** BeginHeader initTcpVar */
+void initTcpVar(void);
+/*** EndHeader */
+nodebug void initTcpVar(void)
+{
+    auto char c;
+    for (c = 0; c < SOCKET_NUMBER; c++)
+    {
+	tcp_tbuf[c] = xalloc(TCPGPRSBUF);
+	tcp_rbuf[c] = xalloc(TCPGPRSBUF);
+    }
+
+    memset(sipok, '\0', sizeof(sipok));
+
+
+    memset(tcp_tlen, 0x00, sizeof(tcp_tlen));
+    memset(tcp_rlen, 0x00, sizeof(tcp_rlen));
+    memset(TCP_OK, 0x00, sizeof(TCP_OK));
+    memset(heartBeat, 0x00, sizeof(heartBeat));
+    memset(tm_out, 0x00, sizeof(tm_out));
+
+    ADSL_OK = 0;
+    GPRS_OK = 0;
+    sysRstTm = SEC_TIMER;
+    dialFailCnt = 0;
+
+    LED2 = 0;
+    LedOut(2, LED2);
+    MS_LED2 = MS_TIMER;
+
+    check_2configs();
+    rdSysConfig(CONFIG_IN_FLASH);
+    memset(tcp_conn_count, 0, sizeof(tcp_conn_count));
+
+    msDelay(100);
+    sock_init();
+    config_tcp();
+}
+
+/*** BeginHeader config_tcp */
+void config_tcp(void);
+/*** EndHeader */
+nodebug void config_tcp(void)
+{
+    ifconfig(IF_ETH0,
+	     IFS_DOWN,
+	     IFS_IPADDR, aton(ipaddr),
+	     IFS_NETMASK, aton(netmsk),
+	     IFS_ROUTER_SET, aton(gatewy),
+	     IFS_NAMESERVER_SET, aton(gatewy),
+	     IFS_NAMESERVER_ADD, aton("211.136.20.203"),
+	     //IFS_NAMESERVER_ADD, aton("202.96.128.166"),
+	     //IFS_NAMESERVER_ADD, aton("221.179.38.7"),
+	     IFS_NAMESERVER_ADD, aton("211.136.192.6"),
+	     //IFS_NAMESERVER_ADD, aton("192.228.79.201"),
+	     IFS_UP,
+	     IFS_END);
+}
+
+/*** BeginHeader bocon_close_sock */
+void bocon_close_sock(char i);
+/*** EndHeader */
+nodebug void bocon_close_sock(char i)
+{
+    if (TCP_OK[i] == 1)
+    {
+	if (tcp_tlen[i] > 0) bocon_tcp_txrx(i);
+	TCP_OK[i] = 0;
+	sock_close(&sock[i]);
+	printf("TCP%d close\n", i);
+    }
+}
+
+/*** BeginHeader resolve_co */
+int resolve_co(char no);
+/*** EndHeader */
+nodebug int resolve_co(char no)
+{
+    static int status, handle;
+    auto int iface;
+
+    costate
+    {
+	status = 0;
+	tsip[no] = 0L;
+	if ((serLink[no] == 2) || (serLink[no] == 3)) iface = IF_PPP2;
+	else iface = IF_ETH0;
+	handle = resolve_name_start_ext(sip[no], iface);
+	if (handle >= 0)
+	{
+	    while (resolve_name_check(handle, &tsip[no]) == RESOLVE_AGAIN)
+	    {
+		tcp_tick(NULL);
+		waitfor(DelayMs(100));
+	    }
+	}
+	status = 1;
+    }
+    return status;
+}
+
+/*** BeginHeader tcp_client_co */
+int tcp_client_co(char no);
+/*** EndHeader */
+//TCP连接函数，实现Socket的连接
+nodebug int tcp_client_co(char no)
+{
+    static int cnt1;
+    static int status;
+    auto int iface;
+
+    costate
+    {
+	status = 0;
+	printf("Connect %s:%d\n", sip[no], sport[no]);
+	if (isaddr(sip[no]))
+	{
+	    tsip[no] = aton(sip[no]);
+	    //resolve("www.bocon.cn");
+	}
+	else
+	{
+	    waitfor(resolve_co(no));
+	    //printf("%s=%ld\n", sip[no], _rs_resolve(sip[no]));
+	    if (tsip[no] == 0)
+	    {
+		waitfor(DelayMs(100));
+		waitfor(resolve_co(no));
+		if (tsip[no] == 0)
+		{
+		    printf("%s = ?\n", sip[no]);
+		    status = 1;
+		}
+	    }
+	    if (status == 0) printf("%s = %s\n", sip[no], inet_ntoa(sipok[no], tsip[no]));
+	}
+	if (status == 0)
+	{
+	    cnt1 = 0;
+	    if ((serLink[no] == 2) || (serLink[no] == 3)) iface = IF_PPP2;
+	    else iface = IF_ETH0;
+	    tcp_extopen(&sock[no], iface, 0, tsip[no], sport[no], NULL, 0, 0);
+	    while ((!sock_established(&sock[no])) && (cnt1 < 100))   //normal = 100
+	    {
+		cnt1++;
+		//tcp_tick(&sock[no]);
+		tcp_tick(NULL);
+		waitfor(DelayMs(100));
+	    }
+	    if (cnt1 < 100)
+	    {
+		printf("TCP%d OK\n", no);
+		sock_mode(&sock[no], TCP_MODE_BINARY);
+		TCP_OK[no] = 1;
+		tm_out[no] = SEC_TIMER;     //更新定时器
+	    }
+	    else  printf("TCP%d fail\n", no);
+	}
+    sock_err:
+	status = 1;
+    }
+    return status;
+}
+
+/*** BeginHeader tcp_server_co */
+int tcp_server_co(char no, unsigned int localport);
+/*** EndHeader */
+//服务器模式时使用的函数，成功时返回 1
+nodebug
+int tcp_server_co(char no, unsigned int localport)
+{
+    static int status_sevr;
+    static int cnt;
+    auto int iface;
+
+    costate
+    {
+	status_sevr = 0;
+	while (1)
+	{
+	    cnt = 0;
+	    printf("TCP%d Listen %d\n", no, localport);
+	    //tcp_listen(&sock[no], localport, 0, 0, NULL, 0);
+	    if ((serLink[no] == 2) || (serLink[no] == 3)) iface = IF_PPP2;
+	    else iface = IF_ETH0;
+	    tcp_extlisten(&sock[no], iface, localport, 0, 0, NULL, 0, 0, 0);      //监听端口 ,未指定REMOTE IP 和 REMOTE PORT
+										  //while(!sock_established(&sock[no]))                 //是否有连接远程设备,未有连接时进入while循环，一直监听
+	    while ((!sock_established(&sock[no])) && (cnt < 600))
+	    {
+		cnt++;
+		tcp_tick(NULL);                                    //TCP心跳服务函数
+		waitfor(DelayMs(100));                             //每100ms查看一次是否listen成功
+	    }
+	    if (cnt < 600) break;
+	}
+	printf("TCP%d OK\n", no);
+	sock_mode(&sock[no], TCP_MODE_BINARY);
+	TCP_OK[no] = 1;
+	tm_out[no] = SEC_TIMER;     //更新定时器
+	status_sevr = 1;
+    }
+    sock_err:                                                   //本子函数并没有跳到此sock_err局部错误标签处
+    return status_sevr;
+}
+
+
+/*** BeginHeader tcp_tx */
+int tcp_tx(char no, unsigned long sbuf, int length);
+/*** EndHeader */
+//向服务器发送数据的函数, TCP发送数据，成功时返回 0
+nodebug int tcp_tx(char no, unsigned long sbuf, int length)
+{
+    int offset;
+    int bytes_written;
+    unsigned long int sock_write_time;
+
+    offset = 0;
+    sock_write_time = MS_TIMER;
+    if (tcp_tick(&sock[no]))
+    {
+	while (offset < length)
+	{
+	    bytes_written = sock_xfastwrite(&sock[no], sbuf + (unsigned long)offset, length - offset);
+	    if (bytes_written < 0)
+	    {
+		printf("TCP%d error\n", no);
+		return 1;
+	    }
+	    offset += bytes_written;
+	    if (MS_TIMER > (sock_write_time + 5000))
+	    {
+		printf("TCP%d Timeout\n", no);
+		return 2;
+	    }
+	}
+	sock_flush(&sock[no]);
+	return 0;
+    }
+sock_err:
+    return 3;
+}
+
+/*** BeginHeader bocon_tcp_txrx */
+char bocon_tcp_txrx(char cnt);
+/*** EndHeader */
+char bocon_tcp_txrx(char cnt)
+{
+    auto char buf[TCPGPRSBUF];
+    if (tcp_tlen[cnt] > 0)           //如果有数据需要发送
+    {
+	//memset(buf,0x00,sizeof(buf));
+	//memcpy(buf,)
+	//printf("%dTx%s\n", cnt, tcp_tlen[cnt]);
+	//printf("%d....Tx%s\n", cnt, deal_buf);
+	//printf("%dTx%ld\n", cnt, tcp_tlen[cnt]);
+	LED2 = 1;
+	LedOut(2, LED2);
+	MS_LED2 = MS_TIMER + 100; //通信指示灯最少亮100ms
+	if (tcp_tx(cnt, tcp_tbuf[cnt], tcp_tlen[cnt])) return 1;
+	//printf("%dTx%ld\n", cnt, tcp_tlen[cnt]);
+	tcp_tlen[cnt] = 0;
+	tm_out[cnt] = SEC_TIMER;
+    }
+
+    if (!tcp_tick(&sock[cnt])) return 1;
+    if (tcp_rlen[cnt] == 0 && tcp_tlen[cnt] == 0)   //david modify 2016-08-08 此处为了避免服务器一次性下发了多个指令，导致部分指令不会响应的问题
+    {
+	//例如如果服务器连续下发两个指令，先响应了第一个指令，但是数据还没有发出去，就立马收到第二个指令，则第二响应将会覆盖掉第一个
+	tcp_rlen[cnt] = sock_xfastread(&sock[cnt], tcp_rbuf[cnt], TCPGPRSBUF);
+    }
+    if (tcp_rlen[cnt] > 0)          //读到上位机发来的数据
+    {
+	//printf("%dRx%s\n", cnt, tcp_rlen[cnt]);
+	tm_out[cnt] = SEC_TIMER;
+	parse_cmd(cnt);
+
+	tcp_rlen[cnt] = 0;
+    }
+    else if (tcp_rlen[cnt] == -1) return 1;
+
+    if ((serLink[cnt] == 1) && (!pd_havelink(0)))  return 1;   //检测网线是否断开
+    if (SEC_TIMER > (tm_out[cnt] + TCPTIMEOUT)) return 1; //5分钟超时
+    return 0;
+}
+
+//检查所有在使用GPRS的链路的状态
+/*** BeginHeader chk_gprs_state */
+char chk_gprs_state(void);
+/*** EndHeader */
+nodebug char chk_gprs_state(void)
+{
+    auto char c, rfCnt, errCnt;
+
+    rfCnt = 0;
+    errCnt = 0;
+    for (c = 0; c < SOCKET_NUMBER; c++)
+    {
+	if (serLink[c] > 1)
+	{
+	    rfCnt++;           //统计使用GPRS的链路数量
+	    if ((TCP_OK[c] == 0) && (tcp_conn_count[c] > 3))
+	    {
+		errCnt++;       //出错链路数量
+	    }
+	}
+    }
+    if ((rfCnt > 0) && (errCnt == rfCnt))   //如果所有的无线链路都连续3次以上连接失败
+    {
+	c = 1;
+    }
+    else c = 0;
+    return c;
+}
+
+/*** BeginHeader getserLinkCnt */
+char getserLinkCnt(void);
+/*** EndHeader */
+nodebug char getserLinkCnt(void)
+{
+    auto char j, flag;
+    for (j = 0, flag = 0; j < SOCKET_NUMBER; j++)
+    {
+	if (serLink[j] < 2)
+	{
+	    flag++;
+	}
+    }
+    if (SOCKET_NUMBER == flag)
+    {
+	return 1;
+    }
+    return 0;
+}
+
+
+/*** BeginHeader bocon_tcp_task */
+void bocon_tcp_task(void);
+/*** EndHeader */
+nodebug void bocon_tcp_task(void)
+{
+    static char no, cnt;
+
+//这个任务自动处理GPRS的拨号和断开复位
+    costate
+    {
+	while (1)
+	{
+	    while ((serLink[0] < 2) && (serLink[1] < 2) && (serLink[2] < 2) && (serLink[SOCKET_NUMBER - 2] < 2) && (serLink[SOCKET_NUMBER - 1] < 2))
+	    {  //如果所有的链路都是以太网，则不拨号
+	       //glPrintf(8, 225, &fi6x8, "U");
+		if (GPRS_OK) wfd gprsClose();
+		waitfor(DelaySec(2));
+	    }
+
+	    while (GPRS_OK == 0)            //处理GPRS的拨号
+	    {
+		if ((serLink[0] < 2) && (serLink[1] < 2) && (serLink[2] < 2) && (serLink[SOCKET_NUMBER - 2] < 2) && (serLink[SOCKET_NUMBER - 1] < 2))
+		{   //如果链路配置已修改，现在没有使用GPRS了，则退出
+		    wfd gprsClose();
+		    break;
+		}
+
+		//memset(TCP_OK, 0x00, sizeof(TCP_OK));
+		for (cnt = 0; cnt < SOCKET_NUMBER; cnt++)
+		{
+		    if (serLink[cnt] > 1) TCP_OK[cnt] = 0;
+		}
+		memset(tcp_conn_count, 0x00, sizeof(tcp_conn_count));
+		wfd gprsDial();
+		if (GPRS_OK == 0)
+		{
+		    //glPrintf(8, 225, &fi6x8, "X");
+		    waitfor(DelaySec(10));  //拨号失败，等待10秒再试
+		    if (++dialFailCnt > 4) //forceSoftReset();
+		    {
+			waitfor(DelaySec(sampleInterval * 2));
+			forceSoftReset();
+		    }
+		}
+	    }
+	    while (GPRS_OK)         //已经接入GPRS网络
+	    {
+		//glPrintf(8, 225, &fi6x8, "W");
+		waitfor(DelaySec(2));   //每2秒扫描一次3路Socket的状态
+		if (((serLink[0] < 2) && (serLink[1] < 2) && (serLink[2] < 2) && (serLink[3] < 2) && (serLink[4] < 2))
+		    || (chk_gprs_state()))
+		{   //如果链路配置已修改，现在没有使用GPRS了，则退出
+		    //如果所有的通道都没连接，但是GPRS是在线的，说明GPRS链路可能已经不正常了
+		    //glPrintf(8, 225, &fi6x8, "Z");
+		    wfd gprsClose();
+		}
+	    }
+	}
+    }
+
+//这个任务处理所有Socket的连接，只要发现有断开的Socket，马上自动连接
+//每个Socket按照先后顺序连接，不能同时进行连接
+	costate
+    {
+	while (1)
+	{
+	    for (no = 0; no < SOCKET_NUMBER; no++)
+	    {
+#if (MODBUS_TCP_SERVER == 1)
+		if (no == 2)
+		{
+		    continue;
+		}
+#endif
+//如果服务器的通信链路为0，则表示本通道不用
+		if (serLink[no] == 0) tcp_conn_count[no] = 10;   //将此Socket的连接次数置为无效
+		else if (serLink[no] == 1)       //如果是以太网，则直接连接
+		{
+		    if ((TCP_OK[no] == 0) && (pd_havelink(0)))	waitfor(tcp_client_co(no));
+		}
+		else
+		{
+		    if ((TCP_OK[no] == 0) && (GPRS_OK))
+		    {
+			if (chk_gprs_state() == 0)           //GPRS是正常的
+			{
+			    waitfor(tcp_client_co(no));   //连接到服务器
+			    if (TCP_OK[no] == 0)           //连续连接请求的失败次数
+			    {
+				tcp_conn_count[no]++;
+			    }
+			    else tcp_conn_count[no] = 0;
+			}
+		    }
+		}
+		//yield;
+		waitfor(DelayMs(100));
+	    } //for
+	} //while
+    }
+#define __MODBUS_TCP__
+
+#if (MODBUS_TCP_SERVER == 1)
+	costate
+    {
+	while (1)
+	{
+	    if (serLink[2] == 1)     //如果是以太网，则直接连接
+	    {
+		if ((TCP_OK[2] == 0) && (pd_havelink(0)))
+		{
+		    waitfor(tcp_server_co(2, sport[2]));
+		}
+	    }
+	    else
+	    {
+		if ((TCP_OK[2] == 0) && (GPRS_OK))
+		{
+		    if (chk_gprs_state() == 0)        //GPRS是正常的
+		    {
+			waitfor(tcp_server_co(2, sport[2]));
+			if (TCP_OK[2] == 0)           //连续连接请求的失败次数
+			{
+			    tcp_conn_count[2]++;
+			}
+			else tcp_conn_count[2] = 0;
+		    }
+		}
+	    }
+	    waitfor(DelayMs(100));
+	}
+    }
+#endif
+	costate
+    {
+	while (1)
+	{
+	    for (cnt = 0; cnt < SOCKET_NUMBER; cnt++)
+	    {
+		if (TCP_OK[cnt] == 1)            //连接成功，进行数据通信
+		{
+		    if (bocon_tcp_txrx(cnt))
+		    {
+			//tcp_tlen[cnt] = 0;	//Socket断开时，未发送成功的数据会丢失
+			TCP_OK[cnt] = 0;
+			sock_close(&sock[cnt]);
+			printf("TCP%d close\n", cnt);
+		    }
+		}
+		if ((LED2 == 1) && (MS_TIMER > MS_LED2))
+		{
+		    LED2 = 0;
+		    LedOut(2, LED2);
+		}
+		//yield;
+		waitfor(DelayMs(20));
+	    } //for
+	} //while
+    }
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+

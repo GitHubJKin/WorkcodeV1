@@ -1,0 +1,83 @@
+
+/*** BeginHeader */
+#ifndef rd_6017_anfang_shandong_lib
+#define rd_6017_anfang_shandong_lib
+/*** EndHeader */
+
+
+//山东卓赢安防
+
+/*** BeginHeader rd_anfang_shandong*/
+int rd_anfang_shandong( char port );
+/*** EndHeader */
+int rd_anfang_shandong( char port )
+{
+	static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto char i;
+   costate
+   {
+   	 status = 0;
+
+      pack_modbus_cmd(0x01, 0x03, 0x00, 35);
+      com_write(port);
+
+      waitfor(DelaySec(2));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 34*2+5 && com_rbuf[0] == 0x01 && com_rbuf[1] == 0x03)
+      {
+		f.ch[1] = com_rbuf[3+2*0];
+		f.ch[0] = com_rbuf[4+2*0];
+		com_f[0] = (float)f.signed[0]/10;	//环境温度
+		
+		f.ch[1] = com_rbuf[3+2*7];
+		f.ch[0] = com_rbuf[4+2*7];
+		com_f[1] = (float)f.i[0]/10;	//环境湿度
+		
+		f.ch[1] = com_rbuf[3+2*13];
+		f.ch[0] = com_rbuf[4+2*13];
+		com_f[2] = (float)f.i[0]/10;	//压力
+		
+		f.ch[1] = com_rbuf[3+2*21];
+		f.ch[0] = com_rbuf[4+2*21];
+		com_f[3] = (float)f.i[0];	//风向
+
+		f.ch[1] = com_rbuf[3+2*22];
+		f.ch[0] = com_rbuf[4+2*22];
+		com_f[4] = (float)f.i[0]/10;	//风速
+
+		f.ch[1] = com_rbuf[3+2*34];
+		f.ch[0] = com_rbuf[4+2*34];
+		com_f[5] = (float)f.i[0]/10;	//降水量
+
+        status = 1;
+      }
+      else
+      {
+      	status = 2;
+		for (i = 0; i < 6; ++i)
+			com_f[i] = 0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+

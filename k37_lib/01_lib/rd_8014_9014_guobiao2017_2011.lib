@@ -1,0 +1,204 @@
+
+/*** BeginHeader */
+#ifndef _rd_8014_9014_guobiao2017_2011_lib
+#define _rd_8014_9014_guobiao2017_2011_lib
+/*** EndHeader */
+/*** BeginHeader parseGuoBiaoValueFlag*/
+float parseGuoBiaoValueFlag(char *startoffset, char polIndex,char flag,char flagpos);
+/*** EndHeader */
+float parseGuoBiaoValueFlag(char *startoffset, char polIndex,char flag,char flagpos)
+{
+	auto float value;
+   auto char polcode[32];
+    auto char polflag[32];
+   auto char *p,*p1;
+   auto char i;
+
+   value = 0.0;
+   if(!startoffset) goto RETURN_MARK;
+   if(polIndex >= BOCON_NO_OF_POL) goto RETURN_MARK;
+
+   memset(polcode, 0x00, sizeof(polcode));
+   memset(polflag, 0x00, sizeof(polflag));
+
+
+   if(polIndex >= 100)
+   {
+      p = strstr(startoffset, PolCode[polIndex - 100]);
+      if (p != NULL)
+      {
+         sprintf(polcode, ",%s-ZsRtd=", PolCode[polIndex - 100]);
+      }
+      p = strstr(startoffset, PolCode2017[polIndex - 100]);
+      if (p != NULL)
+      {
+         sprintf(polcode, ",%s-ZsRtd=", PolCode2017[polIndex - 100]);
+      }
+   }
+   else
+   {
+      p = strstr(startoffset, PolCode[polIndex]);
+      if (p != NULL)
+      {
+         sprintf(polcode, ",%s-Rtd=", PolCode[polIndex]);
+		 if(flag == 1)
+			sprintf(polflag, ",%s-Flag=", PolCode[polIndex]);
+      }
+      p = strstr(startoffset, PolCode2017[polIndex]);
+      if (p != NULL)
+      {
+         sprintf(polcode, ",%s-Rtd=", PolCode2017[polIndex]);
+		 if(flag == 1)
+			sprintf(polflag, ",%s-Flag=", PolCode2017[polIndex]);
+      }
+   }
+
+   p = strstr(startoffset, polcode);
+
+   if(p == NULL){
+   	polcode[0] = ';';
+   	p = strstr(startoffset, polcode);
+   }
+   else if(p == NULL){
+   	polcode[0] = ' ';
+   	p = strstr(startoffset, polcode);
+   }
+
+   if(p == NULL)
+   {
+      for(i=0; i<ALLADCHANNELS; i++)
+      {
+         if(Savech[i].polIndex == polIndex)
+         {
+          	value = Savech[i].val;
+			devflag[flagpos] = Savech[i].flag;
+         }
+      }
+   }
+   else
+   {
+      	p += strlen(polcode);
+   		value = atof(p);
+
+		if(flag == 1)
+		{
+			p1 = strstr(startoffset, polflag);
+			if(p1 != NULL)
+			{
+		      	p1 += strlen(polflag);
+   				devflag[flagpos] = p1[0];
+			}
+
+		}
+   }
+
+RETURN_MARK:
+	return value;
+}
+
+/*******************************************************
+这个串口程序是根据国标2011实时数据包来解释的，数据包是仪表
+自动上传上来的
+*******************************************************/
+/*** BeginHeader rd_guobiao_2011_89014 */
+int rd_guobiao_2011_89014( char port, unsigned delayTime,char flag);
+/*** EndHeader */
+int rd_guobiao_2011_89014( char port, unsigned delayTime,char flag)
+{
+   static int status;
+   auto char portPosition;
+   auto char p;
+   auto char *point;
+   auto char *startoffset;
+   auto int i;
+   auto int len;
+
+   costate
+   {
+      status = 0;
+
+      waitfor(DelaySec(delayTime));
+
+
+      memset(deal_buf, 0x00, sizeof(deal_buf));
+      len = 0;
+
+      len = com_readV2(port, deal_buf, sizeof(deal_buf), 200);
+      if(len <= 0){
+      	status = 2;
+      	goto RETURN_MARK;
+      }
+
+      point = strstr(deal_buf, "CP=&&");
+      if(point == NULL){
+      	status = 2;
+      	goto RETURN_MARK;
+      }
+
+      point = strstr(point, "CP=&&");
+      if(point == NULL){
+      	status = 2;
+      	goto RETURN_MARK;
+      }
+
+      startoffset = point;
+
+      point += 5;
+      point = strstr(point, "&&");
+      if(point == NULL){
+      	status = 2;
+      	goto RETURN_MARK;
+      }
+
+
+      #ifdef DEBUG_PRINTF
+         printf("com_rlen=%d \n", len);
+         for (i = 0; i < len; i++)
+         {
+            printf("%c", deal_buf[i]);
+         }
+         printf(" \n");
+      #endif
+
+      portPosition = port + 8;    //计算出是哪个通道的
+      p = ai_param[portPosition].polIndex;  //取出污染物编码位置
+      com_f[0] = parseGuoBiaoValueFlag(startoffset, p,flag,0);
+
+		//取同一串口其它参数编号数据。3次
+      for (i = 0; i < 20; i++)
+      {
+      	if(ai_param_extend[i].port != port) continue; //是同一个串口的
+         p = ai_param_extend[i].polIndex;			//本参数通道污染物编码
+         if(p >= BOCON_NO_OF_POL) continue;
+         com_f[ai_param_extend[i].position] = parseGuoBiaoValueFlag(startoffset, p,flag,ai_param_extend[i].position);
+      }
+
+      status = 1;
+
+RETURN_MARK:
+      com_sec = read_rtc();
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

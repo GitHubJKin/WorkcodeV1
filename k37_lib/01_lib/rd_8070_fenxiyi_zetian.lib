@@ -1,0 +1,94 @@
+
+
+
+/*** BeginHeader */
+#ifndef rd_8070_fenxiyi_zetian_lib
+#define rd_8070_fenxiyi_zetian_lib
+/*** EndHeader */
+
+//泽天烟气分析仪，自动上报			20160804
+
+
+/*******************************************************************************
+接收泽天分析仪数据					--8070
+这个协议是由工控机发指令给分析仪，分析仪返回数据。
+返回数据格式：
+7B 7B 11 BB 00 00 48 42 00 00 A0 41 00 00 40 41 00 00 80 BF 00 00 A0 41 5C 8F 2E 41 00 00 80 BF 00 00 80 BF 00 7B 7D
+*******************************************************************************/
+/*** BeginHeader rd_fenxiyi_zetian */
+int rd_fenxiyi_zetian(char port);
+/*** EndHeader */
+int rd_fenxiyi_zetian(char port)
+{
+    static int status;
+    auto char *point;
+    auto union uf f;
+    auto int i;
+    auto char buf[512];
+    auto int len;
+    costate
+    {
+	status = 0;
+	waitfor(DelaySec(1));
+	memset(buf, 0x00, sizeof(buf));
+	len  = 0;
+	while (1)
+	{
+	    memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	    com_read(port);
+	    if (com_rlen > 0)
+	    {
+		if ((len + com_rlen) >= 512) break;
+		memcpy(&buf[len], com_rbuf, com_rlen);
+		len += com_rlen;
+	    }
+	    else break;
+	}
+
+	if ((len > 34) && ((point = strstr(buf, "{{")) != NULL))
+	/*&& ((point1 = strstr(point,"{}")) != NULL)*/
+	{
+	    for (i = 0; i < 8; i++)
+	    {
+		point += 4;
+		f.ch[0] = *point;
+		f.ch[1] = *(point + 1);
+		f.ch[2] = *(point + 2);
+		f.ch[3] = *(point + 3);
+		com_f[i] = f.f;
+	    }
+	    status = 1;
+	}
+	else
+	{
+	    for (i = 0; i < 8; i++)
+	    {
+		com_f[i] = 0.0;
+	    }
+	    status = 2;
+	}
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

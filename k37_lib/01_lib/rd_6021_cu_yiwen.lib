@@ -1,0 +1,100 @@
+
+/*** BeginHeader */
+#ifndef rd_6021_cu_yiwen_lib
+#define rd_6021_cu_yiwen_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+怡文重金属仪表,测量重金属类型不同，协议一样。            --6021
+发：01 03 00 01 00 02 C4 0B
+回：01 03 04 F8 00 3F AC DA DE		(1.351318)
+*******************************************************************************/
+/*** BeginHeader rd_cu_yiwen*/
+int rd_cu_yiwen(char port);
+/*** EndHeader */
+int rd_cu_yiwen(char port)
+{
+	static int status;
+   auto union uf data;
+   static int flag;
+   costate
+   {
+   	status = 0;
+      flag = 0;
+      memset(com_tbuf,0x00,sizeof(com_tbuf));
+      pack_modbus_cmd(0x01, 0x03, 0x01, 0x02);
+      com_write(port);
+      waitfor(DelaySec(2));
+
+      memset(com_rbuf,0x00,sizeof(com_rbuf));
+      com_read(port);
+      //01 03 04 F8 00 3F AC DA DE
+      if(com_rlen > 8 && com_rbuf[0] == 0x01 && com_rbuf[1] == 0x03)
+      {
+			data.ch[0] = com_rbuf[4];
+         data.ch[1] = com_rbuf[3];
+         data.ch[2] = com_rbuf[6];
+         data.ch[3] = com_rbuf[5];
+         com_f[0] = data.f;
+         //status = 1;
+         flag++;
+      }
+      else
+      {
+      	com_f[0] = 0.0;
+         //status = 2;
+      }
+      waitfor(DelaySec(2));
+      memset(com_tbuf,0x00,sizeof(com_tbuf));
+      pack_modbus_cmd(0x01,0x03,0x02,0x02);
+      com_write(port);
+      waitfor(DelaySec(2));
+      memset(com_rbuf,0x00,sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 8 && com_rbuf[0] == 0x01 && com_rbuf[1] == 0x03)
+      {
+      	data.ch[0] = com_rbuf[4];
+         data.ch[1] = com_rbuf[3];
+         data.ch[2] = com_rbuf[6];
+         data.ch[3] = com_rbuf[5];
+         com_f[1] = data.f;
+         flag++;
+      }
+      else
+      {
+      	com_f[1] = 0.0;
+      }
+      if(flag > 0)
+      {
+      	status = 1;
+      }
+      else
+      {
+      	status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+

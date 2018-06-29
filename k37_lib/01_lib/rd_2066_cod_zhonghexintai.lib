@@ -1,0 +1,73 @@
+
+
+/*** BeginHeader */
+#ifndef rd_2066_cod_zhonghexintai_lib
+#define rd_2066_cod_zhonghexintai_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_cod_zhonghexintai */
+int rd_cod_zhonghexintai( char port );
+/*** EndHeader */
+/********************
+深圳中和信泰COD						--2066
+Modbus-RTU协议 		波特率：9600;校验位：无校验;数据位：8位;停止位：1位
+发：01	03	00	00	00	02	C4	0B
+收：01  03  04  43  22  26  A8  54 63
+**********************/
+int rd_cod_zhonghexintai(char port)
+{
+	static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+	  status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x00, 0x02);
+      com_write(port);
+      waitfor(DelayMs(2000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+		if( (com_rlen >= 8)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+		  f.ch[3] = com_rbuf[3];
+	      f.ch[2] = com_rbuf[4];
+	      f.ch[1] = com_rbuf[5];
+	      f.ch[0] = com_rbuf[6];
+		  com_f[0] = f.f;			//即时值
+          status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+      }
+	  com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

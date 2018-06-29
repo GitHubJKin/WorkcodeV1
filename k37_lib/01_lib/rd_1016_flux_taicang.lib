@@ -1,0 +1,67 @@
+/*** BeginHeader */
+#ifndef rd_1016_flux_taicang_lib
+#define rd_1016_flux_taicang_lib
+/*** EndHeader */
+
+/*******************************************************
+江苏太仓
+*******************************************************/
+
+/*** BeginHeader rd_flux_taicang*/
+int rd_flux_taicang( char port );
+/*** EndHeader */
+int rd_flux_taicang( char port )
+{
+   static int status;
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      com_tbuf[0] = 0x34;    //将需要发送的数据放入缓冲区
+      com_tbuf[1] = 0x31;
+      com_tlen = 2;          //发送数据长度
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if(com_rlen >= 6)
+      {
+         com_f[0] = atof(com_rbuf) / 100.0 * 3.6;    //瞬时流量数据：××××××(共6个字节)  立方米/秒，5位小数
+
+         com_tbuf[0] = 0x35;    //将需要发送的数据放入缓冲区
+         com_tbuf[1] = 0x31;
+         com_tlen = 2;          //发送数据长度
+         com_write(port);       //调用发送函数,将数据发送出去
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+         com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+         if(com_rlen >= 8)
+         {
+            com_f[1] = atol(com_rbuf);
+         }
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+

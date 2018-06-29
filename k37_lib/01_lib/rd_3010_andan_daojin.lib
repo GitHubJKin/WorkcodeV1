@@ -1,0 +1,83 @@
+
+/*** BeginHeader */
+#ifndef rd_3010_andan_daojin_lib
+#define rd_3010_andan_daojin_lib
+/*** EndHeader */
+
+
+/*******************************************************
+读取岛津氨氮 ,flag != 0读两个  flag=0读一个                  
+发送:0a 04 00 08 00 02 CRC 
+发送:0a 04 00 1C 00 02 CRC 
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_andan_daojin*/
+int rd_andan_daojin( char port, char towParameterFlag  );
+/*** EndHeader */
+int rd_andan_daojin( char port, char towParameterFlag )
+{
+	static int status;
+	//auto struct tm comTime;
+	auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+   	status = 0;
+
+      pack_modbus_cmd(0x0a, 0x04, 0x08, 0x02);
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+		if( (com_rlen >= 9)&&(com_rbuf[0] == 0x0a)&&(com_rbuf[1] == 0x04) )
+      {
+			f.ch[3] = com_rbuf[3];
+	      f.ch[2] = com_rbuf[4];
+	      f.ch[1] = com_rbuf[5];
+	      f.ch[0] = com_rbuf[6];
+			com_f[0] = f.f;			//即时值
+
+         if(towParameterFlag)
+         {
+         	pack_modbus_cmd(0x0a, 0x04, 28, 0x02);
+      		com_write(port);
+      		waitfor(DelayMs(3000));
+
+      		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      		com_read(port);
+				if( (com_rlen >= 9)&&(com_rbuf[0] == 0x0a)&&(com_rbuf[1] == 0x04) )
+            {
+               f.ch[3] = com_rbuf[3];
+	      		f.ch[2] = com_rbuf[4];
+	      		f.ch[1] = com_rbuf[5];
+	      		f.ch[0] = com_rbuf[6];
+					com_f[1] = f.f;			//即时值
+            }
+            else
+            {
+             	com_f[1] = 0.0;
+               status = 2;
+            }
+         }
+      }
+      else
+      {
+	   	status = 2;
+	      com_f[0] = 0.0;
+      }
+
+		if(status == 0)
+      {
+       	status = 1;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

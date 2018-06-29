@@ -1,0 +1,84 @@
+
+/*** BeginHeader */
+#ifndef rd_20331_device_kete_lib
+#define rd_20331_device_kete_lib
+/*** EndHeader */
+
+/*******************************************************************************
+苏州科特
+命令：%01#RDD0152101525**回车
+返回：(十进制与十六进制返回值对照，相同颜色表示相同的意义)
+十进制：%01$RD0903271521260000040718回车
+十六进制：25 30 31 24 52 44 30 39 30 33 32 37 31 35 32 31 32 36 30 30 30 30 30 34 30 37 31 38 回车
+(含义：
+十六进制：25 30 31 24 52 44 30 39 30 33 32 37 31 35 32 31 32 36 30 30 30 30 30 34 30 37 31 38
+         |-------报头--------| |--------年月日时分秒-----------------| |----分析仪值--------------|
+回车
+
+*******************************************************************************/
+/*** BeginHeader rd_device_kete */
+int rd_device_kete( char port , char flag, char addr);
+/*** EndHeader */
+int rd_device_kete( char port , char flag, char addr)
+{
+   static int status;
+   auto char i;
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+
+      sprintf(com_tbuf," %02d#RDD0152101525**\r\n",addr);
+		com_tbuf[0] = '%';
+		com_tlen = strlen(com_tbuf);
+		com_write(port);
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);   //%01$RD0903271521260000040718
+      if( (com_rlen >= 22)&&(strncmp(&com_rbuf[3], "$RD", 3) == 0) )
+      {//是有效数据
+         comTime.tm_year = HexCharToDec(com_rbuf[6]) * 10 + HexCharToDec(com_rbuf[7]) + 100;
+         comTime.tm_mon = HexCharToDec(com_rbuf[8]) * 10 + HexCharToDec(com_rbuf[9]);
+         comTime.tm_mday = HexCharToDec(com_rbuf[10]) * 10 + HexCharToDec(com_rbuf[11]);
+         comTime.tm_hour = HexCharToDec(com_rbuf[12]) * 10 + HexCharToDec(com_rbuf[13]);
+         comTime.tm_min = HexCharToDec(com_rbuf[14]) * 10 + HexCharToDec(com_rbuf[15]);
+         comTime.tm_sec = HexCharToDec(com_rbuf[16]) * 10 + HexCharToDec(com_rbuf[17]);
+         com_sec = mktime(&comTime);         //时间
+
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         strncpy(com_tbuf, &com_rbuf[18], 8);
+         com_f[0] = atol(com_tbuf);
+
+         switch (flag)
+         {
+           case 0:
+                     com_f[0] /= 10.0;
+                     break;
+           case 1:
+                     com_f[0] /= 100.0;
+                     break;
+           case 2:
+                     com_f[0] /= 1000.0;
+                     break;
+           case 3:
+                     com_f[0] /= 10000.0;
+                     break;
+           default: ;
+         }
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0;
+         com_sec = read_rtc();      //时间
+         status = 2;
+      }
+
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

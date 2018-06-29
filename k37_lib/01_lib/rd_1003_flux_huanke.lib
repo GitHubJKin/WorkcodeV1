@@ -1,0 +1,68 @@
+/*** BeginHeader */
+#ifndef rd_1003_flux_huanke_lib
+#define rd_1003_flux_huanke_lib
+/*** EndHeader */
+/*******************************************************************************
+设SWC小流量计在某一秒钟发送出以下数据（16进制表示）：
+40 40 40 E9 99 9A 43 52 4C CD 26 26
+根据通讯协议分析得：
+40 40:包头，ascii为@@
+40 E9 99 9A : 4字节浮点数,值为7.3
+43 52 4C CD: 4字节浮点数据，210.3。
+26 26：包尾，ascii为&&
+该例表示这一秒钟的流量为7.3升。累计流量为210.3立方米。
+仪表型号：1003
+*******************************************************************************/
+/*** BeginHeader rd_flux_huanke */
+int rd_flux_huanke( char port );
+/*** EndHeader */
+int rd_flux_huanke( char port )
+{
+   static int status;
+   auto char c;
+   union uf f;
+
+   costate
+   {
+      status = 0;
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, '\0', sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 12)
+      {
+         for(c=(com_rlen-12); (c>=0)&&(c<=(com_rlen-12)); c--)
+         {
+            if((com_rbuf[c] == '@')&&(com_rbuf[c+1] == '@')
+               &&(com_rbuf[c+10] == '&')&&(com_rbuf[c+11] == '&'))
+            {
+               f.ch[3] = com_rbuf[c+2];
+               f.ch[2] = com_rbuf[c+3];
+               f.ch[1] = com_rbuf[c+4];
+               f.ch[0] = com_rbuf[c+5];
+               com_f[0] = f.f;               //瞬时流量
+
+               f.ch[3] = com_rbuf[c+6];
+               f.ch[2] = com_rbuf[c+7];
+               f.ch[1] = com_rbuf[c+8];
+               f.ch[0] = com_rbuf[c+9];
+               com_f[1] = f.f;               //累计流量
+               status = 1;
+               break;
+            }
+         }
+      }
+      if(status == 0)
+      {
+         //printf("FLU Error = (dev:1003  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();                  //采样时间
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */

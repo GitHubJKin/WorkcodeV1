@@ -1,0 +1,137 @@
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8061_VOC1000_lib
+#define rd_8061_VOC1000_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+VOC1000 甲烷/非甲烷总烃     ASCII-9600,N,8,1	         -8061
+*******************************************************************************/
+/*** BeginHeader rd_VOC1000 */
+int rd_VOC1000( char port );
+/*** EndHeader */
+int rd_VOC1000( char port )
+{
+   static int status;
+	auto struct tm comTime;
+   auto char *temptr;
+	costate
+	{
+		status = 0;
+
+
+      com_tbuf[0] = 0x11;    //将需要发送的数据放入缓冲区
+      com_tlen = 1;          //发送数据长度
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      //if(com_rlen >=45)        //接收到数据正确
+      if((com_rbuf[com_rlen-2] == '\r') && (com_rbuf[com_rlen-1] == '\n'))     //CRLF结束符
+      {
+         temptr = strchr(com_rbuf,'\t');  //第一个制表符
+         if(temptr != NULL)
+         {
+         	 temptr++;
+         	 temptr = strchr(temptr,'\t');    //第二个制表符
+         	 if(temptr != NULL)
+         	 {
+         	 	temptr++;
+         	 	com_f[0] = atof(temptr);
+
+         	 	temptr = strchr(temptr,'\t');  //第三个制表符
+         	 	if(temptr != NULL)
+         	 	{
+         	 		temptr++;
+         	 		temptr = strchr(temptr,'\t');   //第四个制表符
+         	 		if(temptr != NULL)
+         	 		{
+         	 		    temptr++;
+         	 		    com_f[1] = atof(temptr);
+
+         	 		    temptr = strchr(temptr,'\t');   //第五个制表符
+         	 		    if(temptr != NULL)
+         	 		    {
+         	 		        temptr++;
+         	 		        temptr = strchr(temptr,'\t');   //第六个制表符
+         	 		        if(temptr != NULL)
+         	 		        {
+         	 		        		temptr++;
+         	 		        		com_f[2] = atof(temptr);
+         	 		        		status = 1;
+         	 		        }
+         	 		        else
+         	 		        {
+         	 		            status = 1;
+         	 		            com_f[2] = 0.0;
+         	 		        }
+         	 		    }
+         	 		    else
+         	 		    {
+         	 		        status = 1;
+         	 		        com_f[2] = 0.0;
+         	 		    }
+         	 		}
+         	 		else
+         	 		{
+         	 	   	status = 1;
+         	 	   	com_f[1] = 0.0;
+         	 	   	com_f[2] = 0.0;
+         	 		}
+
+         	 	}
+         	 	else
+         	 	{
+         	 	   status = 1;
+         	 	   com_f[1] = 0.0;
+         	 	   com_f[2] = 0.0;
+         	 	}
+         	 }
+         	 else
+         	 {
+         	 	status = 2;
+         	 	com_f[0] = 0.0;
+         	 	com_f[1] = 0.0;
+         	 	com_f[2] = 0.0;
+         	 }
+
+         }
+         else
+         {
+         	status = 2;
+          	com_f[0] = 0.0;
+          	com_f[1] = 0.0;
+          	com_f[2] = 0.0;
+         }
+      }
+      else
+      {                      //接收到数据错误
+          status = 2;
+          com_f[0] = 0.0;
+          com_f[1] = 0.0;
+          com_f[2] = 0.0;
+      }
+      com_sec = read_rtc();
+	}
+	return  status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+

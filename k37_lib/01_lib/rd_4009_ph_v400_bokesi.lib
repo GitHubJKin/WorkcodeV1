@@ -1,0 +1,58 @@
+
+/*** BeginHeader */
+#ifndef rd_4009_ph_v400_bokesi_lib
+#define rd_4009_ph_v400_bokesi_lib
+/*** EndHeader */
+
+
+/*******************************************************
+江苏博克斯PH计	Modbus-RTU 9600，N，8，1  
+
+PC 主机发送：58 03 00 00 00 12 0E C9      (寄存器是char型)
+变送器返回：58 03 12 40 DF 06 B3 42 18 9E E4 3F ED 5B 70 13
+08 09 15 03 04 16 10
+返回值解析信息分别为 PH 值 6.97，温度 28.15℃，PH 毫伏值 1.85mV，日期 13/08/09，
+时间 15：03：04
+*******************************************************/
+
+/*** BeginHeader rd_ph_v400_bokesi */
+int rd_ph_v400_bokesi( char port );
+/*** EndHeader */
+int rd_ph_v400_bokesi( char port )
+{
+    static int status;
+    auto union uf f;
+    costate
+    {
+       status = 0;
+
+       pack_modbus_cmd(0x58,0x03,0x00,0x04);  //读0~3寄存器
+		 com_write(port);
+		 waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x58) && (com_rbuf[1] == 0x03))
+		{
+			f.ch[3] = com_rbuf[3];
+			f.ch[2] = com_rbuf[4];
+			f.ch[1] = com_rbuf[5];
+			f.ch[0] = com_rbuf[6];
+			com_f[0] = f.f;		//PH值
+
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+    }
+    return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

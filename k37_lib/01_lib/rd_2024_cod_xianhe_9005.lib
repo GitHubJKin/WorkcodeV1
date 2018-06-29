@@ -1,0 +1,92 @@
+
+/*** BeginHeader */
+#ifndef rd_2024_cod_xianhe_9005_lib
+#define rd_2024_cod_xianhe_9005_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+河北先河的设备驱动接口函数 型号XH-9005
+*******************************************************************************/
+/*** BeginHeader rd_cod_xianhe_9005 */
+int rd_cod_xianhe_9005(char port);
+/*** EndHeader */
+int rd_cod_xianhe_9005(char port)
+{
+	static int status;
+   	auto CHARTOINTTY data;
+   	auto union uf fdata;
+
+   	costate
+   	{
+   		status = 0;
+
+      	//读取COD.
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      	pack_modbus_cmd(0x01, 0x03, 0x0A, 0x04);
+      	com_write(port);
+      	waitfor(DelayMs(3000));
+
+      	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      	com_read(port);
+      	if(com_rlen >= 9 && com_rbuf[0] == 0x01 && com_rbuf[1] == 0x03)
+		{
+      		fdata.ch[3] = com_rbuf[3];
+         	fdata.ch[2] = com_rbuf[4];
+         	fdata.ch[1] = com_rbuf[5];
+         	fdata.ch[0] = com_rbuf[6];
+         if(fdata.f < 200.0)
+        	com_f[0] = fdata.f;
+        	status = 1;
+      	}
+      	else
+      	{
+      		com_f[0] = 0.0;
+         	status = 2;
+      	}
+
+      	com_sec = read_rtc();
+   	}
+   	return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

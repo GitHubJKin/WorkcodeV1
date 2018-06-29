@@ -1,0 +1,61 @@
+/*** BeginHeader */
+#ifndef rd_1014_flux_chongqing_shuiwen_lib
+#define rd_1014_flux_chongqing_shuiwen_lib
+/*** EndHeader */ 
+
+/**************************************************************
+重庆水文流量计协议 型号：WHZJ
+**************************************************************/
+/*** BeginHeader rd_chongqing_shuiwen */
+int rd_chongqing_shuiwen( char port );                      //1009  OK
+/*** EndHeader */
+int rd_chongqing_shuiwen( char port )
+{//
+   static int status;
+   auto int tmpi;
+   auto long tmpl;
+   auto  char tempBuf[6]; //临时变量
+
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = 0x11;//起始
+      com_tlen = 1;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      //0A          01    01             00    00      03    00     05       0D
+      //起始字节  瞬时流量(int/10数值)   累积流量（4字节float）     和校验   结束字节
+      //           25.7L/S                768立方米
+      if((com_rlen >= 9)&&(com_rbuf[0]==0x0A)&&(com_rbuf[8]==0x0D))
+      {
+         memset(tempBuf, 0x00,sizeof(tempBuf));
+         memcpy((char *)(&tmpi), &com_rbuf[1], 2);
+         com_f[0] = ((float)tmpi)/10;   //即时流量
+
+         memset(tempBuf, 0x00,sizeof(tempBuf));
+         tmpl = 0;tmpl |= com_rbuf[3];
+         tmpl <<= 8;tmpl |= com_rbuf[4];
+         tmpl <<= 8;tmpl |= com_rbuf[5];
+         tmpl <<= 8;tmpl |= com_rbuf[6];
+         com_f[1] = (float)tmpl;   //累计流量
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+      if(status == 0)status = 1;
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

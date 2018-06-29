@@ -1,0 +1,75 @@
+
+/*** BeginHeader */
+#ifndef rd_1025_flux_hongkai_lib
+#define rd_1025_flux_hongkai_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_flux_hongkai */
+int rd_flux_hongkai( char port );
+/*** EndHeader */
+int rd_flux_hongkai( char port )
+{
+   static int status;
+   union  uf AI;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x00, 0x02);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 8)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03)&&(com_rbuf[2]==0x04)/*&&(com_rbuf[3]==0x02)*/)
+      {
+         AI.ch[1] = com_rbuf[3];
+         AI.ch[0] = com_rbuf[4];
+         AI.ch[3] = com_rbuf[5];
+         AI.ch[2] = com_rbuf[6];
+         com_f[0] = AI.f/3.6;           //瞬时流量
+
+         pack_modbus_cmd(0x01, 0x03, 0x08, 0x02);
+         com_write(port);
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if((com_rlen > 8)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03)&&(com_rbuf[2]==0x04)/*&&(com_rbuf[3]==0x02)*/)
+         {
+            AI.ch[3] = com_rbuf[3];
+            AI.ch[2] = com_rbuf[4];
+            AI.ch[1] = com_rbuf[5];
+            AI.ch[0] = com_rbuf[6];
+            com_f[1] = AI.l;        //累计流量
+         }
+         status = 1;
+
+      }
+      if(status == 0)
+      {
+         //printf("FLU Error = (dev:1007  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();         //时间
+   }
+   return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+

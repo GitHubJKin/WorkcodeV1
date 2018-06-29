@@ -1,0 +1,148 @@
+/*** BeginHeader */
+#ifndef rd_2002cod_yiwen_lib
+#define rd_2002cod_yiwen_lib
+/*** EndHeader */
+
+/*******************************************************
+广州怡文 EST-2001B COD在线监测仪                         //2002---OK
+查询瞬时值
+*******************************************************/
+/*** BeginHeader rd_cod_yiwen */
+int rd_cod_yiwen( char port );
+/*** EndHeader */
+int rd_cod_yiwen( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto unsigned int v;
+   auto char i;
+
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = 0x02;
+      com_tbuf[1] = 0x11;
+      com_tbuf[2] = 0x11;
+      com_tbuf[3] = 0x03;
+      com_tlen = 4;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 36)&&(com_rbuf[0] == 0x02)
+         &&(com_rbuf[1] == 0x11)&&(com_rbuf[35]==0x03) )
+         //&&(chksum(&com_rbuf[1], 33) == com_rbuf[34]) )
+      {
+         for(i=2;i<27;i+=8)         //数据解析 (时间 + 数据)
+         {
+            if((com_rbuf[i+1] > 0)&&(com_rbuf[i+2] > 0)&&(com_rbuf[i+3] > 0))
+            {
+               comTime.tm_year = hex2dec(com_rbuf[i+1]);
+               comTime.tm_mon = hex2dec(com_rbuf[i+2]);
+               comTime.tm_mday = hex2dec(com_rbuf[i+3]);
+               comTime.tm_hour = hex2dec(com_rbuf[i+4]);
+               comTime.tm_min = hex2dec(com_rbuf[i+5]);
+               comTime.tm_sec = 0;
+               com_sec = mktime(&comTime);//时间
+
+               v = com_rbuf[i+6]*0x100 + com_rbuf[i+7];
+               if( (v == 0x8888)||(v == 0xcccc)||(v == 0xeeee)||(v == 0xdddd)||(v == 0xbbbb)
+                  ||((v >= 0xaaa0)&&(v <= 0xaaa4)) )//错误数据
+               {
+                  com_f[0] = 0.0;
+                  status = 2;
+               }
+               else
+               {
+                  com_f[0] = v;//即时值
+                  status = 1;
+               }
+               break;
+            }
+         }
+      }
+      if(status == 0)
+      {
+         //printf("COD Error = (dev:2002  ,  com:%02d)\n", port+1);
+         status = 2;
+         #ifndef GZLS
+         com_f[0] = 0.0;
+         #else
+         status = 3;
+         #endif
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+//cmd=4是cod ,cmd=3是andan
+/*** BeginHeader rd_yiwen_andan_cod*/
+int rd_yiwen_andan_cod(char cmd, char port);
+/*** EndHeader */
+int rd_yiwen_andan_cod(char cmd, char port)
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf data;
+   auto float f;
+   auto char i;
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = cmd;
+      com_tbuf[1] = 0x11;
+      com_tbuf[2] = 0x11;
+      com_tbuf[3] = 0x03;
+      com_tlen = 4;
+      com_write(port);
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if ((com_rlen >= 36) && (com_rbuf[0] == cmd) && (com_rbuf[1] == 0x11))
+      {
+	 		comTime.tm_year = hex2dec(com_rbuf[3]);
+	 		comTime.tm_mon = hex2dec(com_rbuf[4]);
+	 		comTime.tm_mday = hex2dec(com_rbuf[5]);
+	 		comTime.tm_hour = hex2dec(com_rbuf[6]);
+	 		comTime.tm_min = hex2dec(com_rbuf[7]);
+	 		comTime.tm_sec = 0;
+	 		com_sec = mktime(&comTime); //时间
+
+	 		data.ch[3] = com_rbuf[8];
+	 		data.ch[2] = com_rbuf[9];//整数
+	 		data.ch[1] = com_rbuf[10];
+	 		data.ch[0] = com_rbuf[11];//小数
+	 		if (data.i[1] >= 0xaaa0 && data.i[1] <= 0xaaad)
+	 		{
+	 			com_f[0] = 0.0;
+				status = 2;
+	 		}
+	 		else
+	 		{
+	    		for (i = 1; i < 5; i++)
+	    		{
+	       		f = (float)data.i[0] / pow(10, i);
+	       		if (f < 1)
+	       		{
+		    			status = 1;
+		  				com_f[0] = f + data.i[1];
+		  				break;
+	       		}
+	    		}
+	 		}
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

@@ -1,0 +1,2235 @@
+/*******************************************************************************
+Nand Flash存储及查找的接口函数，数据结构等
+存储方式：每页存一条记录
+按照指定的时间间隔存储记录，每个小时结束时计算这个小时的统计数据并独立保存一条
+每天结束时计算这天的统计数据，并独立保存一条
+每条记录里有本时间段的总量和历史总量，方便统计
+如小时记录里会保存这个小时的总量，均值，最大最小值，折算值等
+小时记录为统计本小时的所有分钟记录所得
+日记录为统计本日内的所有小时记录所得
+月记录为统计本月内的所有日记录所得
+
+分钟记录 -- 分钟记录 -- 小时记录 -- 分钟记录 -- 分钟记录 -- 小时记录 -- 日记录
+小时记录的时间标记为小时最大值，即：XX-XX-XX XX:59:59
+日记录的时间标记为日最大值，即：XX-XX-XX 23:59:59
+月记录的时间标记为月最大值，即：XX-XX-31 23:59:59
+
+请求用户的定义：	0-TCP0, 1-TCP1, 2-TCP2, 3-KEY, 4-SMP task
+2010-01-06
+********************************************************************************
+2017-05-25，V7版本，改为以下策略：
+1、搜索以BLOCK为单位，只搜索每个BLOCK的起始页，也就是第0页。
+2、重新规划整个空间，保证存储是按照时间顺序的。如果之前已经混乱，则重新定位以
+   保证时间顺序，这样可能会丢失一部分数据。
+   不论原始记录的混乱情况，初始化都是只确定前面的顺序时间记录为有效记录，以第
+   一个反转时间点为终点。
+3、初始化时遍历整个空间，定位wrPtr，计算损坏情况和混乱情况。并记录较大块坏区。
+4、查找数据还是采用二分法，但以BLOCK为单位，以第0页为参考。
+5、初始化不依赖系统时间，而是直接找到wrPtr，并以最新记录时间为参考，判断系统
+   时间的有效性。不允许系统时间小于记录时间，也不允许系统时间大于记录时间2个
+   月以上。
+   --小了肯定有错。大于2个月说明停机超过2个月时间，需要强制人工设定。
+   --用于防止系统时间跑飞异常。
+6、新增结构体，可记录最多10个坏区块，每个坏区块最少有8个BLOCK，初始化时自动搜
+   索，正常使用时会自动调整。
+7、允许系统时间自由调整，但是如果是调小，则会删除历史数据，此时会加入限制，现
+   在的策略是不允许一次删除超过一万条记录。如超过则以一万条为限并以这个记录点
+   的时间为新的时间。所以如果要强制删除记录，就需要连续多次往回设定时间。
+   --主要是防范作弊以及操作失误，从而导致的大量记录删除。
+8、现在的策略可保证记录的时间是增加的，不会出现时间错乱情况。
+9、保存记录时，如果BLOCK的第0页写或者读错误，则直接跳到下一个BLOCK，不再在当前
+   BLOCK进行保存操作，相当于当前BLOCK都做坏page处理。
+
+10、由于搜索可能自动调整时间点，故在统计的时候可能会返回不是指定时间的记录，从
+    而导致统计错误，需要核对返回记录的时间，并自动更新统计参考时间。--对于存在
+    时间断点的情况。
+11、已经修改主程序中的update_rtc函数和相关调用地点，smp_sum库中的日月统计函数。
+
+	 全局变量调整：
+    一、nf_pages取消，用nandFlash.pages替代
+    二、nf_page_size取消，用nandFlash.mainsize替代
+    三、rdPtr，lastuser，取消了
+    四、nandflash_id 仍然保留
+    	  wrPtr 仍然保留，用法不变，指向待写下一条记录的位置
+	     增加char nandflash_time_order;	//0-顺序排列，1-覆盖过的反转顺序，>1为异常排列
+		  增加char nandflash_damage_flag;//0-存储器芯片正常，1-存储器故障
+        芯片损坏的判断条件：超过10个坏区，每个坏区最少包含8个坏BLOCK
+        如芯片损坏，在用户登陆时可显示坏了的信息，提示需要维修
+
+    本库对外提供如下函数：
+    一、初始化存储系统，只在主程序开始时调用一次
+    		void nf_operate_init(void);
+    二、存储器分析，已经在初始化函数中自动调用了，用户不必再调用
+        相关分析结果显示在LCD上，但可以通过DBG_PRINTF关闭
+    		void nf_analysis_chip(char steps);	//steps=1（210秒）、2、4、8（35秒）
+    三、保存一条记录，对应写一页
+    		char saveRecord(ONEMSG_struct *dst);
+    四、删除记录，回滚指针，当回调系统时间时调用，但限制了回调的幅度
+    		void update_nf_ptr(void);
+    五、查找记录的函数，参数start_page和end_page没用了
+    		char getHisData(ONEMSG_struct *dst, char table,
+                  unsigned long t, char dir, char user);
+    六、查找下一条记录的函数
+    		char getNextData(char table, unsigned long t, char dir, char user);
+
+12、修改BUG，修改时间删除记录时回找以0页为限，不再向后找，同时也以空页作为限制。
+	 修改有效时间的判断，收窄区间到2010-2030年。
+
+*******************************************************************************/
+/*** BeginHeader */
+#ifndef _BOCON_RECORD_LIB
+#define _BOCON_RECORD_LIB
+
+//#define EN_PRINTF
+
+#ifndef DBG_PRINTF
+#define DBG_PRINTF
+	#ifdef EN_PRINTF
+		#define DBG(CODE) CODE
+	#else
+		#define DBG(CODE) ;
+	#endif
+#endif
+
+#define RED		"\x1b[31m"
+#define BLACK	"\x1b[30m"
+
+#define TIME_VALID_BEGIN	0x386E9500	//2010-1-1 00:00:00
+#define TIME_VALID_END		0x5E0D3280	//2030-1-1 00:00:00
+
+#define MAX_NF_BAD_AREAS	10			//最大10个坏区块
+#define MAX_NF_BAD_BLOCKS	8//20		//每个坏区块最少8个BLOCK才会记录
+/*** EndHeader */
+
+
+/*** BeginHeader */
+
+#use "bocon_nf1g.elib"
+//#use "bocon_nf1_4g.lib"
+
+unsigned long onemsg_buf[SOCKET_NUMBER+2];		//共定义5个xmem缓冲区，LCD和3个TCP各一个
+unsigned long user_rd_page[SOCKET_NUMBER+2];	//记录每个用户当前读取的Flash页号
+typedef struct
+{
+	unsigned long ptr[SOCKET_NUMBER];			//没有上传的纪录的起始页，断线重连后需要补发的记录
+   unsigned int crc;
+}UN_TX_PTR;
+UN_TX_PTR un_tx_page;
+
+//一颗FLASH芯片，最多允许10个批量连续坏区超过20个BLOCK。
+typedef struct
+{
+	//unsigned int refBlock;			//参考BLOCK号，用于定位
+   unsigned int badBlockCnt[MAX_NF_BAD_AREAS];	//坏区数量
+   unsigned int badBlockNo[MAX_NF_BAD_AREAS];	//坏区的起始BLOCK号
+   //unsigned int crc;					//本结构体的CRC校验
+}BLOCK_REF_RECORD;
+BLOCK_REF_RECORD block_ref_record;
+
+nf_device nandFlash;					//定义一个flash的设备的结构变量
+unsigned long myMainBuffer;   	//开辟一个页大小空间的起始物理地址
+//unsigned long nf_pages;
+//unsigned long nf_page_size;
+
+//unsigned long eldest_page;			//最老的记录所在页号
+unsigned int valid_start_block;		//整个Flash空间开始有数据的起始页
+unsigned long wrPtr;					//文件写指针
+//unsigned long rdPtr;					//读页指针
+//char lastUser;							//记录上一次请求查询的用户，0-TCP0，1-TCP1，2-TCP2，3-KEY
+
+long nandflash_id;//NAND FLASH ID   ID= 0xD7AD  可以给4整除，但是不能给256整除，该页不进行读写
+
+char nandflash_time_order;			//0-顺序排列，1-覆盖过的反转顺序，>1为异常排列
+char nandflash_damage_flag;		//1-芯片损坏标志
+/*** EndHeader */
+
+/*** BeginHeader nf_analysis_chip*/
+void nf_analysis_chip(char steps);
+/*** EndHeader */
+void nf_analysis_chip(char steps)
+{
+	auto char c, bads;
+	auto int rc;
+   auto unsigned int i, badNo, badBlocks, refBlock;
+   auto unsigned long p, t, t0, t_last, p0, p1, p2;
+   auto struct tm rtcL;
+   auto float f;
+
+   //block_ref_record.crc += 1;//test
+   //s = SEC_TIMER;
+	DBG(
+   printf("\r\nCHECKING MEMORY\r\n");
+   glBuffLock();
+	glPrintf(20, 40, &fi12x16, "CHECKING MEMORY");
+	glBuffUnlock();)
+
+   nandflash_time_order = 0;		//初始化为顺序排列
+   //nandflash_damage_flag = 0;	//初始化为芯片正常
+   //if(CRC16((char *)&block_ref_record, (sizeof(BLOCK_REF_RECORD)-2)) != block_ref_record.crc)
+   //{	//如果校验错，则复位，需要重新分析整个芯片，1-耗时210秒，8-32秒
+   	refBlock = 0;
+   	for(c=0; c<MAX_NF_BAD_AREAS; c++)
+      {
+   		block_ref_record.badBlockCnt[c] = 0;
+         block_ref_record.badBlockNo[c] = 0;
+      }
+      //block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+
+      valid_start_block = 20000;	//起始有效BLOCK置为无效
+      bads = 0;			//总共坏区块数
+      badNo = 0;			//当前坏区的起始BLOCK
+		badBlocks = 0;		//当前坏区的块数
+      t = 0L;
+      t0 = SEC_TIMER;
+      t_last = t;
+      p0 = 0L;
+      p1 = 0L;
+      //d = 0;
+      for(p=0; p<=nandFlash.pages; p+=(steps*nandFlash.erasepages))
+      {
+      	DBG(
+      	if((p % (nandFlash.erasepages * 64)) == 0)
+         {	//仅作LCD显示
+         	f = (100.0 * (float)p) / nandFlash.pages;
+            glBuffLock();
+				glPrintf(210, 40, &fi12x16, "%.0f%%", f);
+				glBuffUnlock();
+         })
+
+         if(p >= nandFlash.pages) rc = 1;				//检查坏区在边界的可能，必须
+         else rc = read_nf_page(&onemsg_rd, p, 3);	//读取每个BLOCK的第0页
+         if((rc == 0) || (rc == 1))	//0-读到有效数据，1-空页
+         {
+         	if(rc == 0)
+            {
+            	if(valid_start_block == 20000)
+               {	//记录有效起始BLOCK
+               	valid_start_block = (unsigned int)(p / nandFlash.erasepages);
+                  if((valid_start_block > 0) && (steps > 1))//前面可能还有好的BLOCK
+                  {
+                  	for(c=1; c<steps; c++)
+	                  {
+	                     rc = read_nf_page(&onemsg_rd, p - c * nandFlash.erasepages, 3);
+                        if(rc == 0) valid_start_block --;
+                        else break;
+	                  }
+                  }
+               }
+            	if(onemsg_rd.Btime >= t)	//记录最大时间
+	            {	//搜索最大时间，但最大时间会否出现异常值？-->应该由写记录处保证
+               	DBG(
+               	if((onemsg_rd.Btime > (t + 3000000L)) && (t > 0L))
+                  {	//间隔超过1个月的时间断点，打印出来
+                     //mktm(&rtcL, t);
+							//printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d\r\n", p1,
+							//	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+                     //   rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+                     mktm(&rtcL, onemsg_rd.Btime);
+							printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d\r\n", p,
+								rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+                        rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+                  })
+                  if((onemsg_rd.Btime > (t + 36000000L))	//这个条件是否多余？
+                  && (onemsg_rd.Btime > SEC_TIMER) && (SEC_TIMER > t))
+                  {	//时间断点超过1年了，也超过当前系统时间，则肯定这条记录异常
+                     //此处暂以系统时间为参考，用于判断异常
+                  }
+                  else
+                  {
+                  	if(nandflash_time_order == 0)
+                     {	//一旦出现反转，则后面的不再计算，当前指针定位在此
+                  		p1 = p;
+	               		t = onemsg_rd.Btime;
+	               		refBlock = (unsigned int)(p / nandFlash.erasepages);
+                     }
+                  }
+	            }
+               else if(onemsg_rd.Btime < t_last)	//记录出现反转
+               {
+                  if(nandflash_time_order < 100) nandflash_time_order ++;//d ++;
+                  DBG(
+                  mktm(&rtcL, t);
+						//printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d %d\r\n", p1,
+						//	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+                  //   rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec, d);
+                  mktm(&rtcL, onemsg_rd.Btime);
+						printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d %d\r\n", p,
+							rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+                     rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec, nandflash_time_order);)
+               }
+	            if(onemsg_rd.Btime < t0)	//记录最小时间
+               {
+               	t0 = onemsg_rd.Btime;
+                  p0 = p;
+               }
+               t_last = onemsg_rd.Btime;
+            }
+            if(badBlocks > 0)
+            {
+            	c = 0;
+            	for(i=(badNo+badBlocks-1); i>(badNo+badBlocks-steps); i--)	//尾部可能会算多了，需要减掉
+	            {
+               	rc = read_nf_page(&onemsg_rd, (unsigned long)i * (unsigned long)nandFlash.erasepages, 3);
+                  if((rc == 0) || (rc == 1))
+                  {
+                     if(onemsg_rd.Btime > t)	//记录最大时间
+	            		{
+                     	DBG(
+                        if((onemsg_rd.Btime > (t + 3000000L)) && (t > 0L))
+                  	   {  //间隔超过1个月的时间断点，打印出来
+	                        //mktm(&rtcL, t);
+	                        //printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d\r\n", p1,
+	                        //   rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+	                        //   rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+	                        mktm(&rtcL, onemsg_rd.Btime);
+	                        printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d\r\n", p,
+	                           rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+	                           rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+	                     })
+                        if((onemsg_rd.Btime > (t + 36000000L))
+                  		&& (onemsg_rd.Btime > SEC_TIMER) && (SEC_TIMER > t))
+                  		{	//时间断点超过1年了，也超过当前系统时间，则肯定这条记录异常
+                     		//此处暂以系统时间为参考，用于判断异常
+                  		}
+                  		else
+                  		{
+                        	if(nandflash_time_order == 0)
+                           {
+                  				p1 = p;
+	               				t = onemsg_rd.Btime;
+	               				refBlock = i;
+                           }
+                  		}
+	            		}
+                     if(onemsg_rd.Btime < t0)	//记录最小时间
+               	   {
+	                     t0 = onemsg_rd.Btime;
+	                     p0 = p;
+	                  }
+                     c ++;
+                  }
+                  else break;
+	            }
+               badBlocks -= c;
+            	if(badBlocks > (MAX_NF_BAD_BLOCKS -1))
+               {
+               	block_ref_record.badBlockCnt[bads] = badBlocks;
+                  block_ref_record.badBlockNo[bads] = badNo;
+                  bads ++;
+                  if(bads > (MAX_NF_BAD_AREAS-1))	//超过最大允许区块数，标记芯片坏
+                  {
+                  	nandflash_damage_flag = 1;
+                     break;
+                  }
+                  if(badBlocks > 100)	//连续坏区间超过100个BLOCK，标记芯片坏
+                  {
+                  	nandflash_damage_flag = 1;
+                  	//break;
+                  }
+               }
+               badBlocks = 0;
+            }
+         }
+         //else if(rc == 1)	//=1	空页
+         //{
+         //}
+         else// if(rc < 0)	//<0	读页出错
+         {	//steps>1时可能会漏掉连续坏区的开头或结尾的一部分，后续搜索时如发现缺少的会自动补上
+         	//if(badBlocks == 0) badNo = (unsigned int)(p / nandFlash.erasepages);
+         	//badBlocks += steps;
+            if(badBlocks == 0)	//刚发现坏区，向前找可能被漏掉的BLOCK
+            {
+            	//badBlocks ++;		//记录下来
+            	badNo = (unsigned int)(p / nandFlash.erasepages);
+               if(badNo > 0)
+               {
+               	c = 0;
+               	for(i=(badNo-1); i>(badNo-steps); i--)
+	               {
+                  	rc = read_nf_page(&onemsg_rd, (unsigned long)i * (unsigned long)nandFlash.erasepages, 3);
+                     if((rc == 0) || (rc == 1))
+                     {
+                        if(onemsg_rd.Btime > t)	//记录最大时间
+	            			{
+                           if((onemsg_rd.Btime > (t + 36000000L))
+                  			&& (onemsg_rd.Btime > SEC_TIMER) && (SEC_TIMER > t))
+                  			{	//时间断点超过1年了，也超过当前系统时间，则肯定这条记录异常
+                     			//此处暂以系统时间为参考，用于判断异常
+                  			}
+                  			else
+                  			{
+                           	if(nandflash_time_order == 0)
+                              {
+                  					p1 = p;
+	               					t = onemsg_rd.Btime;
+	               					refBlock = i;
+                              }
+                  			}
+	            			}
+                        if(onemsg_rd.Btime < t0)	//记录最小时间
+               	      {
+	                        t0 = onemsg_rd.Btime;
+	                        p0 = p;
+	                     }
+                     	//break;
+                     }
+                     else c ++;
+	               }
+                  badNo -= c;
+                  badBlocks = c;
+               }
+            }
+            badBlocks += steps;
+         }
+         //else if(rc == 2)	//=2	数据无效
+         //{
+         //	if(badBlocks == 0) badNo = (unsigned int)(p / nandFlash.erasepages);
+         //	badBlocks += steps;
+         //}
+      }
+   	//block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+   //}
+
+   if(valid_start_block == 20000)	//全新的空芯片
+   {
+   	valid_start_block = 0;
+      wrPtr = 0L;
+   }
+	else
+   {
+   	//定位到准确的BLOCK上
+	   p1 = (unsigned long)refBlock * (unsigned long)nandFlash.erasepages;
+	   p2 = p1 + steps * nandFlash.erasepages;
+	   wrPtr = p1;
+	   for(p=p1; p<p2; p+=nandFlash.erasepages)
+	   {
+	      rc = read_nf_page(&onemsg_rd, p, 3);
+	      if(rc == 0)       //=0  读到有效数据
+	      {
+	         if(onemsg_rd.Btime >= t)
+	         {
+	            DBG(
+	            if((onemsg_rd.Btime > (t + 3000000L)) && (t > 0L))
+	            {  //间隔超过1个月的时间断点，打印出来
+	               //mktm(&rtcL, t);
+	               //printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d\r\n", p1,
+	               //   rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+	               //   rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+	               mktm(&rtcL, onemsg_rd.Btime);
+	               printf("PAGE %ld %04d-%02d-%02d %02d:%02d:%02d\r\n", p,
+	                  rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+	                  rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+	            })
+	            if((onemsg_rd.Btime > (t + 36000000L)) //这个条件是否多余？
+	            && (onemsg_rd.Btime > SEC_TIMER) && (SEC_TIMER > t))
+	            {  //时间断点超过1年了，也超过当前系统时间，则肯定这条记录异常
+	               //此处暂以系统时间为参考，用于判断异常
+	            }
+	            else
+	            {
+	               if(nandflash_time_order == 0)
+	               {  //一旦出现反转，则后面的不再计算，当前指针定位在此
+	                  t = onemsg_rd.Btime;
+	                  refBlock = (unsigned int)(p / nandFlash.erasepages);
+	               }
+	            }
+	         }
+	         else break;
+	      }
+	   }
+
+   	//计算wrPtr指针的准确值
+	   p1 = (unsigned long)refBlock * (unsigned long)nandFlash.erasepages;
+	   p2 = p1 + nandFlash.erasepages;
+		//跳跃前进
+      for(p=p1; p<p2; p+=8)
+      {
+         rc = read_nf_page(&onemsg_rd, p, 3);
+         if(rc == 1)   //=1  空页
+	      {
+	         break;
+	      }
+      }
+      if(p < p2)
+      {
+      	if(p > p1)
+         {
+      		p1 = p - 8;
+         }
+         p2 = p1 + 8;
+      }
+      else
+      {
+      	p1 = p2 - 8;
+      }
+      wrPtr = p1;
+
+	   for(p=p1; p<p2; p++)
+	   {
+	      rc = read_nf_page(&onemsg_rd, p, 3);
+	      if(rc == 0)       //=0  读到有效数据
+	      {
+	         //if(onemsg_rd.Btime > t)  //无需比较时间，以最后一条有效纪录为依据
+	         //{
+	         wrPtr = p + 1;
+	         t = onemsg_rd.Btime;
+	         //}
+	      }
+	      //else if(rc == 1)   //=1  空页
+	      //{
+	      // wrPtr = p;
+	      //   break;
+	      //}
+	      else if((rc < 0) || (rc == 2))   //<0  读页出错, =2   数据无效
+	      {
+	         wrPtr = p2;
+	         break;
+	      }
+	   }
+	   //DBG(printf("Step %d in %ld seconds\r\n", steps, (SEC_TIMER - s));)
+
+   	//检查整个芯片上记录的最旧时间和最新时间，并比较系统时间
+	   c = 0;
+	   if(SEC_TIMER < t)
+	   {  //系统时间小于最后一条记录的时间，不合理，需要重新设定系统时间
+	      SEC_TIMER = t + 60L;			//暂时处理
+	      c ++;
+	   }
+	   else if(SEC_TIMER > (t + 6000000L)) //如系统时间超过最后一条记录2个月
+	   {  //设备应该超过2个月没有使用了，需要手工重新设定系统时间
+	      SEC_TIMER = t + 6000000L;	//暂时处理
+	      c ++;
+	   }
+	   if(c > 0)
+	   {
+	      mktm(&rtcL, SEC_TIMER);
+	      tm_wr(&rtcL);		//更新CPU的RTC
+	      setDs3231(&rtcL);	//更新时钟芯片里的时间
+	      update_rtc(0);		//更新定时器
+         //mktm(&back_rtc, SEC_TIMER);
+	   }
+
+   	if(t > (t0 + 100000000L))
+	   {  //大致判断记录周期超过3年了
+	      //暂时不需处理
+	   }
+   }
+
+   if((wrPtr % nandFlash.erasepages) == 0)
+   {	//刚好位于BLOCK的起始页，这页有数据，说明已用
+   	rc = read_nf_page(&onemsg_rd, wrPtr, 3);
+		if(rc == 0) nf_eraseBlock(&nandFlash, wrPtr);	//删除
+   }
+
+   DBG(
+   if((nandflash_time_order == 0) && (wrPtr == 0L))
+   {
+   	printf("MEMORY IS EMPTY\r\n");
+   }
+   else
+   {
+   	if(wrPtr > 0L) p = wrPtr - 1;
+   	else p = nandFlash.pages - 1;
+      printf("PAGE %ld(%ld), ", p, p/nandFlash.erasepages);
+		rc = read_nf_page(&onemsg_rd, p, 3);
+      if(rc == 0)
+      {
+	   	mktm(&rtcL, onemsg_rd.Btime);
+	   	printf("%04d-%02d-%02d %02d:%02d:%02d, %d\r\nwrPtr = %ld, STATE=%d\r\n",
+	      	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+            rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec, onemsg_rd.type,
+            wrPtr, nandflash_time_order);
+      }
+   }
+
+   badBlocks = 0;
+   badNo = 0;
+   for(c=0; c<MAX_NF_BAD_AREAS; c++)
+   {
+   	if(block_ref_record.badBlockCnt[c] > 0)
+      {
+      	badBlocks ++;
+         badNo += block_ref_record.badBlockCnt[c];
+      }
+   }
+
+   glBuffLock();
+   glPrintf(276, 40, &fi12x16, "%d", nandflash_time_order);
+   if(nandflash_damage_flag == 1)
+   {
+   	glPrintf(20, 60, &fi12x16, "MEMORY IS BAD");
+   }
+   //else if(wrPtr == 0L)
+   //{
+   //	glPrintf(20, 60, &fi12x16, "MEMORY IS EMPTY");
+   //}
+   else
+   {
+   	mktm(&rtcL, t0);
+   	glPrintf(20, 60, &fi12x16, "%04d-%02d-%02d %02d:%02d, %ld",
+   		rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, p0);
+   	mktm(&rtcL, t);
+   	glPrintf(20, 80, &fi12x16, "%04d-%02d-%02d %02d:%02d, %ld",
+   		rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, wrPtr);
+   }
+   if(badBlocks == 0)
+   {
+   	glPrintf(20, 100, &fi12x16, "MEMORY IS OK");
+   }
+   else
+   {
+      for(c=0; c<badBlocks; c++)
+   	{
+      	if(c > 6) break;
+   		glPrintf(20, 100 + c * 20, &fi12x16, "BAD%d/%d, ADD %d, %d", c+1, badBlocks,
+      		block_ref_record.badBlockNo[c], block_ref_record.badBlockCnt[c]);
+   	}
+   }
+	glBuffUnlock();
+   msDelay(3000);
+   )
+}
+
+/*** BeginHeader _nf_readPage*/
+int _nf_readPage(nf_device *dev, long buffer, long page);
+/*** EndHeader */
+int _nf_readPage(nf_device *dev, long buffer, long page)
+{
+	int rc;
+
+	rc = nf_readPage(dev, buffer, page);
+/*
+   if(page >= (45L * nandFlash.erasepages) && page <= (55L * nandFlash.erasepages))
+   {
+   	rc = -1;
+   }
+   else if(page >= (256L * nandFlash.erasepages) && page <= (320L * nandFlash.erasepages))
+   {
+   	rc = -2;
+   }
+   else if(page >= (1000L * nandFlash.erasepages) && page <= (1024L * nandFlash.erasepages))
+   {
+   	rc = -3;
+   }
+   else if(page >= (4045L * nandFlash.erasepages) && page <= (4095L * nandFlash.erasepages))
+   {
+   	rc = -3;
+   }
+   else if(page >= (8112L * nandFlash.erasepages) && page <= (8191L * nandFlash.erasepages))
+   {
+   	rc = -3;
+   }
+   else if(page >= (2L * nandFlash.erasepages) && page <= (21L * nandFlash.erasepages))
+   {
+   	rc = 2;
+   }
+*/
+   return rc;
+}
+
+/*******************************************************************************
+读指定页的数据到缓冲区
+返回值：<0	读页出错
+		  =1	空页
+        =2	数据无效
+        =0	读到有效数据
+*******************************************************************************/
+/*** BeginHeader read_nf_page */
+int read_nf_page(ONEMSG_struct *dst, unsigned long page, char user);
+/*** EndHeader */
+int read_nf_page(ONEMSG_struct *dst, unsigned long page, char user)
+{
+	auto char c;
+	auto int rc;
+   auto unsigned long sum;
+
+	if(check_wr_page(page))
+   {//该页不能读
+    	return -3;
+   }
+
+	for(c=0; c<2; c++)
+   {
+   	rc = _nf_readPage(&nandFlash, onemsg_buf[user], page);
+   	if(rc == 0)
+   	{
+      	xmem2root(dst, onemsg_buf[user], MSGSIZE);   //数据读出
+	      if(_check_Btime(dst->Btime))  rc = 3;  //时间是否有效
+	      else  //为提高效率，先判断时间是否正常，如正常才判断校验是否正确
+	      {     //这样包含不正确时间的页就不用校验了
+	         sum = sampleSUM((char *)dst, MSGSIZE-4);
+	         if(dst->sum == sum) break;
+            else
+	         {
+	            rc = 2;
+	            //printf("dst->sum=%ld sum=%ld\r\n", dst->sum, sum);
+	            //disp_data_struct(dst);
+	         }
+	      }
+   	}
+   }
+   return rc;
+}
+
+/*** BeginHeader check_un_tx_page_crc*/
+void check_un_tx_page_crc(void);
+/*** EndHeader */
+/*******************************************************************************
+函数功能：判断un_tx_page的crc值，是否正确，如果不正确，将指针指向wrPtr
+*******************************************************************************/
+void check_un_tx_page_crc(void)
+{
+	auto char ch;
+   if(CRC16((char *)&un_tx_page, (sizeof(UN_TX_PTR)-2)) != un_tx_page.crc)
+   {	//如果校验错，则复位，标记为没有需补发的记录
+   	for(ch = 0; ch < SOCKET_NUMBER; ch++){
+   		un_tx_page.ptr[ch] = wrPtr;	//标记为无未上传记录
+   	}
+      un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR)-2);
+
+      DBG(printf("un_tx_page CRC false\r\n");)
+   }
+}
+
+/*** BeginHeader t_f_p */
+void t_f_p(ONEMSG_struct *dst, unsigned long page);
+/*** EndHeader */
+/*void t_f_p(ONEMSG_struct *dst, unsigned long page)
+{
+	auto int rc;
+   auto struct tm rtcL;
+   auto unsigned long p, p1, p2;
+
+   if(page == 0)
+   {
+   	p1 = 0;
+      p2 = 3;
+   }
+   else
+   {
+   	p1 = page - 1;
+      p2 = page + 2;
+   }
+
+   for(p=p1; p<p2; p++)
+	{
+   	printf("PAGE %ld(%ld), ", p, p/nandFlash.erasepages);
+		rc = read_nf_page(dst, p, 3);
+      if(rc == 0)
+      {
+	   	mktm(&rtcL, dst->Btime);
+	   	printf("%04d-%02d-%02d %02d:%02d:%02d, %d\r\n",
+	      	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+            rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec, dst->type);
+      }
+      else if(rc == 1) printf("EMPTY\r\n");
+      else printf("ERROR\r\n");
+	}
+}*/
+
+/*******************************************************************************
+调用flash读写数据函数前需初始化的函数,本函数能且只能执行一次
+注意本函数如果执行多次会耗尽内存 ,能且只能执行一次
+*******************************************************************************/
+/*** BeginHeader nf_operate_init */
+void nf_operate_init(void);
+/*** EndHeader */
+void nf_operate_init(void)
+{
+   auto char c;
+   auto long xramSize;
+   auto unsigned int block;
+   auto unsigned long t;
+
+   if (nf_initDevice(&nandFlash)) //初始化FLASH失败
+   {
+      nandFlash.pages = 1048576L;
+      nandFlash.mainsize = 4096;
+      DBG(printf("\r\nFlash Fail\r\n");)
+      nandflash_id = 0;
+      nandflash_damage_flag = 1;
+   }
+	else //初始化FLASH成功
+   {
+      nandflash_id = _nf_deviceID(&nandFlash);
+      //nandFlash.pages = 21504L;	//test roll back write and delete pages
+      nandflash_damage_flag = 0;
+   }
+
+   myMainBuffer = xalloc(nandFlash.mainsize);
+	for(c=0;c<SOCKET_NUMBER+2;c++)
+   {
+   	onemsg_buf[c] = xalloc(nandFlash.mainsize);
+      user_rd_page[c] = nandFlash.pages;
+   }
+
+   _check_rtc();						//检查实时时间是否正常
+   nf_analysis_chip(8);
+   //t_f_p(&onemsg_rd, wrPtr);
+   //nf_analysis_chip(4);
+   //t_f_p(&onemsg_rd, wrPtr);
+   //nf_analysis_chip(2);
+   //t_f_p(&onemsg_rd, wrPtr);
+   //nf_analysis_chip(1);
+   //t_f_p(&onemsg_rd, wrPtr);
+/*
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 3;
+   rtc1.tm_mday = 30;
+   rtc1.tm_hour = 13;
+   rtc1.tm_min = 42;
+   rtc1.tm_sec = 0;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 9;
+   rtc1.tm_mday = 21;
+   rtc1.tm_hour = 10;
+   rtc1.tm_min = 2;
+   rtc1.tm_sec = 56;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 6;
+   rtc1.tm_mday = 6;
+   rtc1.tm_hour = 3;
+   rtc1.tm_min = 0;
+   rtc1.tm_sec = 0;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 9;
+   rtc1.tm_mday = 29;
+   rtc1.tm_hour = 10;
+   rtc1.tm_min = 28;
+   rtc1.tm_sec = 0;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 9;
+   rtc1.tm_mday = 23;
+   rtc1.tm_hour = 17;
+   rtc1.tm_min = 35;
+   rtc1.tm_sec = 23;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 9;
+   rtc1.tm_mday = 22;
+   rtc1.tm_hour = 7;
+   rtc1.tm_min = 51;
+   rtc1.tm_sec = 0;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 115;
+   rtc1.tm_mon = 9;
+   rtc1.tm_mday = 22;
+   rtc1.tm_hour = 7;
+   rtc1.tm_min = 53;
+   rtc1.tm_sec = 0;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   rtc1.tm_year = 117;
+   rtc1.tm_mon = 5;
+   rtc1.tm_mday = 26;
+   rtc1.tm_hour = 14;
+   rtc1.tm_min = 25;
+   rtc1.tm_sec = 0;
+   t = mktime(&rtc1);
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+
+   t = SEC_TIMER + 3600;
+   block = seek_block_by_time(&onemsg_rd, t, 3);
+   //c = seek_page_in_block(&onemsg_rd, 1, t, block, 3, 1);
+   seek_data_in_block(&onemsg_rd, 1, t, block, 3);
+   t_f_p(&onemsg_rd, user_rd_page[3]);
+*/
+   //for(t=34891L; t<35254L; t+=3)
+   //{
+   //	t_f_p(&onemsg_rd, t);
+   //}
+}
+
+/*******************************************************************************
+将秒数值调整到指定月的最大值：XX-XX-31 23:59:59
+目的：方便搜索时查找，因存储时的统计记录的时间就是统计时间段的最大值
+t			需要调整的秒数
+dir		0 - 当前月的最大值，1 - 下月的最大值，2 - 上月的最大值
+返回值	调整后的秒数，总是时间所在月的最后一秒
+*******************************************************************************/
+/*** Beginheader adj_month_sec */
+unsigned long adj_month_sec(unsigned long t, char dir);
+/*** endheader */
+unsigned long adj_month_sec(unsigned long t, char dir)
+{
+   mktm(&rtc1, t);
+   rtc1.tm_mday = 1;
+   rtc1.tm_hour = 0;
+   rtc1.tm_min = 0;
+   rtc1.tm_sec = 0;
+   if(dir == 0) rtc1.tm_mon ++;			//指向下个月
+   else if(dir == 1) rtc1.tm_mon += 2;
+   if(rtc1.tm_mon > 12)
+   {
+   	rtc1.tm_mon -= 12;
+      rtc1.tm_year ++;
+   }
+   else if(rtc1.tm_mon == 0)
+   {
+      rtc1.tm_mon = 12;
+      rtc1.tm_year --;
+   }
+   return (mktime(&rtc1) - 1);	//所在月的最后一秒
+}
+
+/*******************************************************************************
+检查读出的历史记录的时间标记，判断是否正常，返回0表示有效
+时间范围：2006-5-2-9-22-00		2099-12-31-00-00-00	0x31888000	0xE1B66000
+时间范围：2010-1-1-00-00-00	2030-1-1-00-00-00
+*******************************************************************************/
+/*** BeginHeader _check_Btime */
+char _check_Btime(unsigned long t);
+/*** EndHeader */
+char _check_Btime(unsigned long t)
+{
+	if((t > TIME_VALID_BEGIN) && (t < TIME_VALID_END)) return 0;
+   else return 1;
+}
+
+/*******************************************************************************
+函数功能：	按照指定的时间搜索整个Flash，定位所在的Block
+
+返回值：		数据所在的Block号，可能位于此Block开始的最多3个Block中
+				如搜索失败则返回最大Block号
+				如连续坏Block超过180（超过90M字节），判定FLASH坏，返回最大Block+1
+*******************************************************************************/
+/*** BeginHeader seek_block_by_time */
+unsigned int seek_block_by_time(ONEMSG_struct *dst, unsigned long rtime, char user);
+/*** EndHeader */
+unsigned int seek_block_by_time(ONEMSG_struct *dst, unsigned long rtime, char user)
+{
+   auto unsigned long k;					//记录页号的临时变量
+   auto int rc;
+   auto struct tm rtcL;
+
+   auto unsigned long t_begin;			//首地址读出的时间,
+   auto unsigned long t_end;				//尾地址读出的时间,
+
+   auto unsigned int totalBlocks;		//总Block数
+   auto unsigned int tmpBlock;			//当前Block
+   auto unsigned int beginBlock, endBlock;	//起始Block号和结束Block号
+   auto unsigned int steps;				//搜索共走的步数
+   auto char timeSeqFlag;					//当前区间的时间顺序标志，0-顺序增加，1-覆盖反序
+   auto char c, d;
+
+   auto char badFlag;						//发现坏区间的标志
+   auto unsigned int badStart, badCnt;	//搜索发现的坏区间起始BLOCK号和数量
+
+   DBG(
+   mktm(&rtcL, rtime);
+   printf("SEEK %04d-%02d-%02d %02d:%02d:%02d\r\n",
+   	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+   )
+
+   if(_check_Btime(rtime))	//指定的时间是否正常
+   {
+      DBG(printf("Time error\r\n");)
+      return totalBlocks;
+   }
+   totalBlocks = (unsigned int)(nandFlash.pages / nandFlash.erasepages);
+
+//查找有效起始BLOCK号和对应的起始时间
+	//if((valid_start_block == 0) && (wrPtr == 0L))	//空的芯片
+   //{
+   //	return valid_start_block;
+   //}
+   for(beginBlock=valid_start_block; beginBlock<(valid_start_block + 10); beginBlock ++)	//限读次数200
+   {	//暂时不用在这里检查是否在坏区里
+   	k = (unsigned long)beginBlock * (unsigned long)nandFlash.erasepages;
+   	rc = read_nf_page(dst, k, user);
+      if(rc == 0) break;	//找到有效的BLOCK
+      if(rc == 1) break;	//空页，代表空的BLOCK
+   }
+	if(rc == 0) t_begin = dst->Btime;	//获得首页时间值，首页的纪录必须是有效的
+   else t_begin = TIME_VALID_BEGIN + 1;
+
+
+//查找有效的结束BLOCK号和对应的结束时间
+   for(endBlock = (totalBlocks - 1); endBlock > (totalBlocks - 10); endBlock --)
+   {
+   	k = (unsigned long)endBlock * (unsigned long)nandFlash.erasepages;
+   	rc = read_nf_page(dst, k, user);
+      if(rc == 0) break;
+      if(rc == 1) break;
+   }
+   if(rc == 0) t_end = dst->Btime;	//获得尾页时间值
+   else t_end = TIME_VALID_END;			//空的尾页，对应时间置为超大值
+
+	if((nandflash_time_order == 1) && (rtime <= t_begin))	//
+   {
+   	beginBlock = (unsigned int)(wrPtr / nandFlash.erasepages) + 1;
+      if(beginBlock >= (totalBlocks - 1)) return (totalBlocks - 1);
+      t_begin = TIME_VALID_BEGIN + 1;
+      timeSeqFlag = 3;
+   }
+   else
+   {
+      endBlock = (unsigned int)(wrPtr / nandFlash.erasepages);
+      if(endBlock <= beginBlock) return beginBlock;
+      t_end = TIME_VALID_END;
+      timeSeqFlag = 2;
+   }
+/*
+	//if(t_begin >= t_end)				//覆盖反转的区间
+   if(nandflash_time_order > 0)		//覆盖反转的区间
+   {
+      if( ((rtime > t_begin) && (wrPtr > 0)) || (nandflash_time_order > 1) )
+      {	//刚反转处于0的位置
+      	endBlock = (unsigned int)(wrPtr / nandFlash.erasepages);
+         t_end = TIME_VALID_END;
+         timeSeqFlag = 2;
+      }
+      else
+      {
+      	beginBlock = (unsigned int)(wrPtr / nandFlash.erasepages) + 1;
+         t_begin = TIME_VALID_BEGIN + 1;
+         timeSeqFlag = 3;
+      }
+   }
+   else timeSeqFlag = 0;
+*/
+//搜索的初始条件，包括：
+//起止Block号，对应的起止时间，区间顺序标志，待查的新Block号
+//每次循环需要刷新这些参数以缩小区间
+   tmpBlock = (endBlock - beginBlock + 1) / 2;	//区间Block数折半
+   steps = 0;
+   badFlag = 0;
+   badStart = 0;
+   badCnt = 0;
+
+   while(1)
+   {
+   	//mktm(&rtcL, t_begin);
+      //printf("STEP %d\r\nBEGIN BLOCK %d, %04d-%02d-%02d %02d:%02d:%02d\r\n",
+   	//	steps, beginBlock, rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+      //mktm(&rtcL, t_end);
+      //printf("END BLOCK %d, %04d-%02d-%02d %02d:%02d:%02d\r\n",
+   	//	endBlock, rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+      for(c=0; c<MAX_NF_BAD_AREAS; c++)
+      {	//首先判断是否进入已经标记的坏区
+      	if(block_ref_record.badBlockCnt[c] == 0) break;	//没有坏区间了，退出
+         if(((beginBlock + tmpBlock) >= block_ref_record.badBlockNo[c]) &&
+         	((beginBlock + tmpBlock) <= (block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c])))
+         {	//进入坏区间了
+         	tmpBlock = block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c] + 1 - beginBlock;
+            break;
+         }
+      }
+
+      if((endBlock - beginBlock) < 3)	//已经定位到小于3个Block的区间
+      {	//结束搜索，有待验证
+      	tmpBlock = 3;
+      }
+      if((beginBlock + tmpBlock) >= endBlock)	//统一在这里返回
+      {	//直接检查最后的几个BLOCK，定位到最接近的那个BLOCK
+         endBlock = beginBlock + tmpBlock + 1;	//有待验证
+         if(timeSeqFlag == 2)
+         {
+         	if(endBlock > (wrPtr / nandFlash.erasepages))
+            {
+         		endBlock = (unsigned int)(wrPtr / nandFlash.erasepages) + 1;
+         	}
+         }
+         else if(endBlock > totalBlocks) endBlock = totalBlocks;
+
+         d = 0;
+         for(tmpBlock=beginBlock; tmpBlock<endBlock; tmpBlock++)
+   	   {
+            for(c=0; c<MAX_NF_BAD_AREAS; c++)
+      	   {  //首先判断是否进入已经标记的坏区
+	            if(block_ref_record.badBlockCnt[c] == 0) break; //没有坏区间了，退出
+	            if((tmpBlock >= block_ref_record.badBlockNo[c]) &&
+	               (tmpBlock <= (block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c])))
+	            {  //进入坏区间了
+	               tmpBlock = block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c] + 1;
+	               break;
+	            }
+	         }
+         	k = (unsigned long)tmpBlock * (unsigned long)nandFlash.erasepages;
+	         rc = read_nf_page(dst, k, user);
+	         if(rc == 0)
+	         {
+            	if(d == 0)	//第一次循环，读第一个BLOCK
+               {
+               	d ++;
+               	t_begin = dst->Btime;
+               	if(dst->Btime > rtime) break;	//在前面，不需要再向后面查找
+                  //{//初始化进行限制后不会有反转区间的情况
+                  //	if((wrPtr / nandFlash.erasepages >= beginBlock)
+                  //   && (wrPtr / nandFlash.erasepages <= endBlock))  //处于反转区间
+	               //   {
+	               //      rc = read_nf_page(dst, nandFlash.pages - 1, user);
+	               //      if((rc == 1) || (dst->Btime < rtime)) break;
+	               //   }
+	               //   else break;
+                  //}
+               }
+               else	//读后面的BLOCK
+               {
+	               if((dst->Btime < t_begin)
+                  || ((t_begin <= rtime) && (rtime < dst->Btime)) )
+	               {
+                  	tmpBlock --;	//肯定是后面的
+	                  break;			//找到，直接返回
+	               }
+                  else t_begin = dst->Btime;
+	            }
+            }
+            else if(rc == 1)
+            {
+               if(timeSeqFlag < 3)	//后面还有
+         	   {
+            		if(tmpBlock > beginBlock) tmpBlock --;
+               	break;
+               }
+            }
+	      }
+         if(timeSeqFlag == 2)
+         {
+         	if(tmpBlock > (wrPtr / nandFlash.erasepages))
+            {
+            	tmpBlock = (unsigned int)(wrPtr / nandFlash.erasepages);
+            }
+         }
+         if(tmpBlock >= totalBlocks) tmpBlock = totalBlocks - 1;
+      	return tmpBlock;
+      }
+		//定位到待检查Block的起始页
+   	k = (unsigned long)(beginBlock + tmpBlock) * (unsigned long)nandFlash.erasepages;
+      //printf("CKECKING BLOCK %d, PAGE %ld(%LX), ", beginBlock + tmpBlock, k, k);
+   	rc = read_nf_page(dst, k, user);			//读取指定的页面
+      if(rc == 0)			//当前页有正常数据
+      {
+         //mktm(&rtcL, dst->Btime);
+      	//printf("%04d-%02d-%02d %02d:%02d:%02d OK\r\n",
+   		//	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+         if(dst->Btime >= rtime)	//数据在前半部分区间
+         {
+         	t_end = dst->Btime;
+            endBlock = beginBlock + tmpBlock;
+         }
+         else							//数据在后半部分区间
+         {
+         	t_begin = dst->Btime;
+            beginBlock += tmpBlock;
+         }
+         tmpBlock = (endBlock - beginBlock + 1) / 2;	//区间长度折半
+
+         if(badFlag == 1)		//发现坏区
+         {
+         	if(badCnt > (MAX_NF_BAD_BLOCKS - 1))	//需要保存到坏区结构体中
+            {
+               for(c=0; c<MAX_NF_BAD_AREAS; c++)
+      			{
+      				if(block_ref_record.badBlockCnt[c] == 0)	//还可增加
+                  {
+                  	block_ref_record.badBlockCnt[c] = badCnt;
+                     block_ref_record.badBlockNo[c] = badStart;
+                     //block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+                     break;
+                  }
+            	}
+               if(c >= MAX_NF_BAD_AREAS)
+               {
+               	nandflash_damage_flag = 1;
+               }
+               if(badCnt > 100)
+               {
+               	nandflash_damage_flag = 1;
+               }
+            }
+            badFlag = 0;
+            badCnt = 0;
+            badStart = 0;
+         }
+      }
+      else if(rc == 1)	//空页，则后面可能都是空页，也可能是回滚后留下的间隙
+      {
+      	if(timeSeqFlag == 3)	//后面还有
+         {
+         	beginBlock += tmpBlock;
+         }
+         else
+         {
+      		endBlock = beginBlock + tmpBlock;
+      	}
+         tmpBlock = (endBlock - beginBlock + 1) / 2;	//区间长度折半
+      }
+      else
+      {
+      	//printf("ERROR\r\n");
+         if(badFlag == 0)
+         {
+         	badFlag = 1;
+            badStart = beginBlock + tmpBlock;
+         }
+         badCnt ++;
+         tmpBlock ++;
+
+         for(c=0; c<MAX_NF_BAD_AREAS; c++)
+      	{
+         	if(block_ref_record.badBlockCnt[c] == 0) break;	//没有坏区了
+            d = 0;
+      		if((badStart + badCnt) == block_ref_record.badBlockNo[c])
+            {	//新发现的坏区已经连接到原有坏区了，直接合并
+            	block_ref_record.badBlockCnt[c] += badCnt;
+               block_ref_record.badBlockNo[c] = badStart;
+               //block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+               d = 1;
+            }
+            else if(badStart == (block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c] + 1))
+            {	//新发现的坏区刚好在原有坏区后面，直接合并
+            	block_ref_record.badBlockCnt[c] += badCnt;
+               //block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+               d = 1;
+				}
+            if(d == 1)
+            {	//定位到合并后的坏区后面
+               tmpBlock = block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c] + 1;
+               if(tmpBlock >= endBlock)
+               {	//如超过当前区间，则重新定位到坏区的前面
+               	if(block_ref_record.badBlockNo[c] > 1)
+                  {
+               		tmpBlock = block_ref_record.badBlockNo[c] - 1;
+                  }
+                  else tmpBlock = 0;
+               }
+               badFlag = 0;	//清除发现坏区的标志
+               badCnt = 0;
+               badStart = 0;
+               break;
+            }
+         }
+      }
+
+      if(++ steps > 200)	//搜索步数太多，应该是坏Block引起，考虑FLASH坏
+      {
+      //	return (totalBlocks + 1);
+      }
+   }
+	return totalBlocks;		//找不到有效数据，返回，不会执行这条语句
+}
+
+/*******************************************************************************
+功能：	指定Block，搜索指定时间的分钟数据
+rtime：	需要的时间
+结果：	得到具体的有效页号存放在user_rd_page[user]中
+			0-没找到，1-找到但不准确，2-找到准确记录
+*******************************************************************************/
+/*** BeginHeader seek_data_in_block */
+char seek_data_in_block(ONEMSG_struct *dst, char table, unsigned long rtime,
+					unsigned int block, char user);
+/*** EndHeader */
+char seek_data_in_block(ONEMSG_struct *dst, char table, unsigned long rtime,
+					unsigned int block, char user)
+{
+	auto char c;
+   auto int rc;
+	auto unsigned long half, startp, endp;
+
+   startp = (unsigned long) block * (unsigned long)nandFlash.erasepages;
+	user_rd_page[user] = startp;
+   rc = read_nf_page(dst, startp, user);	//需要读和判断起始页
+   if((rc == 0) && (dst->Btime > rtime))	//数据不在本区间
+   {
+      if((dst->type == table) || ((dst->type == 5) && (table == 1))) return 2;
+   }
+
+   endp = startp + (unsigned long)nandFlash.erasepages;
+   if((startp < wrPtr) && (endp > wrPtr)) endp = wrPtr;
+	half = (endp - startp + 1) / 2;	//区间PAGE数折半
+
+   while(half > 0)
+   {	//区间的最后一页可以读到（half=1时），所以不需要单独判断；但第一页不能读到
+   	rc = read_nf_page(dst, (startp + half), user);	//读起始页
+      if(rc == 0)
+      {
+      	//user_rd_page[user] = startp + half;
+         if(dst->Btime >= rtime)	//数据在前半部分区间
+         {
+            endp = startp + half;
+         }
+         else							//数据在后半部分区间
+         {
+         	user_rd_page[user] = startp + half;
+            startp += half;
+         }
+         half /= 2;	//区间PAGE数折半
+      }
+      else if(rc == 1)
+      {
+      	endp = startp + half;
+         half /= 2;	//区间PAGE数折半
+      }
+      else
+      {
+      	half --;
+      }
+   }
+
+   startp = user_rd_page[user];
+   for(c=0; c<8; c++)
+   {
+   	rc = read_nf_page(dst, startp, user);
+	   if( (rc == 0) && ((dst->type == table) || ((dst->type == 5) && (table == 1))) )
+	   {
+      	user_rd_page[user] = startp;
+	      return 2;
+	   }
+      startp ++;
+   }
+   return 1;
+}
+
+/*******************************************************************************
+功能：	从指定Block开始，寻找指定时间的指定表的记录
+table：	2-小时、3-日、4-月记录
+rtime：	需要的时间
+dir ：	请求正向查找
+结果：	得到具体的有效页号存放在user_rd_page[user]中
+			0-没找到，1-找到但不准确，2-找到准确记录
+*******************************************************************************/
+/*** BeginHeader seek_record_nearby */
+char seek_record_nearby(ONEMSG_struct *dst, char table, char user);
+/*** EndHeader */
+char seek_record_nearby(ONEMSG_struct *dst, char table, char user)
+{
+	auto char c, step, flag;
+   auto int rc;
+	auto unsigned long p, startp, endp;
+   auto unsigned long t;
+   auto struct tm rt1, rt2;
+
+   if((user_rd_page[user] <= wrPtr) && ((user_rd_page[user] + 3) > wrPtr))
+   {
+   	if(wrPtr > 60L) startp = wrPtr - 60L;
+      else startp = 0L;
+   }
+   else if(user_rd_page[user] < (nandFlash.pages - 1))
+   {
+   	startp = user_rd_page[user] + 1;
+   }
+   else
+   {
+   	startp = 0L;
+   }
+   endp = startp + (unsigned long)nandFlash.erasepages;
+   if(endp > (nandFlash.pages - 1)) endp = nandFlash.pages - 1;
+   if((startp < wrPtr) && (endp > wrPtr)) endp = wrPtr;
+
+   step = 32;
+	flag = 0;
+   for(c=0; c<3; c++)
+   {
+   	for(p=startp; p<=endp; p+=step)
+      {
+      	rc = read_nf_page(dst, p, user);
+      	if(rc == 0)
+      	{
+         	if(flag == 0)	//读起始页
+	         {
+	            flag = 1;
+               t = dst->Btime / 3600L;
+            }
+            else	//读后续页
+	         {
+            	if((dst->Btime / 3600L) != t)
+               {
+               	flag = 2;
+                  break;
+               }
+               //t = dst->Btime / 3600L;	//没找到，记下这页的时间
+	         }
+         }
+         else if(rc == 1) break;
+      }
+      if(p > startp) p -= step;
+      startp = p;
+		if((startp + step) < endp) endp = startp + step;
+      if(step == 32) step = 8;
+      else if(step == 8) step = 1;
+   }
+
+   if(flag > 0)
+   {
+   	flag = 1;
+   	//if(p > (user_rd_page[user] + 1)) startp = p - 1;
+      //else startp = p;
+      startp = p;
+      endp = startp + 5;
+      for(p=startp; p<endp; p ++)
+      {
+         rc = read_nf_page(dst, p, user);
+      	if((rc == 0) && (dst->type == table))
+         {
+         	user_rd_page[user] = p;	//肯定是有效页号
+         	flag = 2;
+            break;
+         }
+      }
+   }
+   return flag;
+}
+
+/*******************************************************************************
+功能：	从指定Block开始，最多搜索-1,0,1,2共4个Block，寻找指定时间的页号
+rtime：	需要的时间
+dir ：	请求正向查找
+结果：	得到具体的有效页号存放在user_rd_page[user]中
+			0-没找到，1-找到但不准确，2-找到准确记录
+*******************************************************************************/
+/*** BeginHeader seek_page_in_block */
+char seek_page_in_block(ONEMSG_struct *dst, char table, unsigned long rtime,
+					unsigned int block, char user, char dir);
+/*** EndHeader */
+/*char seek_page_in_block(ONEMSG_struct *dst, char table, unsigned long rtime,
+					unsigned int block, char user, char dir)
+{	//2017.06.16, 严格限制在这个BLOCK里
+	auto char c, step, flag;
+   auto int rc;
+	auto unsigned long p, startp, endp;
+   auto unsigned long t;
+
+   startp = (unsigned long) block * (unsigned long)nandFlash.erasepages;
+   endp = startp + (unsigned long)nandFlash.erasepages;
+   if((startp < wrPtr) && (endp > wrPtr)) endp = wrPtr;
+
+   step = 32;
+	flag = 0;
+   for(c=0; c<3; c++)
+   {
+   	for(p=startp; p<endp; p+=step)
+      {
+      	rc = read_nf_page(dst, p, user);	//读起始页
+      	if(rc == 0)
+      	{
+         	if(flag == 0)
+	         {
+	            flag = 1;
+               t = dst->Btime;
+               if(dst->Btime >= rtime)
+               {
+                  c = 3;	//退出整个查找
+                  flag ++;	//直接置找到标志，实际要找的在这个检查区间之前
+                  break;
+               }
+            }
+            else	//读后续页
+	         {
+            	if(table > 1)
+               {
+               	if((dst->Btime / 3600L) != (t / 3600L))
+                  {
+                  }
+               }
+
+	            if( (dst->Btime > rtime) && (rtime >= t) )
+	            {	//找到了
+               	flag = 2;
+               	break;
+	            }
+               else if(dst->Btime < t)	//时间反转点
+               {
+               	if(t < rtime) break;
+                  else if(dst->Btime > rtime) break;
+               }
+               t = dst->Btime;	//没找到，记下这页的时间
+	         }
+         }
+         else if(rc == 1) break;
+      }
+      if(p > startp) startp = p - step;
+		if((startp + step) < endp) endp = startp + step;	//2017.06.16
+      if(step == 32) step = 8;
+      else if(step == 8) step = 1;
+   }
+
+   if(flag > 0)
+   {
+      if((flag == 2) && (dst->Btime > (t + 3600L)))// && (rtime > (t + 3550L)))//60
+      {
+      	if(dir == 1)
+         {
+         	p ++;
+            flag ++;
+         }
+      }
+      else if((rc == 1) || (p >= endp) )
+      {	//空页或者反转位置
+      	if(p > startp) p --;
+         flag = 2;
+      }
+      user_rd_page[user] = p;	//肯定是有效页号
+      read_nf_page(dst, p, user);
+   }
+   return flag;
+}*/
+
+/*******************************************************************************
+功能：从当前页开始往后找（增加方向）符合时间和表要求的页
+cnt ：最大搜索页数
+返回：得到具体的有效页号，成功则 user_rd_page[user] == p1
+*******************************************************************************/
+/*** BeginHeader get_next_page */
+unsigned long get_next_page(ONEMSG_struct *dst, char table, char user, unsigned char cnt);
+/*** EndHeader */
+unsigned long get_next_page(ONEMSG_struct *dst, char table, char user, unsigned char cnt)
+{
+	auto unsigned char c, d;
+	auto int rc;
+   auto unsigned long p1;
+
+   p1 = user_rd_page[user];
+   for(d=0; d<cnt; d++)
+	{	//可能搜索到小时、日、月的记录处，所以优先向前搜索
+   	p1 ++;
+	   if(p1 >= nandFlash.pages) p1 -= nandFlash.pages;
+      p1 = check_bad_block_head(dst, p1, user);
+
+      rc = read_nf_page(dst, p1, user);
+      if((rc == 0) && ((dst->type == table) || ((table == 1) && (dst->type == 5))) )
+	   {
+      	user_rd_page[user] = p1;
+	      return p1;
+	   }
+      else if(rc == 1) break;	//2017.06.16
+   }
+   return p1;
+}
+
+/*******************************************************************************
+功能：从当前页开始往后找（增加方向）符合时间和表要求的页
+cnt ：最大搜索页数
+返回：得到具体的有效页号，成功则 user_rd_page[user] == p2
+*******************************************************************************/
+/*** BeginHeader get_prev_page */
+unsigned long get_prev_page(ONEMSG_struct *dst, char table, char user, unsigned char cnt);
+/*** EndHeader */
+unsigned long get_prev_page(ONEMSG_struct *dst, char table, char user, unsigned char cnt)
+{
+	auto unsigned char c, d;
+	auto int rc;
+   auto unsigned long p2;
+
+   p2 = user_rd_page[user];
+   for(d=0; d<cnt; d++)
+	{
+      if(p2 == (valid_start_block * nandFlash.erasepages)) p2 = nandFlash.pages - 1;
+      else p2 --;
+      p2 = check_bad_block_tail(dst, p2, user);
+
+	   rc = read_nf_page(dst, p2, user);
+      if((rc == 0) && ((dst->type == table) || ((table == 1) && (dst->type == 5))) )
+	   {
+      	user_rd_page[user] = p2;
+	      return p2;
+	   }
+      else if(rc == 1) break;	//2017.06.16
+   }
+   return p2;
+}
+
+/*******************************************************************************
+功能：当查找后已定位到某个位置，但是没有确定具体页号时，调用本函数定位
+dir ：1-向后（增加方向），2-向前（减少方向），3-双向搜索
+结果：得到具体的有效页号，存放到user_rd_page[user]中
+返回：1表示成功，0表示失败
+*******************************************************************************/
+/*** BeginHeader chk_next_page */
+char chk_next_page(ONEMSG_struct *dst, char table, char user,
+							unsigned long t, char dir);
+/*** EndHeader */
+/*char chk_next_page(ONEMSG_struct *dst, char table, char user,
+							unsigned long t, char dir)
+{
+	auto unsigned char c1, c2;
+   auto unsigned long p1, p2;
+
+   if((user_rd_page[user] + 1) == wrPtr)	//2017.06.16
+   {
+      p1 = user_rd_page[user];
+      c1 = 0;
+   }
+   else
+   {
+   	p1 = get_next_page(dst, table, user, 31);//10
+	   if(p1 != user_rd_page[user])
+	   {
+      	c1 = 0;
+	      p1 = user_rd_page[user];
+	   }
+	   else	//向后找到有效记录
+      {
+         if(dir == 1) return 1;
+         else c1 = 1;
+      }
+   }
+
+   p2 = get_prev_page(dst, table, user, 31);//10
+   if(p2 != user_rd_page[user])
+   {
+   	c2 = 0;
+      p2 = user_rd_page[user];
+   }
+   else		//向回找到有效记录
+   {
+   	if(dir == 2) return 1;
+      else c2 = 1;
+   }
+
+   if(dir == 1)
+   {
+   	if(c2 == 1)
+   	{
+         user_rd_page[user] = p2;
+      	c1 = 1;
+      }
+      else
+      {
+      	user_rd_page[user] = p1;
+      	c1 = 0;
+      }
+   }
+   else
+   {
+   	if(c1 == 1)
+      {
+         user_rd_page[user] = p1;
+      }
+      else
+      {
+      	user_rd_page[user] = p2;
+      }
+   }
+   read_nf_page(dst, user_rd_page[user], user);
+	return c1;
+}*/
+
+/*******************************************************************************
+查找数据库的统一接口函数，需要搜索时都是调用这个函数
+搜索历史数据库，查找指定时间的历史记录，可以区分各种统计记录
+table		1	-	分钟
+			2	-	小时
+			3	-	日
+         4	-	月
+t			需要的时间
+start_page	起始页号	--保持兼容，不用了
+end_page	结束页号		--保持兼容，不用了
+
+dir		读记录的时间方向，1-向后，2-向前，0-只读一条
+user		0-TCP0, 1-TCP1, 2-TCP2, 3-KEY, 4-SMP task
+
+找到的页号存放在user_rd_page[user]中
+返回值：	2-找到指定的记录，
+			1-找到记录，时间不符合要求，也不一定是要求的table
+         3-找到记录，时间不符合要求，但是同一个table
+*******************************************************************************/
+/*** BeginHeader getHisData */
+char getHisData(ONEMSG_struct *dst, char table,
+                  unsigned long t, char dir, char user);
+/*** EndHeader */
+char getHisData(ONEMSG_struct *dst, char table,
+                  unsigned long t, char dir, char user)
+{
+	auto char c, ok_flag;
+   auto unsigned long timm, l;
+   auto unsigned int block;
+   auto struct tm rtcL;
+
+   timm = t;
+
+   for(c=0; c<3; c++)	//可能会有时间断点，最多连续读三次
+   {
+   	if(table == 2)    //读小时统计数据
+	   {
+         timm = timm - (timm % 3600L) + 3599L;
+	   }
+	   else if(table == 3)  //读日统计数据
+	   {
+         timm = timm - (timm % 86400L) + 86399L;
+	   }
+	   else if(table == 4)
+	   {
+	      timm = adj_month_sec(timm, 0);
+	   }
+
+	   block = seek_block_by_time(dst, timm, user);						//定位到BLOCK
+	   //ok_flag = seek_page_in_block(dst, table, timm, block, user, dir);	//定位到PAGE
+      ok_flag = seek_data_in_block(dst, table, timm, block, user);
+      if(table == 1)	//分钟数据肯定直接找到了
+   	{
+         break;		//退出循环
+   	}
+   	else
+   	{	//未找到有效的记录，需要在附近查找
+      	//l = user_rd_page[user];
+   		//ok_flag = chk_next_page(dst, table, user, timm, dir);	//搜索附近的PAGE
+         if((ok_flag < 2) || ((dir == 1) && (timm > (dst->Btime + 3400L))))
+         {
+         	ok_flag = seek_record_nearby(dst, table, user);			//看看附近的，往后
+            if((ok_flag < 2) && (dir == 2) && (user_rd_page[user] >= nandFlash.erasepages))
+            {
+            	user_rd_page[user] -= nandFlash.erasepages;			//往回找找看
+               ok_flag = seek_record_nearby(dst, table, user);
+            }
+         }
+         if(ok_flag == 2)
+         {
+         	if((dir == 1) && ((dst->Btime + 3400L) >= timm)) break;	//还要看看时间是否符合要求
+         	else if((dir == 2) && (dst->Btime <= timm)) break;	//找到，退出循环
+         }
+         else ok_flag = 1;
+      }
+		//存在时间断点，没有找到，需要循环，重新设置搜索时间，用断点处的时间再查找一次
+      if( ((dir == 1) && (timm < dst->Btime))
+      || ((dir == 2) && (timm > dst->Btime)) )	//找到更接近有效记录的时间
+      {	//检查在附近搜索过后的记录时间
+         timm = dst->Btime;
+      }
+
+      if((dir == 1) && (timm > dst->Btime))		//没找到更有效时间，调整一下
+      {
+      	if(timm > SEC_TIMER) timm = SEC_TIMER - 3600L;
+         else if(table == 3) timm += 86400L;
+         else if(table == 4) timm = adj_month_sec(timm, 1);
+         else timm += 3600L;
+      }
+      else if((dir == 2) && (timm < dst->Btime))
+      {
+         if(table == 3) timm -= (86400L * (c+2));
+         else if(table == 4) timm = adj_month_sec(timm, 2);
+         else timm -= (3600L * (c+2));
+      }
+   }
+
+   DBG(
+   mktm(&rtcL, dst->Btime);
+   printf("GET  %04d-%02d-%02d %02d:%02d:%02d, %ld, %d\r\n",
+   	rtcL.tm_year+1900, rtcL.tm_mon, rtcL.tm_mday,
+      rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec, user_rd_page[user], dst->type);
+   )
+   return ok_flag;
+}
+
+/*******************************************************************************
+功能说明：从指定的页号起，读取下一条有效记录
+table			1-分钟，2-小时，3-日，4-月
+t				当前时间
+dir			读记录的时间方向，1-向后(时间增加)，2-向前
+user			请求的用户，0-TCP0, 1-TCP1, 2-TCP2, 3-KEY, 4-SMP task
+
+读缓冲区固定使用onemsg_rd
+当前页号存放在user_rd_page[user]中
+找到的页号也存放在user_rd_page[user]中
+搜索时已优化搜索区间，可减少搜索范围，提高效率
+返回值：2-找到指定的记录，1-找到记录，但记录的时间不符合要求，0-失败
+*******************************************************************************/
+/*** BeginHeader getNextData */
+char getNextData(char table, unsigned long t, char dir, char user);
+/*** EndHeader */
+char getNextData(char table, unsigned long t, char dir, char user)
+{
+	auto unsigned char c, d;
+   auto unsigned long tim;
+   auto int rc;
+
+   d = 2;
+   if((table == 1) || (table == 5))
+   {	//单条记录，直接在附近查找
+   	if(dir == 1)
+      {
+      	tim = get_next_page(&onemsg_rd, table, user, 10);
+         if(tim != user_rd_page[user]) d = 0;
+      }
+      else if(dir == 2)
+      {
+         tim = get_prev_page(&onemsg_rd, table, user, 10);
+         if(tim != user_rd_page[user]) d = 0;
+      }
+   }
+   else
+   {
+   	tim = t;
+      if(table == 2)		//读小时统计数据
+   	{
+         if(dir == 1) tim += 3600L;
+         else tim -= 3600L;
+	   }
+	   else if(table == 3)  //读日统计数据
+	   {
+         if(dir == 1) tim += 86400L;
+         else tim -= 86400L;
+	   }
+      else if(table == 4)
+	   {
+      	if(dir == 2) tim = adj_month_sec(tim, 2);
+	      else if(dir == 1) tim = adj_month_sec(tim, 1);
+         else adj_month_sec(tim, 0);
+	   }
+
+      d = getHisData(&onemsg_rd, table, tim, dir, user);
+   }
+   return d;
+}
+
+//把一页的数据写入flash，每页保存一条数据
+//返回1表示成功，返回0表示失败
+/*** BeginHeader saveRecord */
+char saveRecord(ONEMSG_struct *dst);
+/*** EndHeader */
+char saveRecord(ONEMSG_struct *dst)
+{
+   auto int status;
+   auto unsigned char c;
+   auto long buflen;
+   auto unsigned int i, j, k, b;
+
+   c = 0;
+	buflen = myMainBuffer + nandFlash.mainsize;	//清空myMainBuffer缓冲区
+	while (buflen > myMainBuffer)
+   {
+		--buflen;									//从高到低清空
+		root2xmem(buflen, &c, sizeof(char));
+	}
+   root2xmem(myMainBuffer, dst, MSGSIZE);	//把要保存的数据存入缓冲区
+
+   b = 0;
+   k = 0;
+   for(j=0; j<(nandFlash.erasepages + 10); j++)
+   {	//最多连续1个BLOCK内部扫描，加上后续10个BLOCK（坏区已经自动排除），可能都是BLOCK
+   	if(check_wr_page(wrPtr))	//判断这页是否可以写
+      {
+         if(++ wrPtr >= nandFlash.pages)	//不能，写下一页
+      	{
+      		wrPtr = 0L;
+            if(nandflash_time_order < 100) nandflash_time_order ++;
+      	}
+      }
+      wrPtr = check_bad_block_head(dst, wrPtr, 10);//不读，以防读导致缓冲的数据被破坏，直接写校验
+
+		status = nf_writePage(&nandFlash, myMainBuffer, wrPtr);	//写入FLASH  返回0成功
+      if(status == 0)
+      {	//由于写小时记录可能不成功，需要读回校验确认
+      	msDelay(5);
+         status = _nf_readPage(&nandFlash, onemsg_buf[4], wrPtr);
+      }
+      if(status == 0)	//成功写入并且读回检查正确
+      {
+      	printf("Write %ld OK, %ld\r\n", wrPtr, dst->Btime);
+      	i = (unsigned int)(wrPtr / nandFlash.erasepages);
+      	//if(i != block_ref_record.refBlock)	//更新参考BLOCK号
+         //{
+         //	block_ref_record.refBlock = i;
+         //   //block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+         //}
+         if(i < valid_start_block) valid_start_block = i;
+         if(++ wrPtr >= nandFlash.pages)
+         {
+         	wrPtr = 0L;
+            if(nandflash_time_order < 100) nandflash_time_order ++;
+         }
+         if((wrPtr % nandFlash.erasepages) == 0)
+   	   {  //刚好位于BLOCK的起始页，这页有数据，说明已用
+	         status = _nf_readPage(&nandFlash, onemsg_buf[4], wrPtr);
+	         if(status == 0) nf_eraseBlock(&nandFlash, wrPtr);   //删除
+	      }
+
+         if(k > (MAX_NF_BAD_BLOCKS - 1))
+         {	//也可能会发现独立的坏区，应在这里进行保存
+            for(c=0; c<MAX_NF_BAD_AREAS; c++)   //检查是否处于已知的坏区中
+	      	{
+	         	if(block_ref_record.badBlockCnt[c] == 0)
+               {
+         			block_ref_record.badBlockCnt[c] = k;
+                  block_ref_record.badBlockNo[c] = b;
+                  //block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+                  break;
+               }
+            }
+         }
+         return 1;
+      }
+      else	//任意一页写失败，则将整个BLOCK标记为坏-->第0页写失败就不再写这个BLOCK了
+      {	//需要将当前BLOCK的有效数据转移到下一个好的BLOCK-->此处可能还需要修改
+      	printf("Write %ld Fail %d\r\n", wrPtr, status);
+         if(k == 0) b = (unsigned int)(wrPtr / nandFlash.erasepages);
+         k ++;
+         if((wrPtr % nandFlash.erasepages) == 0)//写指针位于BLOCK的第0页
+         {
+            i = (unsigned int)(wrPtr / nandFlash.erasepages);  //当前所在BLOCK
+         	for(c=0; c<MAX_NF_BAD_AREAS; c++)   //检查是否需要合并
+	         {
+	            if(block_ref_record.badBlockCnt[c] == 0) break;	//没有坏区了
+	            if((block_ref_record.badBlockNo[c] > 0)
+	            && (i == (block_ref_record.badBlockNo[c] - 1)))
+	            {	//刚好位于前面
+	               block_ref_record.badBlockNo[c] --;
+                  block_ref_record.badBlockCnt[c] ++;
+                  c = MAX_NF_BAD_AREAS + 1;
+	               //break;
+	            }
+               else if(i == (block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c] + 1))
+	            {	//刚好位于后面
+               	block_ref_record.badBlockCnt[c] ++;
+                  c = MAX_NF_BAD_AREAS + 1;
+	               //break;
+	            }
+	         }
+            if(c == (MAX_NF_BAD_AREAS + 1))
+            {
+               k = 0;
+            	//block_ref_record.crc = CRC16((char *)&block_ref_record, sizeof(BLOCK_REF_RECORD)-2);
+            }
+            wrPtr += nandFlash.erasepages;		//直接指向下个BLOCK
+         }
+         else ++ wrPtr;
+         if(wrPtr >= nandFlash.pages)
+         {
+         	wrPtr = 0L;
+            if(nandflash_time_order < 100) nandflash_time_order ++;
+         }
+      }
+   }
+	return 0;
+}
+
+/*******************************************************************************
+更新一个Block的空间，将page开始的页初始化为可用
+当向前调整wrPtr时需要删除新时间后面的数据，wrPtr可能在一个Block的中间
+结果：page页所在的Block里，从page页开始的页都是新可用的了
+*******************************************************************************/
+/*** BeginHeader update_1block */
+void update_1block(unsigned long page);
+/*** EndHeader */
+void update_1block(unsigned long page)
+{
+   auto unsigned char c;
+   auto unsigned long p1, p2;
+
+   p1 = page / nandFlash.erasepages;
+   p1 *= nandFlash.erasepages;		//指向本Block的第一页
+   p2 = p1 + nandFlash.erasepages;	//指向下Block的第一页
+
+   //nf_eraseBlock(&nandFlash, p2);	//先删除下一块，--无须，从BLOCK的第0页开始写
+   for(c=0; c<nandFlash.erasepages; c++)	//将本Block的页备份到下Block
+   {
+   	if((p1 + c) == page) break;	//备份的数据取回
+		_nf_readPage(&nandFlash, myMainBuffer, p1 + c);
+      msDelay(1);
+		nf_writePage(&nandFlash, myMainBuffer, p2 + c);
+      msDelay(3);
+	}
+
+	//nf_eraseBlock(&nandFlash, p1);	//再删除本块
+	for(c=0; c<nandFlash.erasepages; c++)
+	{
+   	if((p1 + c) == page) break;	//备份的数据取回
+		_nf_readPage(&nandFlash, myMainBuffer, p2 + c);
+      msDelay(1);
+		nf_writePage(&nandFlash, myMainBuffer, p1 + c);
+      msDelay(3);
+   }
+	nf_eraseBlock(&nandFlash, p2);	//再删除下一块,清空刚才的缓存数据
+   //if(p2 == eldest_page) eldest_page = p2 + 128;
+}
+
+/*******************************************************************************
+当设置时间时，需要重新定位Flash的写指针，如果是向回调整，还需要
+删除已保存的在新指针之后的历史记录，保证Flash空间是连续有序的
+*******************************************************************************/
+/*** BeginHeader update_nf_ptr */
+void update_nf_ptr(void);
+/*** EndHeader */
+void update_nf_ptr(void)
+{
+   auto int rc, i;
+   auto unsigned long p;
+   auto struct tm rtcL;
+   auto char ch;
+
+   if(_check_Btime(SEC_TIMER) == 1) return;	//无效的时间
+//定位到新的时间点，改进后的函数肯定可以定位到最接近的位置
+   getHisData(&onemsg_rd, 1, SEC_TIMER, 1, 4);
+   for(i=0; i<(nandFlash.erasepages * 2); i++)	//*8
+   {
+   	rc = read_nf_page(&onemsg_rd, user_rd_page[4], 4);	//将相应页的数据读取出来
+      if((rc == 0) && (onemsg_rd.Btime > (read_rtc())))
+      {	//数据的时间大于当前系统时间
+         DBG(printf("%ld--%ld\r\n", onemsg_rd.Btime, read_rtc());)
+      }
+      else			//数据已经正常
+      {
+         break;
+      }
+      /*if(rc == 0)		//数据的时间大于当前系统时间
+   	{
+         if(onemsg_rd.Btime > (read_rtc()))
+         {
+         	DBG(printf("%ld--%ld\r\n", onemsg_rd.Btime, read_rtc());)
+         }
+         else			//数据已经正常
+         {
+         	break;
+			}
+      }*/	//2017.07.12
+
+      if(user_rd_page[4] == 0L) break;//user_rd_page[4] = nandFlash.pages - 1;//2017.07.12
+      else user_rd_page[4] --;
+      user_rd_page[4] = check_bad_block_tail(&onemsg_rd, user_rd_page[4], 4);
+   }
+
+//由于时间回调导致记录删除，判断需要删除的记录数，不允许超过1万条
+	i = 1024;	//10000
+   p = user_rd_page[4];
+   if(user_rd_page[4] == wrPtr) return;		//不需调整
+   else if(user_rd_page[4] < wrPtr)
+   {
+   	if(wrPtr > (user_rd_page[4] + i))		//回调超过1万条纪录
+      {	//需要限制，防止大面积删除历史数据
+      	user_rd_page[4] = wrPtr - i;
+      }
+   }
+   else
+   {
+   	if((wrPtr + nandFlash.pages) > (user_rd_page[4] + i))
+      {
+      	user_rd_page[4] = wrPtr + nandFlash.pages - i;
+      }
+   }
+   if(p != user_rd_page[4])	//发生了限制性调整
+   {
+      rc = read_nf_page(&onemsg_rd, user_rd_page[4], 4);	//将相应页的数据读取出来
+   	if(rc == 0)
+      {
+      	if(onemsg_rd.Btime > SEC_TIMER)	//此处的时间应该大于待设定的系统时间
+         {
+         	SEC_TIMER = onemsg_rd.Btime + 60L;
+            mktm(&rtcL, SEC_TIMER);
+      		tm_wr(&rtcL);		//更新CPU的RTC
+      		setDs3231(&rtcL);	//更新时钟芯片里的时间
+      		update_rtc(0);		//更新定时器
+            //mktm(&back_rtc, SEC_TIMER);
+         }
+      }
+   }
+//更新新定位的BLOCK内容
+   p = user_rd_page[4];			//指向新的起始页面
+	update_1block(p);				//更新所在的Block
+//删除多出来的BLOCK
+	p = p / nandFlash.erasepages;
+   if(wrPtr / nandFlash.erasepages != p)//调整后不在同一个Block里
+   {
+   	p ++;
+	   p *= nandFlash.erasepages;	//指向下一个Block的首页，可能是nandFlash.pages，不过没关系
+	   if(p < wrPtr)              //是正常的连续区间往回调整
+	   {
+	      while(p <= wrPtr)       //删除回调的范围内的记录
+	      {
+            rc = read_nf_page(&onemsg_rd, p, 4);
+   			if(rc >= 0)
+            {
+            	nf_eraseBlock(&nandFlash, p);
+               msDelay(3);
+            }
+	         p += nandFlash.erasepages;	//指向下个Block
+	      }
+	   }
+	   else                       //是覆盖的区间，指针从前面调整到后面
+	   {
+	      while(p < nandFlash.pages)     //首先删除新指针到Flash尾部之间的记录
+	      {
+            rc = read_nf_page(&onemsg_rd, p, 4);
+   			if(rc >= 0)
+            {
+            	nf_eraseBlock(&nandFlash, p);
+               msDelay(3);
+            }
+	         p += nandFlash.erasepages;	//指向下个Block
+	      }
+
+	      p = 0L;
+	      while(p <= wrPtr)       //再删除原指针到Flash头部之间的记录
+	      {                       //此时会在Flash的0-wrPtr之间留下空页，搜索时要处理
+            rc = read_nf_page(&onemsg_rd, p, 4);
+   			if(rc >= 0)
+            {
+            	nf_eraseBlock(&nandFlash, p);
+               msDelay(3);
+            }
+	         p += nandFlash.erasepages;
+	      }
+         valid_start_block = (unsigned int)(wrPtr / nandFlash.erasepages) + 1;//重新设定有效起始页号
+         nandflash_time_order = 0;	//变成正常顺序了
+	   }
+   }
+
+   wrPtr = user_rd_page[4];
+   for(ch = 0; ch < SOCKET_NUMBER; ch++){
+   	if(un_tx_page.ptr[ch] > wrPtr) un_tx_page.ptr[ch] = wrPtr;	//标记为无未上传记录
+	}
+   un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR)-2);
+	DBG(printf("wrPtr = %ld\r\n",wrPtr);)
+}
+
+/*******************************************************************************
+函数功能：判断该页是否可以读写
+参数一：第几页
+返回：1-不能读写，0-可以读写
+*******************************************************************************/
+/*** BeginHeader check_wr_page*/
+int check_wr_page(unsigned long page);
+/*** EndHeader */
+int check_wr_page(unsigned long page)
+{
+	auto int status;
+
+   status = 0;
+   if(nandflash_id != 0xD7AD)
+   {
+   	return status;
+   }
+
+   if(page % 4 == 0 && page % 256 != 0)
+   {	//现代的4G Flash，由于芯片出现问题，在底层驱动里面做了可以给4整除的，但是又不是每块的第一页，不进行读写
+		status = 1;
+   }
+
+   return status;
+}
+
+/*******************************************************************************
+功能：	顺向查找时判断当前页是否是在坏区里
+参数一：	需要检查的页号
+返回：	坏区后的第一个有效页
+*******************************************************************************/
+/*** BeginHeader check_bad_block_head*/
+unsigned long check_bad_block_head(ONEMSG_struct *dst, unsigned long page, char user);
+/*** EndHeader */
+unsigned long check_bad_block_head(ONEMSG_struct *dst, unsigned long page, char user)
+{
+	auto char c;
+   auto int rc;
+   auto unsigned int i;
+	auto unsigned long p;
+
+   p = page;
+   if((p % nandFlash.erasepages) == 0)		//写指针位于BLOCK的第0页
+   {
+		i = (unsigned int)(p / nandFlash.erasepages);	//当前所在BLOCK
+	   for(c=0; c<MAX_NF_BAD_AREAS; c++)   //检查是否处于已知的坏区中
+	   {
+	   	if(block_ref_record.badBlockCnt[c] == 0) break;
+	      if((i >= block_ref_record.badBlockNo[c])
+	      && (i <= (block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c])))
+	      {
+	      	i = block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c] + 1;
+            p = (unsigned long)i * (unsigned long)nandFlash.erasepages;
+	         if(p >= nandFlash.pages) p = 0L;
+	         break;
+	      }
+	   }
+      if((c >= MAX_NF_BAD_AREAS) && (user < 8))
+      {	//没有坏区记录，还要看看是否为未记录在表里的坏区
+      	for(c=0; c<MAX_NF_BAD_BLOCKS; c++)
+         {
+      		rc = read_nf_page(dst, p, user);	//读第0页
+         	//if(rc != 0)	//第0页无效
+         	if(rc < 0)
+         	{
+         		p += nandFlash.erasepages;		//跳过一个BLOCK
+            	if(p >= nandFlash.erasepages) p = 0L;
+         	}
+            else break;
+         }
+      }
+	}
+   return p;
+}
+
+/*******************************************************************************
+功能：	逆向查找时判断当前页是否是在坏区里
+参数一：	需要检查的页号
+返回：	坏区后的第一个有效页
+*******************************************************************************/
+/*** BeginHeader check_bad_block_tail*/
+unsigned long check_bad_block_tail(ONEMSG_struct *dst, unsigned long page, char user);
+/*** EndHeader */
+unsigned long check_bad_block_tail(ONEMSG_struct *dst, unsigned long page, char user)
+{
+	auto char c;
+   auto int rc;
+	auto unsigned long p;
+
+   p = page;
+	if((p % nandFlash.erasepages) == (nandFlash.erasepages - 1))
+   {	//BLOCK的结束页
+      for(c=0; c<MAX_NF_BAD_AREAS; c++)
+      {	//看看是否是坏区
+      	if(block_ref_record.badBlockCnt[c] == 0) break;
+         if((p / nandFlash.erasepages)
+         == (block_ref_record.badBlockNo[c] + block_ref_record.badBlockCnt[c]))
+         {	//进入坏区，直接跳过
+            if(block_ref_record.badBlockNo[c] > 0)
+            {
+            	p = (unsigned long)nandFlash.erasepages *
+                   (unsigned long)block_ref_record.badBlockNo[c] - 1;
+            }
+            else p = nandFlash.pages - 1;
+            break;
+         }
+      }
+      if(c >= MAX_NF_BAD_AREAS)	//没有坏区记录，还要看看是否为单个坏BLOCK
+      {
+      	for(c=0; c<MAX_NF_BAD_BLOCKS; c++)
+         {
+         	rc = read_nf_page(dst, p+1-nandFlash.erasepages, user);//读第0页
+	         //if(rc != 0)  //第0页无效
+	         if(rc < 0)
+	         {
+	            if(p > nandFlash.erasepages) p -= nandFlash.erasepages;  //跳过一个BLOCK
+	            else p = nandFlash.pages - 1;
+	         }
+            else break;
+         }
+      }
+   }
+   return p;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

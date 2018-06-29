@@ -1,0 +1,83 @@
+/*** BeginHeader */
+#ifndef rd_2005_cod_puxi_lib
+#define rd_2005_cod_puxi_lib
+/*** EndHeader */ 
+/*******************************************************
+北京普析  TW-6000型COD                                         //2007
+浮点数格式
+~2001D0600000FDA3       //格式   SOI   VER   ADR   CID1  CID2  LENGTH   INFO  CHKSUM   EOI
+响应信息：            （INFO）   COD（4字节浮点数）,Abs（4字节浮点数） 温度（1字节整型）
+~2001D0620000FDA1
+响应信息：             (INFO)  年、月、日、时、分、秒各占2个字节
+*******************************************************/
+/*** BeginHeader rd_cod_puxi */
+int rd_cod_puxi( char port );
+/*** EndHeader */
+int rd_cod_puxi( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf data;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "~2001D0600000FDA3");
+      com_tlen = strlen(com_tbuf);
+      com_tbuf[com_tlen]=0x0d;//起始0x7e即~  结束0x0d
+      com_tlen += 1;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 27)&&(strncmp(com_rbuf,"~2001D000", 9)==0))//13+9+4+1
+      {
+         data.ch[3] = get_hex(com_rbuf[13], com_rbuf[14]);
+         data.ch[2] = get_hex(com_rbuf[15], com_rbuf[16]);
+         data.ch[1] = get_hex(com_rbuf[17], com_rbuf[18]);
+         data.ch[0] = get_hex(com_rbuf[19], com_rbuf[20]);
+         com_f[0] = data.f;//即时值
+
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         sprintf(com_tbuf, "%s", "~2001D0620000FDA1");
+         com_tlen = strlen(com_tbuf);
+         com_tbuf[com_tlen]=0x0d;//起始0x7e即~  结束0x0d
+         com_tlen += 1;
+         com_write(port);
+         waitfor(DelayMs(1000));
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if((com_rlen >= 30)&&(strncmp(com_rbuf,"~2001D000", 9)==0)) //13+12+4+1
+         {
+            //com_rbuf[2]是年的高两位,丢掉(时间都是压缩BCD码)
+            comTime.tm_year = get_hex(com_rbuf[13], com_rbuf[14]);;
+            comTime.tm_mon  = get_hex(com_rbuf[15], com_rbuf[16]);
+            comTime.tm_mday = get_hex(com_rbuf[17], com_rbuf[18]);
+            comTime.tm_hour = get_hex(com_rbuf[19], com_rbuf[20]);
+            comTime.tm_min  = get_hex(com_rbuf[21], com_rbuf[22]);
+            comTime.tm_sec  = get_hex(com_rbuf[23], com_rbuf[24]);
+            com_sec = mktime(&comTime);//时间
+         }
+         else
+         {
+            com_sec = read_rtc();
+         }
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2007  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

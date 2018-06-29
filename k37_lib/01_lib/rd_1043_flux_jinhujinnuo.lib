@@ -1,0 +1,78 @@
+
+
+/*** BeginHeader */
+#ifndef rd_1043_flux_jinhujinnuo_lib
+#define rd_1043_flux_jinhujinnuo_lib
+/*** EndHeader */
+
+/*** BeginHeader rd_1043_flux_jinhujinnuo */
+int rd_1043_flux_jinhujinnuo( char port );
+/*** EndHeader */
+/***********************************************************
+金湖金诺的流量计
+发送：01 03 00 08 00 04 C5 CB
+返回：01 03 08 42 f1 00 00 46 b7 41 00 65 cf 
+***********************************************************/
+int rd_1043_flux_jinhujinnuo( char port )
+{
+	static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+   	status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x08, 0x04);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+		if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+			f.ch[3] = com_rbuf[3];
+	      f.ch[2] = com_rbuf[4];
+	      f.ch[1] = com_rbuf[5];
+	      f.ch[0] = com_rbuf[6];
+			com_f[0] = f.f / 3.6;			//瞬时流量
+
+			f.ch[3] = com_rbuf[7];
+	      f.ch[2] = com_rbuf[8];
+	      f.ch[1] = com_rbuf[9];
+	      f.ch[0] = com_rbuf[10];
+			com_f[1] = f.f;			//累积流量
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

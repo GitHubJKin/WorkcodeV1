@@ -1,0 +1,90 @@
+
+/*** BeginHeader */
+#ifndef rd_2051_cod_huachen_lib
+#define rd_2051_cod_huachen_lib
+/*** EndHeader */
+
+
+/*******************************************************
+泰州华晨 COD
+*******************************************************/
+/*** BeginHeader rd_cod_huachen */
+int rd_cod_huachen( char port );
+/*** EndHeader */
+int rd_cod_huachen( char port )
+{
+   static int status;
+   auto int tenChar;
+   auto int oneChar;
+   auto int i;
+
+   costate
+   {
+      status = 0;
+
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      com_tbuf[0] = 0x02;   //发送命令,02H,36H,34H(十六进制)。
+      com_tbuf[1] = 0x43;   //地址是100
+      com_tbuf[2] = 0x03;
+      com_tlen = 3;
+      com_write(port);
+      waitfor(DelaySec(1));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 6)
+      {
+         tenChar = hex2dec(com_rbuf[0]);
+         oneChar = hex2dec(com_rbuf[1]);
+         com_f[0] = tenChar * 100 + oneChar;
+         com_sec = read_rtc();               //时间--------
+
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+		 	status = 2;
+	  }
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,82 @@
+
+/*** BeginHeader */
+#ifndef rd_1024_flux_yuzhiFM_lib
+#define rd_1024_flux_yuzhiFM_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_flux_yuzhiFM*/
+int rd_flux_yuzhiFM(char port);
+/*** EndHeader */
+/*******************************************************************************
+	禹治环保：比特FM3.14标准协议
+*******************************************************************************/
+int rd_flux_yuzhiFM(char port)
+{
+   static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+      
+   costate
+   {
+   	status = 0;
+
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      pack_modbus_cmd(0x01, 0x03, 0x12, 0x04);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+
+      if((com_rlen >= 4*2+5)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03))
+      {
+      	 f.ch[3] = com_rbuf[3];
+      	 f.ch[2] = com_rbuf[4];
+      	 f.ch[1] = com_rbuf[5];
+      	 f.ch[0] = com_rbuf[6];
+         com_f[0] = f.f;  //瞬时值
+         
+      	 f.ch[3] = com_rbuf[3+4*1];
+      	 f.ch[2] = com_rbuf[4+4*1];
+      	 f.ch[1] = com_rbuf[5+4*1];
+      	 f.ch[0] = com_rbuf[6+4*1];
+         com_f[1] = f.l;  //累计流量
+         status = 1;
+      }
+      else
+      {
+      		com_f[0] = 0.0;
+			com_f[1] =	0;
+			  status = 2; 
+	  }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

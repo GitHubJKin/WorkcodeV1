@@ -1,0 +1,135 @@
+
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8067_EMR_AI08_lib
+#define rd_8067_EMR_AI08_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+昶为科技EMR_AI08模拟转Modbus    Modbus RTU-9600,N,8,1	         -8067
+*******************************************************************************/
+/*** BeginHeader rd_EMR_AI08 */
+int rd_EMR_AI08( char port );
+/*** EndHeader */
+int rd_EMR_AI08 ( char port )
+{
+	 static int status;
+	 union uf f;
+	 auto int i;
+	 auto unsigned int i_temp;
+	 costate
+	 {
+		status = 0;
+
+		pack_modbus_cmd(0x01, 0x03, 0x0300, 0x0008);  //0x300开始读8个保存寄存器
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 9) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+      {
+      	f.ch[1] = com_rbuf[3];
+      	f.ch[0] = com_rbuf[4];
+      	i_temp = f.i[0];
+      	com_f[0] = (float)(4+(16.08*i_temp/4096));
+
+      	//f.ch[3] = com_rbuf[7];
+      	//f.ch[2] = com_rbuf[8];
+      	//f.ch[1] = com_rbuf[9];
+      	//f.ch[0] = com_rbuf[10];
+      	f.ch[1] = com_rbuf[5];
+      	f.ch[0] = com_rbuf[6];
+      	i_temp = f.i[0];
+      	com_f[1] = (float)(4+(16.08*i_temp/4096));
+
+      	//f.ch[3] = com_rbuf[11];
+      	//f.ch[2] = com_rbuf[12];
+      	//f.ch[1] = com_rbuf[13];
+      	//f.ch[0] = com_rbuf[14];
+      	f.ch[1] = com_rbuf[7];
+      	f.ch[0] = com_rbuf[8];
+      	i_temp = f.i[0];
+      	com_f[2] = (float)(4+(16.08*i_temp/4096));
+
+			//f.ch[3] = com_rbuf[15];
+      	//f.ch[2] = com_rbuf[16];
+      	//f.ch[1] = com_rbuf[17];
+      	//f.ch[0] = com_rbuf[18];
+      	f.ch[1] = com_rbuf[9];
+      	f.ch[0] = com_rbuf[10];
+      	i_temp = f.i[0];
+      	com_f[3] = (float)(4+(16.08*i_temp/4096));
+
+			//f.ch[3] = com_rbuf[19];
+      	//f.ch[2] = com_rbuf[20];
+      	//f.ch[1] = com_rbuf[21];
+      	//f.ch[0] = com_rbuf[22];
+      	f.ch[1] = com_rbuf[11];
+      	f.ch[0] = com_rbuf[12];
+      	i_temp = f.i[0];
+      	com_f[4] = (float)(4+(16.08*i_temp/4096));
+
+			//f.ch[3] = com_rbuf[23];
+      	//f.ch[2] = com_rbuf[24];
+      	//f.ch[1] = com_rbuf[25];
+      	//f.ch[0] = com_rbuf[26];
+      	f.ch[1] = com_rbuf[13];
+      	f.ch[0] = com_rbuf[14];
+      	i_temp = f.i[0];
+      	com_f[5] = (float)(4+(16.08*i_temp/4096));
+
+			//f.ch[3] = com_rbuf[27];
+      	//f.ch[2] = com_rbuf[28];
+      	//f.ch[1] = com_rbuf[29];
+      	//f.ch[0] = com_rbuf[30];
+      	f.ch[1] = com_rbuf[15];
+      	f.ch[0] = com_rbuf[16];
+      	i_temp = f.i[0];
+      	com_f[6] = (float)(4+(16.08*i_temp/4096));
+
+			//f.ch[3] = com_rbuf[31];
+      	//f.ch[2] = com_rbuf[32];
+      	//f.ch[1] = com_rbuf[33];
+      	//f.ch[0] = com_rbuf[34];
+      	f.ch[1] = com_rbuf[17];
+      	f.ch[0] = com_rbuf[18];
+      	i_temp = f.i[0];
+      	com_f[7] = (float)(4+(16.08*i_temp/4096));
+
+      	status = 1;
+      }
+      else
+      {
+      	status = 2;
+      	for(i=0;i<8;i++)
+      		com_f[i] = 0.0;
+      }
+	 	com_sec = read_rtc();
+	 }
+	 return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+

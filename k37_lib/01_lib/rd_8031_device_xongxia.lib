@@ -1,0 +1,73 @@
+
+/*** BeginHeader */
+#ifndef rd_8031_device_xongxia_lib
+#define rd_8031_device_xongxia_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+松下通讯协议:波特率9600
+decimal:多少个小数位
+数采仪给设备发送的命令：%01#RDD0152101525**回车
+设备返回的指令：
+%01$RD0601081923220000450716     （COD值：450.7mg/l）8031
+%01$RD1202020621400000000612     （氨氮值：0.06mg/l）8032
+%01$RD120627210000000048341E     （总磷值：4.834mg/l）8033
+*******************************************************************************/
+
+
+/*** BeginHeader rd_device_xongxia*/
+int rd_device_xongxia( char port, char decimal);
+/*** EndHeader */
+int rd_device_xongxia( char port, char decimal) {
+	static int status;
+	auto char str[9];
+	auto union uf f;
+	costate {
+		status = 0;
+		memset(com_tbuf, 0x00, sizeof(com_tbuf));
+		strcpy(com_tbuf, "%01#RDD0152101525**\r\n");
+		com_tbuf[2] = decimal;
+		com_tlen = strlen(com_tbuf);
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if( (com_rlen >= 28)&&(com_rbuf[0] == '%')) {
+			memset(str, 0x00, sizeof(str));
+			strncpy(str, &com_rbuf[19], 7);
+			com_f[0] = atof(str);         
+
+			switch (decimal) {
+			case 1:
+				com_f[0] /= 10.0;
+				break;
+			case 2:
+				com_f[0] /= 100.0;
+				break;
+			case 3:
+				com_f[0] /= 1000.0;
+				break;
+			case 4:
+				com_f[0] /= 10000.0;
+				break;
+			default:
+				com_f[0] /= 100.0;
+				break;
+			}
+			status = 1;
+		} 
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

@@ -1,0 +1,104 @@
+/*** BeginHeader */
+#ifndef rd_8034_sws200_lib
+#define rd_8034_sws200_lib
+
+/*** EndHeader */
+
+/*** BeginHeader offsetChar*/
+int offsetChar(char *buf, char c, char count, float *fval);
+/*** EndHeader */
+int offsetChar(char *buf, char c, char count, float *fval) //offsetChar(com_rbuf, ',', 3, &com_f[0]))  8034
+{
+ 	static int result;
+   char *p1, *p2;
+   char k;
+   static char cnt;
+   static char ch;
+   cnt = count;
+   ch = c;
+   result = 0;
+
+   if(!buf)
+   {
+   //	result = 0;
+      return result;//goto RETURN_MARK;
+   }
+
+   k = 0;
+   p1 = buf;
+   while(1)
+   {
+   	p2 = strchr(p1, ch);//c);
+      if(p2 != NULL)
+      {
+       	p1 = p2 + 1;
+         k++;
+         if(k == cnt)//count)
+         {
+            *fval = atof(p1);
+         	result = 1;
+            break;
+         }
+      }
+      else
+      {
+      	result = 0;
+         break;
+      }
+   }
+
+//RETURN_MARK:
+   return result;
+}
+
+/*** BeginHeader rd_SWS200_nengjiandu*/
+int rd_SWS200_nengjiandu( char port );
+/*** EndHeader */
+int rd_SWS200_nengjiandu( char port )
+{
+	static int status;
+   auto char *p;
+
+   costate
+   {
+   	status = 0;
+
+      waitfor(DelayMs(70000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      //SWS200,001,060,16.25 KM,00.000,00,+12.0 C,17.02 KM,XOO
+		if( (com_rlen >= 5) )
+      {
+      	p = strstr(com_rbuf, "SWS200");
+      	if(p != NULL)
+         {
+         	if(offsetChar(com_rbuf, ',', 3, &com_f[0]))
+         	{
+         		status = 1;
+         	}
+         	else
+            {
+            	status = 2;
+            }
+         }
+         else
+         {
+         	status = 2;
+         }
+      }
+      else
+      {
+	   	status = 2;
+	      com_f[0] = 0.0;
+      }
+
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

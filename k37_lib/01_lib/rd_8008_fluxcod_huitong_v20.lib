@@ -1,0 +1,83 @@
+
+/*** BeginHeader */
+#ifndef rd_8008_fluxcod_huitong_v20_lib
+#define rd_8008_fluxcod_huitong_v20_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+攀钢汇同2代设备通讯协议
+COD(NH3-N)数据发送接收协议
+上位：!12345678901,0,3,0,0,0,0$
+下位：!12345678901,0,1,&&COD 789 0 KG&&,2007-01-29 14:05:50,0
+L/s,00000000.0,0,0$
+*******************************************************************************/
+/*** BeginHeader rd_fluxcod_huitong */
+int rd_fluxcod_huitong( char port );
+/*** EndHeader */
+int rd_fluxcod_huitong( char port )
+{
+   static int status;
+   auto  char * temptr;
+   auto unsigned long total;
+   auto char *p;
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "!12345678901,0,3,0,0,0,0$");
+      com_tlen = strlen(com_tbuf);          //发送数据长度
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelaySec(60));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if((com_rlen >= 0) && (com_rbuf[0]=='!') && (com_rbuf[com_rlen-1]=='$'))                         //接收数据的长度
+      {
+
+         temptr = strstr(com_rbuf, "&&COD");
+         if(temptr != NULL)
+         {
+            temptr += 6;
+            com_f[2] = atof(temptr);      //COD
+            p = strchr(temptr, ',');
+            p++;
+            if(p != NULL)
+            {
+               p = strchr(p, ',');
+               p++;
+               if(p != NULL)
+               {
+                  com_f[0] = atof(p);   //瞬时流量
+                  p = strchr(p, ',');
+                  p++;
+                  if(p != NULL)
+                  {
+                     com_f[1] = atof(p);  //累计流量
+                  }
+               }
+            }
+
+         }
+         else
+         {
+            com_f[2] = 0.0;
+            status ++;
+         }
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */

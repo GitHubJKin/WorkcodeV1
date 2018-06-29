@@ -1,0 +1,89 @@
+
+/*** BeginHeader */
+#ifndef rd_20101_cod_hongkai_new_lib
+#define rd_20101_cod_hongkai_new_lib
+/*** EndHeader */
+
+
+/*******************************************************
+南京鸿凯环保科技COD在线监测仪 150715
+查询瞬时值
+*******************************************************/
+/*** BeginHeader rd_cod_hongkai_new */
+int rd_cod_hongkai_new( char port );
+/*** EndHeader */
+int rd_cod_hongkai_new( char port )
+{
+   static int status;
+   auto char i;
+   auto struct tm comTime;
+   auto union uf ascii_f;
+
+   costate
+   {
+      status = 0;
+
+      strcpy(com_tbuf, "%01#RDD0250402508**");
+      com_tlen = strlen(com_tbuf);
+      com_tbuf[com_tlen] = 0x0d;
+      com_tlen ++;
+      com_write(port);
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);   //%01$RD442809130507C9046B
+      if( (com_rlen >= 28)&&(strncmp(com_rbuf, "%01$RD", 6) == 0) )
+      {//是有效数据
+         comTime.tm_sec = HexCharToDec(com_rbuf[6]) * 10 + HexCharToDec(com_rbuf[7]);
+         comTime.tm_min = HexCharToDec(com_rbuf[8]) * 10 + HexCharToDec(com_rbuf[9]);
+         comTime.tm_hour = HexCharToDec(com_rbuf[10]) * 10 + HexCharToDec(com_rbuf[11]);
+         comTime.tm_mday = HexCharToDec(com_rbuf[12]) * 10 + HexCharToDec(com_rbuf[13]);
+         comTime.tm_mon = HexCharToDec(com_rbuf[14]) * 10 + HexCharToDec(com_rbuf[15]);
+         comTime.tm_year = HexCharToDec(com_rbuf[16]) * 10 + HexCharToDec(com_rbuf[17]) + 100;
+         com_sec = mktime(&comTime);         //时间
+
+		 	ascii_f.ch[0] = ((strhexTohex(com_rbuf[18])) << 4) | (strhexTohex(com_rbuf[19]));
+   		ascii_f.ch[1] = ((strhexTohex(com_rbuf[20])) << 4) | (strhexTohex(com_rbuf[21]));
+   		ascii_f.ch[2] = ((strhexTohex(com_rbuf[22])) << 4) | (strhexTohex(com_rbuf[23]));
+   		ascii_f.ch[3] = ((strhexTohex(com_rbuf[24])) << 4) | (strhexTohex(com_rbuf[25]));
+         com_f[0] =  ascii_f.f;
+         status =1;
+      }
+      else
+      {
+         com_f[0] = 0;
+         com_sec = read_rtc();      //时间
+      }
+
+      if(status == 0) status = 2;
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

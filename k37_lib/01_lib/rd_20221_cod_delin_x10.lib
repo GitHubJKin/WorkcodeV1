@@ -1,0 +1,118 @@
+
+/*** BeginHeader */
+#ifndef rd_20221_cod_delin_x10_lib
+#define rd_20221_cod_delin_x10_lib
+/*** EndHeader */
+
+
+/*******************************************************
+德林COD通讯协议  （博克斯南京COD协议） -20221
+发送取数指令：25 43 32 39 41 0d
+返回：25H 43H 32H 79H 43H 30H 31H 30H 37H 32H 30H 33H 30H 30H 30H 30H 31H 30H 33H 30H 30H 36H 37H 0DH
+	  STX         y	  C   0   1   0   7   2   0   3   0   0   0   0   1   0   3   0   0
+						  (01月)  (07日)  (20时)  (30分)  (    八个字符的数/100       )
+*******************************************************/
+/*** BeginHeader rd_cod_delin_x10 */
+int rd_cod_delin_x10( char port );
+/*** EndHeader */
+int rd_cod_delin_x10( char port )
+{
+   static int status;
+   auto union uf data;
+   auto struct tm time;
+   auto char temp[7];
+   auto float zhengshu;
+   auto float xiaoshu;
+
+   costate
+   {
+	  status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      com_tbuf[0] = 0x25;
+      com_tbuf[1] = 0x43;
+      com_tbuf[2] = 0x32;
+      com_tbuf[3] = 0x39;
+      com_tbuf[4] = 0x41;
+      com_tbuf[5] = 0x0d;
+      com_tlen = 6;
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+   	if((com_rlen >= 24)&&(com_rbuf[0]==0x25)&&(com_rbuf[3]==0x79)&&(com_rbuf[4]==0x43)&&(com_rbuf[23]==0x0d))
+	   {
+         memset(temp,0x00,sizeof(temp));
+         memcpy(temp,&com_rbuf[13],6);
+         zhengshu = atof(temp);
+         printf("zhengshu = %.2f\n",zhengshu);
+
+         memset(temp,0x00,sizeof(temp));
+         memcpy(temp,&com_rbuf[19],2);
+         xiaoshu = atof(temp);
+         printf("xiaoshu = %.2f\n",xiaoshu);
+
+         com_f[0] = zhengshu + (xiaoshu/100.0);
+		 com_f[0] *= 10.0;
+         old_com_f[0] = com_f[0];
+		 //deviceStatus1 = 0;
+
+         status = 1;
+	   }
+	   else
+      {
+      	//if(deviceStatus1 < 5)
+      	//{
+      	//	com_f[0] = old_com_f[0];
+      	//	deviceStatus1++;
+      	//	status = 1;
+		//}
+		//else
+		//{
+         	status = 2;
+         	com_f[0] = 0.0;
+        // 	old_com_f[0] = 0.0;
+		//}
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

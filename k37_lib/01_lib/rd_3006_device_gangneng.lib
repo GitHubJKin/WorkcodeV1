@@ -1,0 +1,119 @@
+
+
+/*** BeginHeader */
+#ifndef rd_3006_device_gangneng_lib
+#define rd_3006_device_gangneng_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_device_gangneng */
+int rd_device_gangneng( char port , char flag);
+/*** EndHeader */
+int rd_device_gangneng( char port , char flag)
+{
+   static int status;
+   auto char i;
+   auto struct tm comTime;
+   auto char buff[10];
+
+   costate
+   {
+      status = 0;
+
+		memset(com_tbuf,0x00,sizeof(com_tbuf));
+		sprintf(com_tbuf,"%%0%01d#RDD0152101525**\r\n",flag);
+      /*
+	  if(flag == 2)
+      {//氨氮
+         strcpy(com_tbuf, "%02#RDD0152101525**\r\n");
+      }
+      else if(flag==5)
+	  {
+		 strcpy(com_tbuf, "%05#RDD0152101525**\r\n");
+	  }
+      else if(flag == 7)
+      {//总镍
+		 strcpy(com_tbuf, "%07#RDD0152101525**\r\n");
+	  }
+      else
+      {//COD
+         strcpy(com_tbuf, "%01#RDD0152101525**\r\n");
+      }*/
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);   //%01$RD0903271521260000040718
+
+      memset(buff,0x00,sizeof(buff));
+      sprintf(buff,"%%0%01d$RD",flag);
+      //if( (com_rlen >= 22)&&(strncmp(com_rbuf, "%01$RD", 6) == 0) )
+      if( (com_rlen >= 22)&&(strncmp(com_rbuf,buff, 6) == 0) )
+	  {//是有效数据
+         comTime.tm_year = HexCharToDec(com_rbuf[6]) * 10 + HexCharToDec(com_rbuf[7]) + 100;
+         comTime.tm_mon = HexCharToDec(com_rbuf[8]) * 10 + HexCharToDec(com_rbuf[9]);
+         comTime.tm_mday = HexCharToDec(com_rbuf[10]) * 10 + HexCharToDec(com_rbuf[11]);
+         comTime.tm_hour = HexCharToDec(com_rbuf[12]) * 10 + HexCharToDec(com_rbuf[13]);
+         comTime.tm_min = HexCharToDec(com_rbuf[14]) * 10 + HexCharToDec(com_rbuf[15]);
+         comTime.tm_sec = HexCharToDec(com_rbuf[16]) * 10 + HexCharToDec(com_rbuf[17]);
+         com_sec = mktime(&comTime);         //时间
+
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         strncpy(com_tbuf, &com_rbuf[18], 8);
+         com_f[0] = atol(com_tbuf);
+
+         switch (flag)
+         {
+           case 1:
+                     com_f[0] /= 10.0;
+                     break;
+           case 2:
+           case 7:
+                     com_f[0] /= 100.0;
+                     break;
+           case 4:
+					 com_f[0] /=1000.0;
+					 break;
+           default:
+		   		break;
+         }
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0;
+         com_sec = read_rtc();      //时间
+         status = 2;
+      }
+
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

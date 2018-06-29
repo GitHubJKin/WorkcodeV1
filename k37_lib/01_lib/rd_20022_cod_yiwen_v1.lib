@@ -1,0 +1,80 @@
+/*** BeginHeader */
+#ifndef rd_20022_cod_yiwen_v1_lib
+#define rd_20022_cod_yiwen_v1_lib
+/*** EndHeader */
+
+/*******************************************************************************
+怡文协议，数据包里面增加了小数点
+*******************************************************************************/
+/*** BeginHeader rd_cod_yiwen_v1 */
+int rd_cod_yiwen_v1( char port );
+/*** EndHeader */
+int rd_cod_yiwen_v1( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto unsigned int v;
+   auto char i;
+
+   costate
+   {
+      status = 0;
+      com_tbuf[0] = 0x02;
+      com_tbuf[1] = 0x11;
+      com_tbuf[2] = 0x11;
+      com_tbuf[3] = 0x03;
+      com_tlen = 4;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 36)&&(com_rbuf[0] == 0x02)
+         &&(com_rbuf[1] == 0x11)&&(com_rbuf[35]==0x03) )
+         //&&(chksum(&com_rbuf[1], 33) == com_rbuf[34]) )
+      {
+         for(i=2;i<27;i+=8)         //数据解析 (时间 + 数据)
+         {
+            if((com_rbuf[i+1] > 0)&&(com_rbuf[i+2] > 0)&&(com_rbuf[i+3] > 0))
+            {
+               comTime.tm_year = hex2dec(com_rbuf[i+1]);
+               comTime.tm_mon = hex2dec(com_rbuf[i+2]);
+               comTime.tm_mday = hex2dec(com_rbuf[i+3]);
+               comTime.tm_hour = hex2dec(com_rbuf[i+4]);
+               comTime.tm_min = hex2dec(com_rbuf[i+5]);
+               comTime.tm_sec = 0;
+               com_sec = mktime(&comTime);//时间
+
+               v = com_rbuf[i+6]*0x100 + com_rbuf[i+7];
+               if( (v == 0x8888)||(v == 0xcccc)||(v == 0xeeee)||(v == 0xdddd)||(v == 0xbbbb)
+                  ||((v >= 0xaaa0)&&(v <= 0xaaa4)) )//错误数据
+               {
+                  com_f[0] = 0.0;
+                  status = 2;
+               }
+               else
+               {
+                  com_f[0] = com_rbuf[i+9];
+                  com_f[0] /= 100.0;
+                  com_f[0] += v;//即时值
+                  status = 1;
+               }
+               break;
+            }
+         }
+      }
+      if(status == 0)
+      {
+         //printf("COD Error = (dev:2002  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

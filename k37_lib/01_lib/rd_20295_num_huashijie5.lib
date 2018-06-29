@@ -1,0 +1,127 @@
+
+/*** BeginHeader */
+#ifndef rd_20295_num_huashijie5_lib
+#define rd_20295_num_huashijie5_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_num_huashijie5 */      //case 20295
+int rd_num_huashijie5( char port );
+/*** EndHeader */
+int rd_num_huashijie5( char port )
+{
+	static int status;
+   auto long templ;
+   auto char tempc[16];
+   auto struct tm comTime;
+   auto int i;
+   auto unsigned int v;
+
+   costate
+   {
+       status = 0;
+       memset(com_tbuf, 0x00, sizeof(com_tbuf));
+       com_tbuf[0] = 0x23;  //报文开始符
+       com_tbuf[1] = 0x30;  //地址
+       com_tbuf[2] = 0x31;
+       com_tbuf[3] = 0x30;   //指令代码
+       com_tbuf[4] = 0x0d;  //报文结束符
+       com_tlen = 5;
+
+       for (i = 0; i < com_tlen; i++)
+       {
+           printf("%02X ", com_tbuf[i]);
+       }
+       printf(" \n");
+
+       com_write(port);
+       waitfor(DelayMs(3000));
+
+       memset(com_rbuf, 0x00, sizeof(com_rbuf));
+       com_read(port);
+
+
+       if((com_rlen >= 25)&&(com_rbuf[0] == 0x3e)&&(com_rbuf[1] == 0x30)&&(com_rbuf[2]==0x31)&&(com_rbuf[3]==0x30))
+       {
+            if(((com_rbuf[16] == 0x70)&&(com_rbuf[17] == 0x70)&&(com_rbuf[18] == 0x70)&&(com_rbuf[19] == 0x70))||
+               ((com_rbuf[16] == 0x71)&&(com_rbuf[17] == 0x71)&&(com_rbuf[18] == 0x71)&&(com_rbuf[19] == 0x71))||
+               ((com_rbuf[16] == 0x72)&&(com_rbuf[17] == 0x72)&&(com_rbuf[18] == 0x72)&&(com_rbuf[19] == 0x72)))
+	         {
+                printf("Data Error \n");
+                status = 2;
+	             com_f[0] = 0.0;
+                com_sec = read_rtc();
+	         }
+	         else
+	         {
+                memset(tempc,0x00,sizeof(tempc));
+                strncpy(tempc, &com_rbuf[16], 4);
+                com_f[0] = atof(tempc);  //即时值
+                if(com_rbuf[20]==0x30)
+                {
+                	com_f[0] /= 1000.0;
+				}
+				else if(com_rbuf[20]==0x32)
+				{
+					com_f[0] *= 1000.0;
+				}
+				else
+				{}
+                old_com_f[5] = com_f[0];
+                com_sec = read_rtc();
+                printf("%f \n", com_f[0]);
+                status = 1;
+	         }
+            deviceStatus5 = 0;
+       }
+       else
+       {
+           if(deviceStatus5 < 20)
+           {
+           		com_f[0] = old_com_f[5];
+
+               status = 1;
+               deviceStatus5++;
+           }
+           else
+           {
+              status = 2;
+              com_f[0] = 0;
+           }
+       }
+     com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

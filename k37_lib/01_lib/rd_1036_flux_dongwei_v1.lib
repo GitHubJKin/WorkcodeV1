@@ -1,0 +1,120 @@
+
+/*** BeginHeader */
+#ifndef rd_1036_flux_dongwei_v1_lib
+#define rd_1036_flux_dongwei_v1_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_flux_dongwei_v1 */
+int rd_flux_dongwei_v1( char port );
+/*** EndHeader */
+/***
+东文流量计协议V1		RS232/RS485  2400bps			--1036
+读取数据命令：0x11 0x0d
+数据返回：□□06m02d02:05’☆Q=54.42L/S☆M=00022561☆□□□□□□07A1Cr
+其含义为６月２日２时５分，瞬时流量为５４·４２升/秒,累积流量为00022561立方米，
+校验和为07A1H，Cr (0dH)为回车符，□为00H，☆为空格20H
+**/
+int rd_flux_dongwei_v1( char port )
+{
+	static int status;
+   auto  char * temptr;
+   auto unsigned long total;
+
+   costate
+   {
+   	status = 0;            //初始化通讯状态标志位
+
+#if 0
+      com_tbuf[0] = 0x11;    //将需要发送的数据放入缓冲区
+      com_tbuf[1] = 0x0d;
+      com_tlen = 2;          //发送数据长度
+#else
+	com_tbuf[0] = 0x39;
+	com_tlen = 1;          //发送数据长度
+#endif
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+   	  if(com_rlen >= 45)                         //接收数据的长度
+	   {
+
+	     temptr = strchr(&com_rbuf[10], 'Q');
+         if(temptr != NULL)
+         {
+         	temptr = strchr(temptr, '=');
+	      	temptr ++;
+			com_f[0] = atof(temptr);		//瞬时流量
+            /*
+            #ifdef FLUX_UNIT_M3
+            com_f[0] = com_f[0] * 3.6;
+            #endif */
+         }
+         else
+         {
+         	com_f[0] = 0.0;
+            status ++;
+         }
+
+         temptr = strchr(&com_rbuf[10], 'M');
+         if(temptr != NULL)
+         {
+         	temptr = strchr(temptr, '=');
+	      	temptr ++;
+				total = atol(temptr);			//累计流量
+            com_f[1] = total;
+//            totalFlux = total;
+
+            #ifdef DEBUG_PRINTF
+            printf("sumFlux=%f \n", com_f[1]);
+            #endif
+         }
+         else
+         {
+         	com_f[1] = 0.0;
+            status ++;
+         }
+   	}
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();					//采样时间
+      if(status == 0)
+      {
+      	status = 1;
+      }
+      else
+      {
+      	printf("2222222222222222222222\r\n");
+      }
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

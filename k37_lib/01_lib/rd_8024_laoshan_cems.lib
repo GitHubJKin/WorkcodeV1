@@ -1,0 +1,121 @@
+
+/*** BeginHeader */
+#ifndef rd_8024_laoshan_cems_lib
+#define rd_8024_laoshan_cems_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_laoshan_cems */
+int rd_laoshan_cems ( char port );
+/*** EndHeader */
+int rd_laoshan_cems ( char port )
+{
+   //  #1,110.26,0.00,0.00£¬N,N,20.95,58.27,-0.12,12.54,20.00,2011.44,2013-10-12 16:05*
+   static int status;
+   static int i;
+  	char *p;
+   auto char buf[1024];
+   static int len;
+
+   costate
+   {
+   	status = 0;
+
+      waitfor(DelaySec(1));
+      memset(buf, 0x00, sizeof(buf));
+      len = 0;
+      while(1)
+      {
+      	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      	com_read(port);
+			if(com_rlen > 0)
+         {
+         	if((len + com_rlen) >= 1024) break;
+         	memcpy(&buf[len], com_rbuf, com_rlen);
+            len += com_rlen;
+         }
+         else break;
+      }
+
+      if(len > 0)
+      {
+         printf("%s\n",buf);
+      	p = strstr(buf, "vvv,");
+         if(p == NULL) goto RETURN_MARK;
+         p += 4;
+
+         for(i=0;i<7;i++)
+         {
+          	p = strchr(p,',');
+            if(p != NULL)
+            {
+            	status = 1;
+               deviceStatus = 0;
+            	com_f[i] = atof(p+1);
+               old_com_f[i] = com_f[i];
+               printf("com_f[%d] = %.2f\n",i,atof(p+1));
+            }
+            p = p+1;
+         }
+      }//if(len > 0)
+
+RETURN_MARK:
+      if(status == 0)
+      {
+         if(deviceStatus < 150)
+         {
+            for (i = 0; i < 20; i++)
+            {
+            	com_f[i] = old_com_f[i];
+               status = 1;
+            }
+            deviceStatus++;
+         }
+         else
+         {
+         	status = 2;
+         }
+      }
+      com_sec = read_rtc();
+   }//costate
+   return status;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

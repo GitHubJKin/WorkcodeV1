@@ -1,0 +1,62 @@
+
+/*** BeginHeader */
+#ifndef rd_6016_xuanfuwu_dianchuang_lib
+#define rd_6016_xuanfuwu_dianchuang_lib
+/*** EndHeader */
+
+
+
+
+/*** BeginHeader rd_xuanfuwu_dianchuang*/
+int rd_xuanfuwu_dianchuang( char port );
+/*** EndHeader */
+int rd_xuanfuwu_dianchuang( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x04, 0x00, 0x0C);
+      com_write(port);
+      waitfor(DelayMs(2000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 29)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x04))
+      {
+         f.ch[1] = com_rbuf[7];
+         f.ch[0] = com_rbuf[8];
+         f.ch[3] = com_rbuf[9];
+         f.ch[2] = com_rbuf[10];
+         com_f[0] = f.f;         //瞬时值
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+

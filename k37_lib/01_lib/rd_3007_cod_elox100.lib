@@ -1,0 +1,123 @@
+
+
+/*** BeginHeader */
+#ifndef rd_3007_cod_elox100_lib
+#define rd_3007_cod_elox100_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+华时捷 -- Elox100 COD
+命令 D
+返回 date;time;COD;I_spec;status
+02.04.1998;16:20:10;504;2.61;”       R”
+*******************************************************************************/
+/*** BeginHeader rd_cod_elox100*/
+int rd_cod_elox100( char port );
+/*** EndHeader */
+int rd_cod_elox100( char port )
+{
+	auto char i, flag;
+   	static int status;
+   	auto float temp1;
+   	auto  char tmpc[5];
+   	auto char *p;
+   	auto struct tm comTime;
+
+   	costate
+   	{
+    	status = 0;
+      	//D
+      	memset(com_tbuf,0x00,sizeof(com_tbuf));
+      	com_tbuf[0] = 'D';
+
+      	com_tlen = 1;
+      	com_write(port);
+      	waitfor(DelayMs(1000));
+
+      	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      	com_read(port);
+      	//A1 25 33 30 2E 30 33 2E 31 32 20 31 35 3A 30 31 3A 35 35 20 39 2E 39 39(39 2E 39 39 为氨氮值)
+	  	//20 6D 67 2F 6C 20 4E 48 34 2D 4E 0D 0A A3 EF
+	  	// >> \xA1%30.03.12 15:02:04 9.99 mg/l NH4-N\CR\LF(\xE7
+
+   		if(com_rlen >= 30)
+	   	{
+         	p = strstr(com_rbuf,";");
+			p = strstr(p+1,";");
+			temp1 = atof(p+1);
+			com_f[0] = temp1;
+
+		//时间解析
+
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[6];
+            tmpc[1] = com_rbuf[7];
+            tmpc[2] = com_rbuf[8];
+            tmpc[3] = com_rbuf[9];
+			comTime.tm_year = atoi(tmpc) - 1900;//年
+         //mktm(&comTime, SEC_TIMER);//得到 comTime.tm_year 年
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[3];
+            tmpc[1] = com_rbuf[4];
+	      comTime.tm_mon  = atoi(tmpc);//月
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[0];
+            tmpc[1] = com_rbuf[1];
+	      comTime.tm_mday = atoi(tmpc);//日
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[11];
+            tmpc[1] = com_rbuf[12];
+	      comTime.tm_hour = atoi(tmpc);//时
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[14];
+            tmpc[1] = com_rbuf[15];
+	      comTime.tm_min  = atoi(tmpc);//分
+            memset(tmpc, 0x00, sizeof(tmpc));
+            tmpc[0] = com_rbuf[17];
+            tmpc[1] = com_rbuf[18];
+ 		  comTime.tm_sec  = atoi(tmpc);//秒
+
+         com_sec = mktime(&comTime);//时间
+	   }
+	   else
+      {
+      	//printf("COD Error = (dev:20091  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+      if(status == 0)status = 1;
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

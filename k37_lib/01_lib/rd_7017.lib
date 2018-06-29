@@ -1,0 +1,110 @@
+/*** BeginHeader */
+#ifndef rd_7017_lib
+#define rd_7017_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_7017*/
+int rd_7017( char port, char vata_port);
+/*** EndHeader */
+int rd_7017( char port, char vata_port)
+{
+	#define	EXTEND_PARAM	(7)//串口扩展参数有多少个
+	static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   static char ch, i;
+   auto float maxSignalValue, minSignalValue;
+   auto float yaliValue;
+   costate
+   {
+   	  status = 0;
+
+	  memset(com_tbuf,0x00,sizeof(com_tbuf));
+
+	  com_tbuf[0] = '#';
+	  com_tbuf[1] = '0';
+	  com_tbuf[2] = '2';
+	  com_tbuf[3] = '\r';
+   	  com_tlen = 4;
+	  com_write(port);
+      waitfor(DelaySec(2));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 0 && com_rbuf[0] =='>')
+      {
+      	 maxSignalValue = 20;
+         minSignalValue = 4;
+      	for(i = 0; i < 8; i++)
+         {
+         	if(i == 0)
+            {
+			   com_f[0] = atof(&com_rbuf[1]);
+               if((com_f[0] < minSignalValue)||(com_f[0] == -9999.9))
+               {
+               	com_f[0] = 0.0;
+               }
+               else if((com_f[0] > maxSignalValue)||(com_f[0] == +9999.9))
+               {
+               	com_f[0] = ai_param[vata_port+8].alarm_H;
+               }
+               else
+               {
+         			com_f[0] = ((ai_param[vata_port+8].alarm_H - ai_param[vata_port+8].alarm_L) / (maxSignalValue-minSignalValue))
+                           * (com_f[0] - minSignalValue) + ai_param[vata_port+8].alarm_L;
+            	}
+               printf("com_f[0] = %f\r\n", com_f[0]);
+            }
+            else
+            {
+         		for(ch = 0; ch < EXTEND_PARAM; ch++)
+      			{
+  					if(ai_param_extend[ch].polIndex >= BOCON_NO_OF_POL) continue;//判断这通道有没有使用
+     				if(ai_param_extend[ch].port != vata_port) continue;//判断是否是对应的串口
+     				if(ai_param_extend[ch].position != i) continue;//位置是否对应
+
+					com_f[ai_param_extend[ch].position] = atof(&com_rbuf[8+(i-1)*7]);			//即时值
+	              if((com_f[ai_param_extend[ch].position] < minSignalValue)||(com_f[ai_param_extend[ch].position] == -9999.9))
+	              {
+	              	com_f[ai_param_extend[ch].position] = 0;
+	              }
+	              else if((com_f[ai_param_extend[ch].position] > maxSignalValue)||(com_f[ai_param_extend[ch].position] == +9999.9))
+	              {
+	              	com_f[ai_param_extend[ch].position] = ai_param_extend[ch].alarm_H;
+	              }
+				  else if(ai_param_extend[ch].position == 5)		//压力计算，压力有负数。
+				  {
+				  	yaliValue = (maxSignalValue-minSignalValue)/2+minSignalValue;	//中间值
+				  	com_f[ai_param_extend[ch].position] = ((ai_param_extend[ch].alarm_H - 0)/ (yaliValue-minSignalValue))
+	                                                      * (com_f[ai_param_extend[ch].position] - yaliValue) + 0;
+				  }
+	              else
+	              {
+	     			com_f[ai_param_extend[ch].position] = ((ai_param_extend[ch].alarm_H - ai_param_extend[ch].alarm_L) / (maxSignalValue-minSignalValue))
+	                                                      * (com_f[ai_param_extend[ch].position] - minSignalValue) + ai_param_extend[ch].alarm_L;
+	              }
+	              printf("com_f[%d] = %f\r\n", ai_param_extend[ch].position, com_f[ai_param_extend[ch].position]);
+	           	  break;
+      			}
+            }
+         }
+         status = 1;
+      }
+      else
+      {
+      	status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+

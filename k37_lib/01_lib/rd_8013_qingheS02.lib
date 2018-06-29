@@ -1,0 +1,54 @@
+
+/*** BeginHeader */
+#ifndef rd_8013_qingheS02_lib
+#define rd_8013_qingheS02_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_qingheS02*/
+int rd_qingheS02( char port );
+/*** EndHeader */
+int rd_qingheS02( char port )
+{
+   auto char ch;
+   static float f1;
+
+   if(getSampleChannel("B02", &ch, 1, &f1) == 1)
+   {
+      com_f[0] = f1 / (3600.0 * ai_param[15].alarm_H);
+   }
+   else
+   {
+      com_f[0] = 0.0;
+   }
+   com_sec = read_rtc();
+
+   return 1;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

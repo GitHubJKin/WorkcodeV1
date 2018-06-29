@@ -1,0 +1,96 @@
+
+/*** BeginHeader */
+#ifndef rd_20201_cod_tethys_v1_lib
+#define rd_20201_cod_tethys_v1_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_cod_tethys_v1*/
+int rd_cod_tethys_v1( char port );
+/*** EndHeader */
+/**************************************************************
+TETHYS环保设备串口通讯协议
+读取开始的地址修改了
+**************************************************************/
+int rd_cod_tethys_v1( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 36, 0x04);
+      com_write(port);
+      waitfor(DelayMs(4000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 13)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //COD即时值
+         if(com_f[0] < 0.0)
+         {
+            com_f[0] = 0.0;
+         }
+
+         f.ch[1] = com_rbuf[7];
+         f.ch[0] = com_rbuf[8];
+         f.ch[3] = com_rbuf[9];
+         f.ch[2] = com_rbuf[10];
+         com_f[1] = f.f;         //COD即时值
+         if(com_f[1] < 0.0)
+         {
+            com_f[1] = 0.0;
+         }
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,892 @@
+/*** BeginHeader */
+#ifndef _bocon_k37_config_lib
+#define _bocon_k37_config_lib
+/*** EndHeader */
+/**************************************************************************
+				广 州 博 控 自 动 化 技 术 有 限 公 司
+            Second 512K Flash中存储的设备运行参数
+增加了20个扩展参数，适用于一个串口读取多个数据的情况，具体用法：
+首先将对应的串口设置为正常使用，用参数表的第一个参数正常设置本串口
+然后将其余的参数配置为扩展参数，这些扩展参数与关联的串口有相同的属性
+关联的串口如果启用，对应的所有扩展参数就都可用
+关联的串口如果停用，对应的所有扩展参数就都停用
+                  		2009-10-15
+**************************************************************************/
+
+/*** BeginHeader */
+#define BOCON_K37_PARAM_ADDR	0x7d000	//TOP 12K OF 2nd 512K FLASH
+//系统参数
+int systemCode;				//系统编码
+int devNo;						//设备号
+char devMN[15];				//HJ/T-212, MN
+int sampleInterval;			//实时数据保存周期，分钟数
+char sysPwd[9];				//system密码
+char userPwd[9];				//用户操作密码
+char update_sip[30];			//远程更新用的服务器IP
+int updateFlag;				//=1:need update;=0:needn't
+//网络参数
+char ipaddr[16];
+char netmsk[16];
+char gatewy[16];
+char dialName[30];			//拨号用户名
+char dialPwd[30];				//拨号密码
+#ifdef BJHYDS //北京华业大盛 由于APN过长，所以需要30字节
+char apn[30];
+#else
+char apn[16];					//GPRS拨号时的APN接入点
+#endif
+//char Number[4][15];			//共计4个中心的电话号码
+char Number[8][15];			//共计4个中心的电话号码
+//服务器参数
+char serLink[SOCKET_NUMBER+1];				//服务器使用的通信链路，1-以太网，2-GPRS，3-CDMA
+char sip[SOCKET_NUMBER][30];				//服务器IP
+unsigned int sport[SOCKET_NUMBER];		//服务器端口号
+char sipPwd[SOCKET_NUMBER][7];			//服务器访问密码
+int rtdInterval[SOCKET_NUMBER];			//实时值上传周期，秒数
+int heartbeatInterval[SOCKET_NUMBER];	//心跳周期，秒数
+int warnTime[SOCKET_NUMBER];				//超限报警时间
+int overTime[SOCKET_NUMBER];				//超时重发的时间
+char reCount[SOCKET_NUMBER];				//重发次数
+
+float extendData[10];
+
+unsigned long t_config0;	//存放在FLASH0里的配置信息修改过的时间
+unsigned long t_config2;	//存放在FLASH2里的配置信息修改过的时间
+unsigned long t_calib0;		//AD校验因子保存在FLASH0里的时间
+unsigned long t_calib2;		//AD校验因子保存在FLASH2里的时间
+
+//采集通道参数
+typedef struct
+{
+	unsigned char polIndex;	//污染物编码，如串口有多个参数，则为第0个参数的编码
+	float factor;				//AI系数
+	float	range_L;				//AI量程上限
+	float	range_H;				//AI量程下限
+	float alarm_L;				//报警上限
+	float alarm_H;				//报警下限
+   unsigned long baudrate;	//串口波特率
+   unsigned int model;		//串口设备型号编码
+   char parity;				//校验位，0-无校验，1-偶校验，2-奇校验，3-2个停止位
+   								//模拟量通道时，0-电压，1-电流，2-差分输入（电压或电流）
+}polParam;
+polParam ai_param[16];		//8AI+7COM+1备用
+
+//为了可以兼容工控机，扩展了一个串口读取多个污染物参数的接口
+typedef struct
+{
+	unsigned char polIndex;	//污染物编码，如在原编码后加'Z'，就表示折算值
+	char port;					//关联的串口号，对应K37的物理串口0-6
+   char position;				//在串口参数表里的位置，1-19，0固定为原ai_param表参数
+   float alarm_L;				//报警上限
+	float alarm_H;				//报警下限
+}polParamExtend;
+polParamExtend ai_param_extend[20];
+
+typedef struct{
+ 	char MN[5][25];               //MN号码 5个服务器，长度24
+   unsigned crc;
+}sysParam_MN;
+sysParam_MN MNParam;
+
+/*** EndHeader */
+
+/*** BeginHeader chk_ip,wr_Num,wrSysCode,wrDevNo,wrMN,wrSysPwd,wrUserPwd,
+					  wr_sampleInt,wr_updateFlag,wrUpdateSip,
+					  wrDialName,wrDialPwd,wrApn,wrDevIP,wrDevMsk,wrDevGtwy,
+                 wrSerLink,wrSip,wrSport,wrSipPwd,wrRtdInt,wrWarnTime,
+                 wrOverTime,wrReCount,wrHeartbeatInt,
+					  rdSysConfig,wr_aiparam,rd_aiparam,
+                 wr_aiparam_extend,rd_aiparam_extend,
+                 update_config, wr_config0_tm, wr_config2_tm, check_2configs,
+                 wr_calib0_tm, wr_calib2_tm, rd_extendData, wr_extendData */
+
+int chk_ip(char *ip);
+void wr_Num(int no, char whichChip);
+
+void wrSysCode(char whichChip);
+void wrDevNo(char whichChip);
+void wrMN(char whichChip);
+void wr_sampleInt(char whichChip);
+void wrSysPwd(char whichChip);
+void wrUserPwd(char whichChip);
+void wr_updateFlag(char whichChip);
+void wrUpdateSip(char whichChip);
+
+void wrDevIP(char whichChip);
+void wrDevMsk(char whichChip);
+void wrDevGtwy(char whichChip);
+void wrDialName(char whichChip);
+void wrDialPwd(char whichChip);
+void wrApn(char whichChip);
+
+void wrSerLink(char no, char whichChip);
+void wrSip(char no, char whichChip);
+void wrSport(char no, char whichChip);
+void wrSipPwd(char no, char whichChip);
+void wrRtdInt(char no, char whichChip);
+void wrWarnTime(char no, char whichChip);
+void wrOverTime(char no, char whichChip);
+void wrReCount(char no, char whichChip);
+void wrHeartbeatInt(char no, char whichChip);
+
+void wr_aiparam(char ch, char whichChip);
+void wr_aiparam_extend(char ch, char whichChip);
+void rd_aiparam(char whichChip);
+void rd_aiparam_extend(char whichChip);
+void rdSysConfig(char whichChip);
+
+void wr_calib0_tm(void);
+void wr_calib2_tm(void);
+void wr_config0_tm(void);
+void wr_config2_tm(void);
+void update_config(char whichChip);
+void update_calib(char whichChip);
+void check_2configs(void);
+void rd_extendData(char whichChip);
+void wr_extendData(char ch, char whichChip);
+/*** EndHeader */
+
+nodebug int chk_ip(char *ip)
+{
+	unsigned char i;
+   unsigned int t;
+   char tp[16];
+   char * temptr;
+	char * temptr1;
+
+   temptr1 = ip;
+   for (i = 0; i < 4; i ++)
+   {
+	   temptr = strchr(temptr1, '.');
+	   if ( temptr )
+	   {
+	      memset(tp, '\0', sizeof(tp));
+         if((int)(temptr - temptr1) > 3) break;
+	      strncpy(tp, temptr1, (int)(temptr - temptr1));
+         if(strcmp(tp,"")==0) break;
+	      t = atoi(tp);
+	      if ( (t < 0) || (t > 255) )   break;
+
+	      temptr ++;
+	      temptr1 = temptr;
+	   }
+      else if (i == 3)
+      {
+      	memset(tp, '\0', sizeof(tp));
+         if(strlen(temptr1) > 3) break;
+         strncpy(tp, temptr1, 3);
+         t = atoi(tp);
+         if ( (t < 0) || (t > 255) )   break;
+         else
+         {
+         	return 1;
+         }
+      }
+	   else break;
+   }
+	return 0;
+}
+
+//1. Number, Position : 0, Length : 60
+nodebug void wr_Num(int no, char whichChip)
+{
+	auto char t[15];
+	if((strlen(Number[no]) == 11)&&(Number[no][0] == '1'))
+   {
+   	memset(t, '\0', sizeof(t));
+      strcpy(t, Number[no]);
+      memset(Number[no], '\0', sizeof(Number[no]));
+      strcpy(Number[no], "86");
+      strcat(Number[no], t);
+   }
+   _overwrite_bocon_param = 1;
+   if(no < 4)
+	WriteFlashx(BOCON_K37_PARAM_ADDR + no*15, Number[no], 15, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1080 + (no-4)*15, Number[no], 15, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void rd_Num(char whichChip)
+{
+	auto char c;
+   for(c=0;c<8;c++)
+   {
+		memset(Number[c], '\0', sizeof(Number[c]));
+      if(c < 4)
+		ReadFlashx(BOCON_K37_PARAM_ADDR + c * 15,  Number[c], 15, whichChip);
+      else
+      ReadFlashx(BOCON_K37_PARAM_ADDR + 1080 + (c-4)*15, Number[c], 15, whichChip);
+      Number[c][14] = '\0';
+	}
+#ifdef DEBUG_BOCON_K37
+	printf("Num=%s,%s,%s,%s,%s,%s,%s,%s\n", Number[0], Number[1], Number[2], Number[3],Number[4],Number[5],Number[6],Number[7]);
+#endif
+}
+nodebug void rd_extendData(char whichChip)
+{
+	auto char c;
+	for(c = 0; c < 10; c++)
+	ReadFlashx(BOCON_K37_PARAM_ADDR + 1140 + c * 4, (char*)&extendData[c], 4, whichChip);
+}
+nodebug void wr_calib0_tm(void)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 62, (char*)&t_calib0, 4, 0);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wr_calib2_tm(void)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 62, (char*)&t_calib2, 4, 2);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wr_config0_tm(void)
+{
+	_overwrite_bocon_param = 1;
+   //t_config0 = SEC_TIMER;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 66, (char*)&t_config0, 4, 0);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wr_config2_tm(void)
+{
+	_overwrite_bocon_param = 1;
+   //t_config2 = SEC_TIMER;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 66, (char*)&t_config2, 4, 2);
+   _overwrite_bocon_param = 0;
+}
+
+//第一页参数：系统编码、设备号、MN号、保存周期、系统密码、用户密码、升级地址
+nodebug void wrSysCode(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 70, (char*)&systemCode, 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrDevNo(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 72, (char*)&devNo, 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrMN(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 74, devMN, 15, whichChip);	//32
+   _overwrite_bocon_param = 0;
+}
+nodebug void wr_sampleInt(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 90, (char*)&sampleInterval, 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrSysPwd(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 92, sysPwd, 8, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrUserPwd(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 100, userPwd, 8, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wr_updateFlag(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 108, (char*)&updateFlag, 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrUpdateSip(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 110, update_sip, 30, whichChip);
+   _overwrite_bocon_param = 0;
+}
+
+//网络参数：IP地址、子网掩码、网关，拨号名称，密码，APN
+nodebug void wrDevIP(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+	WriteFlashx(BOCON_K37_PARAM_ADDR + 140, ipaddr, 16, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrDevMsk(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+	WriteFlashx(BOCON_K37_PARAM_ADDR + 156, netmsk, 16, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrDevGtwy(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+	WriteFlashx(BOCON_K37_PARAM_ADDR + 172, gatewy, 16, whichChip);
+   _overwrite_bocon_param = 0;
+}
+
+nodebug void wrDialName(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 188, dialName, 30, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrDialPwd(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 218, dialPwd, 30, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrApn(char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   //WriteFlashx(BOCON_K37_PARAM_ADDR + 248, apn, 16, whichChip);
+   #ifdef BJHYDS
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1295, apn, 30, whichChip);
+   #else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 248, apn, 16, whichChip);
+   #endif
+   _overwrite_bocon_param = 0;
+}
+
+//服务器参数：	通信链路、IP、端口、访问密码、实时周期、
+//					重发次数、超时时间、报警时间、心跳周期
+nodebug void wrSerLink(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 264 + no, &serLink[no], 1, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1295 + (no-3), &serLink[no], 1, whichChip);
+   if (no == SOCKET_NUMBER)
+   {
+       WriteFlashx(BOCON_K37_PARAM_ADDR + 267, &serLink[no], 1, whichChip);
+   }
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrSip(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   	WriteFlashx(BOCON_K37_PARAM_ADDR + 268 + no * 30, sip[no], 30, whichChip);
+   else
+   {
+     	WriteFlashx(BOCON_K37_PARAM_ADDR + 1180 + (no-3) * 30, sip[no], 30, whichChip);
+   }
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrSport(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 358 + no * 2, (char*)&sport[no], 2, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1260 + (no-3) * 2, (char*)&sport[no], 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrSipPwd(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 364 + no * 6, sipPwd[no], 6, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1264 + (no-3) * 6, sipPwd[no], 6, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrRtdInt(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 382 + no * 2, (char*)&rtdInterval[no], 2, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1276 + (no-3) * 2, (char*)&rtdInterval[no], 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrWarnTime(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 388 + no * 2, (char*)&warnTime[no], 2, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1280 + (no-3) * 2, (char*)&warnTime[no], 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrOverTime(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 394 + no * 2, (char*)&overTime[no], 2, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1284 + (no-3) * 2, (char*)&overTime[no], 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrReCount(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 400 + no, &reCount[no], 1, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1288 + no-3, &reCount[no], 1, whichChip);
+   _overwrite_bocon_param = 0;
+}
+nodebug void wrHeartbeatInt(char no, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+   if(no < 3)
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 404 + no * 2, (char*)&heartbeatInterval[no], 2, whichChip);
+   else
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1290 + (no-3) * 2, (char*)&heartbeatInterval[no], 2, whichChip);
+   _overwrite_bocon_param = 0;
+}
+//通道配置表
+nodebug void wr_aiparam(char ch, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+	WriteFlashx(BOCON_K37_PARAM_ADDR + 410 + ch * 28, (char *)&ai_param[ch], 28, whichChip);
+   _overwrite_bocon_param = 0;
+}
+//扩展配置表
+nodebug void wr_aiparam_extend(char ch, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+	WriteFlashx(BOCON_K37_PARAM_ADDR + 860 + ch * 11, (char *)&ai_param_extend[ch], 11, whichChip);
+   _overwrite_bocon_param = 0;
+}
+
+nodebug void wr_extendData(char ch, char whichChip)
+{
+	_overwrite_bocon_param = 1;
+	WriteFlashx(BOCON_K37_PARAM_ADDR + 1140 + ch * 4, (char *)&extendData[ch], 4, whichChip);
+   _overwrite_bocon_param = 0;
+}
+
+nodebug void rdSysConfig(char whichChip)
+{
+	auto char c;
+
+//读取系统参数
+	memset(devMN, '\0', sizeof(devMN));
+   memset(sysPwd, '\0', sizeof(sysPwd));
+   memset(userPwd, '\0', sizeof(userPwd));
+   memset(update_sip, '\0', sizeof(update_sip));
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 70, (char*)&systemCode, 2, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 72, (char*)&devNo, 2, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 74, devMN, 15, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 90, (char*)&sampleInterval, 2, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 92, sysPwd, 8, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 100, userPwd, 8, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 108, (char*)&updateFlag, 2, whichChip);	//升级标志总是从第二个FLASH读
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 110, update_sip, 30, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 267, (char*)&serLink[SOCKET_NUMBER], 1, whichChip);//升级链接放最后
+   devMN[14] = '\0';
+   sysPwd[8] = '\0';
+   userPwd[8] = '\0';
+   update_sip[29] = '\0';
+#ifdef DEBUG_BOCON_K37
+
+   printf("CFG=%d, ", whichChip);
+   printf("UIP=%s, %d, %d\n", update_sip, serLink[SOCKET_NUMBER], updateFlag);
+   printf("ST=%d, MN=%s, SN=%d, sPwd=%s, uPwd=%s, smp=%d\n",
+   		systemCode, devMN, devNo, sysPwd, userPwd, sampleInterval);
+#endif
+
+//读取网络参数
+   memset(ipaddr, '\0', sizeof(ipaddr));
+   memset(netmsk, '\0', sizeof(netmsk));
+   memset(gatewy, '\0', sizeof(gatewy));
+	memset(dialName, '\0', sizeof(dialName));
+   memset(dialPwd, '\0', sizeof(dialPwd));
+   memset(apn, '\0', sizeof(apn));
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 140, ipaddr,  16, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 156, netmsk,  16, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 172, gatewy,  16, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 188,  dialName, 30, whichChip);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 218,  dialPwd, 30, whichChip);
+   #ifdef BJHYDS
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 1295, apn, 30, whichChip);
+   #else
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 248, apn, 16, whichChip);
+   #endif
+   ipaddr[15] = '\0';
+   netmsk[15] = '\0';
+   gatewy[15] = '\0';
+   dialName[29] = '\0';
+   dialPwd[29] = '\0';
+   apn[15] = '\0';
+#ifdef DEBUG_BOCON_K37
+	printf("Eth:%s, %s, %s\n", ipaddr, netmsk, gatewy);
+   printf("PPP:%s, %s, APN:%s\n", dialName, dialPwd, apn);
+#endif
+
+//读取服务器参数
+   memset(sip, '\0', sizeof(sip));
+   memset(sipPwd, '\0', sizeof(sipPwd));
+   for(c=0;c<SOCKET_NUMBER;c++)
+   {
+   	if(c < 3)
+      {
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 264 + c, (char*)&serLink[c], 1, whichChip);
+	      if((serLink[c] > 4) || (serLink[c] < 0)) serLink[c] = 1;
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 268 + c * 30, sip[c], 30, whichChip);
+	      sip[c][29] = '\0';
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 358 + c * 2, (char*)&sport[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 364 + c * 6, sipPwd[c], 6, whichChip);
+	      sipPwd[c][6] = '\0';
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 382 + c * 2, (char*)&rtdInterval[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 388 + c * 2, (char*)&warnTime[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 394 + c * 2, (char*)&overTime[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 400 + c, &reCount[c], 1, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 404 + c * 2, (char*)&heartbeatInterval[c], 2, whichChip);
+      }
+      else
+      {
+
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1295 + (c-3), (char*)&serLink[c], 1, whichChip);
+	      if((serLink[c] > 4) || (serLink[c] < 0)) serLink[c] = 1;
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1180 + (c-3) * 30, sip[c], 30, whichChip);
+	      sip[c][29] = '\0';
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1260 + (c-3) * 2, (char*)&sport[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1264 + (c-3) * 6, sipPwd[c], 6, whichChip);
+	      sipPwd[c][6] = '\0';
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1276 + (c-3) * 2, (char*)&rtdInterval[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1280 + (c-3) * 2, (char*)&warnTime[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1284 + (c-3) * 2, (char*)&overTime[c], 2, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1288 + c-3, &reCount[c], 1, whichChip);
+	      ReadFlashx(BOCON_K37_PARAM_ADDR + 1290 + (c-3) * 2, (char*)&heartbeatInterval[c], 2, whichChip);
+      }
+
+#ifdef DEBUG_BOCON_K37
+   	printf("S%d=%d:%s:%d:%s, Rtd=%d, Warn=%d, OT=%d, Re=%d, HB=%d\n",
+      		c, serLink[c],sip[c],sport[c],sipPwd[c],
+            rtdInterval[c],warnTime[c],overTime[c],reCount[c],heartbeatInterval[c]);
+#endif
+	}
+
+   rd_aiparam(whichChip);
+   rd_aiparam_extend(whichChip);
+   rd_Num(whichChip);
+   rd_extendData(whichChip);
+   read_MNnumber_param(whichChip);
+   rd_modbus_param(whichChip);
+   rd_sample_unit_param(whichChip);
+   rd_data_unit_param(whichChip);
+}
+
+nodebug void rd_aiparam(char whichChip)
+{
+	auto char ch, flag;
+   memset(ai_param, 0x00, sizeof(ai_param));
+   for(ch=0;ch<16;ch++)
+   {
+   	flag = 0;
+      ReadFlashx(BOCON_K37_PARAM_ADDR + 410 + ch * 28, (char *)&ai_param[ch], 28, whichChip);
+   	/*if((ai_param[ch].factor < 0.8) || (ai_param[ch].factor > 1.2))
+      {
+      	ai_param[ch].factor = 1.0;
+         flag ++;
+      } */
+   	if((ai_param[ch].range_L < -1000000.0) || (ai_param[ch].range_L > 1000000.0))
+      {
+      	ai_param[ch].range_L = 0.0;
+         flag ++;
+      }
+      if((ai_param[ch].range_H < -1000000.0) || (ai_param[ch].range_H > 10000000.0))
+      {
+      	ai_param[ch].range_H = 100.0;
+         flag ++;
+      }
+      else if(ai_param[ch].range_H < ai_param[ch].range_L)
+      {
+      	ai_param[ch].range_H = ai_param[ch].range_L;
+         flag ++;
+      }
+      if((ai_param[ch].alarm_L < -1000000.0) || (ai_param[ch].alarm_L > 1000000.0))
+      {
+      	ai_param[ch].alarm_L = 0.0;
+         flag ++;
+      }
+      if((ai_param[ch].alarm_H < -1000000.0) || (ai_param[ch].alarm_H > 1000000.0))
+      {
+      	ai_param[ch].alarm_H = 100.0;
+         flag ++;
+      }
+      else if(ai_param[ch].alarm_H < ai_param[ch].alarm_L)
+      {
+      	ai_param[ch].alarm_H = ai_param[ch].alarm_L;
+         flag ++;
+      }
+      if((ai_param[ch].polIndex < 0) || (ai_param[ch].polIndex > BOCON_NO_OF_POL))
+      {
+			ai_param[ch].polIndex = BOCON_NO_OF_POL;
+         flag ++;
+      }
+      if((ai_param[ch].baudrate != 1200) && (ai_param[ch].baudrate != 2400)
+      	&&(ai_param[ch].baudrate != 4800) && (ai_param[ch].baudrate != 9600)
+         &&(ai_param[ch].baudrate != 19200) && (ai_param[ch].baudrate != 38400)
+         &&(ai_param[ch].baudrate != 57600) && (ai_param[ch].baudrate != 115200L))
+      {
+      	ai_param[ch].baudrate = 9600;
+         flag ++;
+      }
+      if((ai_param[ch].parity < 0) || (ai_param[ch].parity > 3))
+      {
+      	ai_param[ch].parity = 0;
+         flag ++;
+      }
+      if(flag > 0)
+      {
+      	wr_aiparam(ch, whichChip);
+#ifdef DEBUG_BOCON_K37
+         printf("AI%d reset\n",ch);
+#endif
+      }
+   }
+#ifdef DEBUG_BOCON_K37
+   printf("\n");
+   for(ch=0;ch<8;ch++)
+   {
+   	if(ai_param[ch].polIndex < BOCON_NO_OF_POL / 2) printf("AI%d=%s, ", ch, PolCode[ai_param[ch].polIndex]);
+      else if(ai_param[ch].polIndex >= BOCON_NO_OF_POL) printf("AI%d=FFF, ", ch);
+      else printf("AI%d=%sZ, ", ch, PolCode[ai_param[ch].polIndex - BOCON_NO_OF_POL / 2]);
+   	printf("F=%.3f, RL=%.2f, RH=%.2f; AL=%.2f, AH=%.2f\n",
+      	ai_param[ch].factor,ai_param[ch].range_L,ai_param[ch].range_H,
+         ai_param[ch].alarm_L,ai_param[ch].alarm_H);
+   }
+   printf("\n");
+   for(ch=8;ch<16;ch++)
+   {
+      if(ai_param[ch].polIndex < BOCON_NO_OF_POL / 2) printf("COM%d=%s, ", ch-8, PolCode[ai_param[ch].polIndex]);
+      else if(ai_param[ch].polIndex >= BOCON_NO_OF_POL) printf("COM%d=FFF, ", ch-8);
+      else printf("COM%d=%sZ, ", ch-8, PolCode[ai_param[ch].polIndex - BOCON_NO_OF_POL / 2]);
+   	printf("B=%ld, P=%d, M=%d, AL=%.2f, AH=%.2f\n",
+      	ai_param[ch].baudrate,ai_param[ch].parity, ai_param[ch].model,
+         ai_param[ch].alarm_L,ai_param[ch].alarm_H);
+   }
+   printf("\n");
+#endif
+}
+
+nodebug void rd_aiparam_extend(char whichChip)
+{
+	auto char ch, flag;
+   memset(ai_param_extend, 0x00, sizeof(ai_param_extend));
+   for(ch=0;ch<20;ch++)
+   {
+   	flag = 0;
+      ReadFlashx(BOCON_K37_PARAM_ADDR + 860 + ch * 11, (char *)&ai_param_extend[ch], 11, whichChip);
+
+      if((ai_param_extend[ch].port < 0) || (ai_param_extend[ch].port > 7))
+      {//0-6对应K37的7个串口，如果是7，则表示未用
+      	ai_param_extend[ch].port = 7;
+      	flag ++;
+      }
+      if((ai_param_extend[ch].position < 0) || (ai_param_extend[ch].position > 19))
+      {//每个串口最多可以读20个扩展参数
+      	ai_param_extend[ch].position = 0;
+         flag ++;
+      }
+      if((ai_param_extend[ch].alarm_L < -1000000.0) || (ai_param_extend[ch].alarm_L > 1000000.0))
+      {
+      	ai_param_extend[ch].alarm_L = 0.0;
+         flag ++;
+      }
+      if((ai_param_extend[ch].alarm_H < -1000000.0) || (ai_param_extend[ch].alarm_H > 1000000.0))
+      {
+      	ai_param_extend[ch].alarm_H = 100.0;
+         flag ++;
+      }
+      else if(ai_param_extend[ch].alarm_H < ai_param_extend[ch].alarm_L)
+      {
+      	ai_param_extend[ch].alarm_H = ai_param_extend[ch].alarm_L;
+         flag ++;
+      }
+      if((ai_param_extend[ch].polIndex < 0) || (ai_param_extend[ch].polIndex > BOCON_NO_OF_POL))
+      {
+			ai_param_extend[ch].polIndex = BOCON_NO_OF_POL;
+         flag ++;
+      }
+      if(flag > 0)
+      {
+      	wr_aiparam_extend(ch, whichChip);
+#ifdef DEBUG_BOCON_K37
+         printf("Extend%d reset\n",ch);
+#endif
+      }
+   }
+#ifdef DEBUG_BOCON_K37
+   for(ch=0;ch<20;ch++)
+   {
+      if(ai_param_extend[ch].polIndex < BOCON_NO_OF_POL / 2) printf("Ext%02d=%s, ", ch, PolCode[ai_param_extend[ch].polIndex]);
+      else if(ai_param_extend[ch].polIndex >= BOCON_NO_OF_POL) printf("Ext%02d=FFF, ", ch);
+      else printf("Ext%02d=%sZ, ", ch, PolCode[ai_param_extend[ch].polIndex - BOCON_NO_OF_POL / 2]);
+   	printf("Port%d_%02d, AL=%.2f, AH=%.2f\n", ai_param_extend[ch].port,
+      	ai_param_extend[ch].position,ai_param_extend[ch].alarm_L, ai_param_extend[ch].alarm_H);
+   }
+   printf("\n");
+#endif
+}
+
+nodebug void update_config(char whichChip)
+{
+	auto char rdChip, no;
+
+#ifdef DEBUG_BOCON_K37
+   printf("Update Config%d\n", whichChip);
+#endif
+	if(whichChip == 0)
+   {
+		rdChip = 2;
+   }
+   else
+   {
+   	rdChip = 0;
+   }
+   rdSysConfig(rdChip);
+   for(no=0;no<8;no++)
+	{
+   	wr_Num(no, whichChip);
+   }
+
+	wrSysCode(whichChip);
+	wrDevNo(whichChip);
+	wrMN(whichChip);
+	wr_sampleInt(whichChip);
+	wrSysPwd(whichChip);
+	wrUserPwd(whichChip);
+	wr_updateFlag(whichChip);
+	wrUpdateSip(whichChip);
+
+	wrDevIP(whichChip);
+	wrDevMsk(whichChip);
+	wrDevGtwy(whichChip);
+	wrDialName(whichChip);
+	wrDialPwd(whichChip);
+	wrApn(whichChip);
+
+   for(no=0;no<SOCKET_NUMBER;no++)
+   {
+   	wrSerLink(no, whichChip);
+	   wrSip(no, whichChip);
+	   wrSport(no, whichChip);
+	   wrSipPwd(no, whichChip);
+	   wrRtdInt(no, whichChip);
+	   wrWarnTime(no, whichChip);
+	   wrOverTime(no, whichChip);
+	   wrReCount(no, whichChip);
+	   wrHeartbeatInt(no, whichChip);
+   }
+
+   for(no=0;no<16;no++)
+   {
+		wr_aiparam(no, whichChip);
+   }
+   for(no=0;no<20;no++)
+   {
+		wr_aiparam_extend(no, whichChip);
+   }
+   for(no = 0; no < 10; no++)
+   {
+   	wr_extendData(no,whichChip);
+   }
+}
+
+void update_calib(char whichChip)
+{
+	auto char channel, rdChip, vori;
+
+#ifdef DEBUG_BOCON_K37
+   printf("Update Calib%d\n", whichChip);
+#endif
+	if(whichChip == 0)
+   {
+		rdChip = 2;
+   }
+   else
+   {
+   	rdChip = 0;
+   }
+   for(channel=0;channel<8;channel++)
+   {
+   	for(vori=0;vori<3;vori++)
+      {
+   		anaInEERd(channel, vori, rdChip);
+         anaInEEWr(channel, vori, whichChip);
+      }
+   }
+}
+
+void check_2configs(void)
+{
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 62, (char*)&t_calib0, 4, 0);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 66, (char*)&t_config0, 4, 0);
+   msDelay(100);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 62, (char*)&t_calib2, 4, 2);
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 66, (char*)&t_config2, 4, 2);
+#ifdef DEBUG_BOCON_K37
+	printf("CalibT0=%ld, T2=%ld;ConfigT0=%ld, T2=%ld\n", t_calib0, t_calib2, t_config0, t_config2);
+#endif
+#ifndef COMPILE_SECONDARY_PROG
+	if((t_config2 < 0x31888000) || (t_config2 > 0xE1B66000))
+   {
+   	t_config2 = SEC_TIMER;
+      wr_config2_tm();
+   }
+   if(t_config2 > t_config0)
+   {
+   	update_config(0);
+      t_config0 = t_config2;
+      wr_config0_tm();
+   }
+   if(t_calib2 > t_calib0)
+   {
+   	update_calib(0);
+      t_calib0 = t_calib2;
+      wr_calib0_tm();
+   }
+#endif
+}
+
+/*** BeginHeader write_MNnumber_param*/
+void write_MNnumber_param(char whichChip);
+/*** EndHeader */
+//将设备信息配置保存到userBlock
+void write_MNnumber_param(char whichChip)
+{
+   _overwrite_bocon_param = 1;
+   MNParam.crc = msrCRC((char *)&MNParam, sizeof(sysParam_MN) - 2);
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1322, (char *)&MNParam, sizeof(sysParam_MN), whichChip);
+   _overwrite_bocon_param = 0;
+}
+
+/*** BeginHeader read_MNnumber_param*/
+void read_MNnumber_param(char whichChip);
+/*** EndHeader */
+//将设备信息配置复制到xmem内存
+//no：对应串口通道，范围是0至6
+void read_MNnumber_param(char whichChip)
+{
+   auto unsigned crc;
+   auto char no;
+   ReadFlashx(BOCON_K37_PARAM_ADDR + 1322, (char *)&MNParam, sizeof(sysParam_MN), whichChip);
+   crc = msrCRC((char *)&MNParam, sizeof(sysParam_MN) - 2);
+
+   if (crc == MNParam.crc){
+      return;
+   }
+
+   //复位
+   for(no=0;no<5;no++)
+   	{
+	   memset(MNParam.MN[no], 0x00, sizeof(MNParam.MN[no]));
+	   strcpy(MNParam.MN[no], devMN);
+
+	   printf("MN[] %s\n",MNParam.MN[no]);
+   	}
+	write_MNnumber_param(whichChip);
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

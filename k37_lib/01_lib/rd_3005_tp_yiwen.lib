@@ -1,0 +1,111 @@
+
+
+/*** BeginHeader */
+#ifndef rd_3005_tp_yiwen_lib
+#define rd_3005_tp_yiwen_lib
+/*** EndHeader */
+
+
+
+/*******************************************************
+EST2003总磷在线监测仪通讯格式
+查询瞬时值
+*******************************************************/
+/*** BeginHeader rd_tp_yiwen */
+int rd_tp_yiwen( char port );
+/*** EndHeader */
+int rd_tp_yiwen( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto char temp[5];
+   auto float tmp_val;           //AN值
+   auto char anErr;              //AN在线仪的故障标记
+   auto char anState;            //AN在线仪的运行状态
+
+   costate
+   {
+      status = 0;
+
+      tmp_val = 0.0;
+      anErr = 5;  //Set Error Flag
+
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "%04#RDD1600016015**");
+      com_tlen = strlen(com_tbuf);
+      com_tbuf[com_tlen] = 0x0d;
+      com_tlen ++;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 40)&&(com_rbuf[0]=='%')&&(com_rbuf[3]=='$')&&(com_rbuf[4]=='R')&&(com_rbuf[5]=='D') ) //是有效数据
+      {
+         memset(temp, 0x00, sizeof(temp));
+         strncpy(temp, &com_rbuf[6], 4);
+         anErr = atoi(temp);
+         com_f[1] = anErr;//传至第二个参数
+
+         memset(temp, 0x00, sizeof(temp));
+         strncpy(temp, &com_rbuf[10], 4);
+         anState = atoi(temp);
+         com_f[2] = anState;//传至第三个参数
+
+         comTime.tm_year = (com_rbuf[18] - '0') * 10 + com_rbuf[19] - '0'+100;
+         comTime.tm_mon = (com_rbuf[20] - '0') * 10 + com_rbuf[21] - '0';
+         comTime.tm_mday = (com_rbuf[22] - '0') * 10 + com_rbuf[23] - '0';
+         comTime.tm_hour = (com_rbuf[24] - '0') * 10 + com_rbuf[25] - '0';
+         comTime.tm_min = (com_rbuf[26] - '0') * 10 + com_rbuf[27] - '0';
+         comTime.tm_sec = (com_rbuf[28] - '0') * 10 + com_rbuf[29] - '0';
+         com_sec = mktime(&comTime);//时间
+
+         tmp_val = (com_rbuf[33] - '0') * 10 + (com_rbuf[34] - '0');
+         tmp_val = tmp_val * 10 + (com_rbuf[35] - '0');
+         tmp_val = tmp_val * 10 + (com_rbuf[36] - '0');
+         tmp_val = tmp_val * 10 + (com_rbuf[37] - '0');
+         tmp_val /= 100.0;
+         com_f[0] = tmp_val;//即时值
+         status = 1;
+
+         printf("TP  = %04d/%02d/%02d %02d:%02d:%02d\n", comTime.tm_year+1900,
+               comTime.tm_mon,comTime.tm_mday,comTime.tm_hour,comTime.tm_min,comTime.tm_sec);
+      }
+      else
+      {
+         //printf("AN Error = (dev:3001  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

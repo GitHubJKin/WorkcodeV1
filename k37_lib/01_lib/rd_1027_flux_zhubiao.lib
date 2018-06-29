@@ -1,0 +1,82 @@
+
+/*** BeginHeader */
+#ifndef rd_1027_flux_zhubiao_lib
+#define rd_1027_flux_zhubiao_lib
+/*** EndHeader */
+
+/*******************************************************************************
+朱表头电磁转换器	RS485--8位数据位，1位停止位，无校验 波特率：2400bps  --1027
+*******************************************************************************/
+/*** BeginHeader rd_flux_zhubiao */
+int rd_flux_zhubiao( char port );
+/*** EndHeader */
+int rd_flux_zhubiao( char port )
+{
+	static int status;
+	union uf f,f1;
+
+	costate
+	{
+		status = 0;
+
+	   pack_modbus_cmd(0x01, 0x03, 0x0000, 0x0002);//构建命令包
+	   com_write(port);       //串口发送命令包
+	   waitfor(DelayMs(1000));    //等待1s
+
+	   memset(com_rbuf, 0x00, sizeof(com_rbuf));//清空串口接受缓冲区
+	   com_read(port);                          //串口接收数据,保存在com_rbuf缓冲区
+	   if((com_rlen > 6) && (com_rbuf[0] == 0x01)&& (com_rbuf[1] == 0x03)&& (com_rbuf[2] == 0x04))
+	   {
+	   	f.ch[3] = com_rbuf[3];
+	   	f.ch[2] = com_rbuf[4];
+	   	f.ch[1] = com_rbuf[5];
+	   	f.ch[0] = com_rbuf[6];
+	   	com_f[0] = (float)f.l;			//	瞬时流量  升/小时
+	   	com_f[0] /= 3600.0;             //升/秒
+
+			pack_modbus_cmd(0x01, 0x03, 0x0008, 0x0003);//构建命令包
+	   	com_write(port);       //串口发送命令包
+	   	waitfor(DelayMs(1000));    //等待1s
+
+	   	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	   	com_read(port);
+	   	if((com_rlen > 8) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03)&& (com_rbuf[2] == 0x06))
+	   	{
+	   		f.ch[3] = com_rbuf[3];
+	   		f.ch[2] = com_rbuf[4];
+	   		f.ch[1] = com_rbuf[5];
+	   		f.ch[0] = com_rbuf[6];
+	   		f1.ch[1] = com_rbuf[7];
+	   		f1.ch[0] = com_rbuf[8];
+	   		com_f[1] = (float)(f1.i[0]/1000.0);    //小数部分
+	   		com_f[1] += f.l;                       //整数部分
+	   		//com_f[1] = (f.l + (float)(f1.i[0]/1000.0));//累计流量
+	   	}
+	   	status = 1;
+	   }
+	   if( status == 0)
+	   {
+	   	status = 2;
+	   	com_f[0] = 0.0;
+	   }
+	   com_sec = read_rtc();    //时间
+	}
+	return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+

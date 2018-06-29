@@ -1,0 +1,326 @@
+// Compilers view of MMU. Note these values are determined by the origin statements in the BIOS.
+//Segment           Origin     Size
+Root Code           00:0000    00476f
+Root Data           80:cdff    000d5d
+Xmem Code           ff:e000    00062e
+
+
+
+// Function mapping and source reference.
+// * The size of labels is indeterminate and so is denoted with an asterisk.
+//  Addr     Size   Function                        File                         Line Num
+    1cab      392   chk_ip                          \BOCON_K37_CONFIG_5SOCKET.LIB     149
+    1e33      369   wr_Num                          \BOCON_K37_CONFIG_5SOCKET.LIB     191
+    1fa4      320   rd_Num                          \BOCON_K37_CONFIG_5SOCKET.LIB     209
+    20e4      131   rd_extendData                   \BOCON_K37_CONFIG_5SOCKET.LIB     225
+    2167       41   wr_calib0_tm                    \BOCON_K37_CONFIG_5SOCKET.LIB     231
+    2190       41   wr_calib2_tm                    \BOCON_K37_CONFIG_5SOCKET.LIB     237
+    21b9       41   wr_config0_tm                   \BOCON_K37_CONFIG_5SOCKET.LIB     243
+    21e2       41   wr_config2_tm                   \BOCON_K37_CONFIG_5SOCKET.LIB     250
+    220b       45   wrSysCode                       \BOCON_K37_CONFIG_5SOCKET.LIB     259
+    2238       45   wrDevNo                         \BOCON_K37_CONFIG_5SOCKET.LIB     265
+    2265       45   wrMN                            \BOCON_K37_CONFIG_5SOCKET.LIB     271
+    2292       45   wr_sampleInt                    \BOCON_K37_CONFIG_5SOCKET.LIB     277
+    22bf       45   wrSysPwd                        \BOCON_K37_CONFIG_5SOCKET.LIB     283
+    22ec       45   wrUserPwd                       \BOCON_K37_CONFIG_5SOCKET.LIB     289
+    2319       45   wr_updateFlag                   \BOCON_K37_CONFIG_5SOCKET.LIB     295
+    2346       45   wrUpdateSip                     \BOCON_K37_CONFIG_5SOCKET.LIB     301
+    2373       45   wrDevIP                         \BOCON_K37_CONFIG_5SOCKET.LIB     309
+    23a0       45   wrDevMsk                        \BOCON_K37_CONFIG_5SOCKET.LIB     315
+    23cd       45   wrDevGtwy                       \BOCON_K37_CONFIG_5SOCKET.LIB     321
+    23fa       45   wrDialName                      \BOCON_K37_CONFIG_5SOCKET.LIB     328
+    2427       45   wrDialPwd                       \BOCON_K37_CONFIG_5SOCKET.LIB     334
+    2454       45   wrApn                           \BOCON_K37_CONFIG_5SOCKET.LIB     340
+    2481      223   wrSerLink                       \BOCON_K37_CONFIG_5SOCKET.LIB     354
+    2560      202   wrSip                           \BOCON_K37_CONFIG_5SOCKET.LIB     367
+    262a      174   wrSport                         \BOCON_K37_CONFIG_5SOCKET.LIB     378
+    26d8      196   wrSipPwd                        \BOCON_K37_CONFIG_5SOCKET.LIB     387
+    279c      174   wrRtdInt                        \BOCON_K37_CONFIG_5SOCKET.LIB     396
+    284a      174   wrWarnTime                      \BOCON_K37_CONFIG_5SOCKET.LIB     405
+    28f8      174   wrOverTime                      \BOCON_K37_CONFIG_5SOCKET.LIB     414
+    29a6      182   wrReCount                       \BOCON_K37_CONFIG_5SOCKET.LIB     423
+    2a5c      174   wrHeartbeatInt                  \BOCON_K37_CONFIG_5SOCKET.LIB     432
+    2b0a       93   wr_aiparam                      \BOCON_K37_CONFIG_5SOCKET.LIB     442
+    2b67       93   wr_aiparam_extend               \BOCON_K37_CONFIG_5SOCKET.LIB     449
+    2bc4       81   wr_extendData                   \BOCON_K37_CONFIG_5SOCKET.LIB     456
+    2c15     2447   rdSysConfig                     \BOCON_K37_CONFIG_5SOCKET.LIB     463
+    35a4     1787   rd_aiparam                      \BOCON_K37_CONFIG_5SOCKET.LIB     575
+    3c9f     1002   rd_aiparam_extend               \BOCON_K37_CONFIG_5SOCKET.LIB     669
+    4089      867   update_config                   \BOCON_K37_CONFIG_5SOCKET.LIB     729
+    43ec      226   update_calib                    \BOCON_K37_CONFIG_5SOCKET.LIB     793
+    44ce      324   check_2configs                  \BOCON_K37_CONFIG_5SOCKET.LIB     818
+    4612       81   write_MNnumber_param            \BOCON_K37_CONFIG_5SOCKET.LIB     853
+    4663      261   read_MNnumber_param             \BOCON_K37_CONFIG_5SOCKET.LIB     866
+
+
+// Global/static data symbol mapping and source reference.
+//  Addr     Size   Symbol                          File                         Line Num  Type
+ 80:c530        2   systemCode                      \BOCON_K37_CONFIG_5SOCKET.LIB      19  int             
+ 80:c52e        2   devNo                           \BOCON_K37_CONFIG_5SOCKET.LIB      20  int             
+ 80:c51f       15   devMN                           \BOCON_K37_CONFIG_5SOCKET.LIB      21  char[]          
+ 80:c51d        2   sampleInterval                  \BOCON_K37_CONFIG_5SOCKET.LIB      22  int             
+ 80:c514        9   sysPwd                          \BOCON_K37_CONFIG_5SOCKET.LIB      23  char[]          
+ 80:c50b        9   userPwd                         \BOCON_K37_CONFIG_5SOCKET.LIB      24  char[]          
+ 80:c4ed       30   update_sip                      \BOCON_K37_CONFIG_5SOCKET.LIB      25  char[]          
+ 80:c4eb        2   updateFlag                      \BOCON_K37_CONFIG_5SOCKET.LIB      26  int             
+ 80:c4db       16   ipaddr                          \BOCON_K37_CONFIG_5SOCKET.LIB      28  char[]          
+ 80:c4cb       16   netmsk                          \BOCON_K37_CONFIG_5SOCKET.LIB      29  char[]          
+ 80:c4bb       16   gatewy                          \BOCON_K37_CONFIG_5SOCKET.LIB      30  char[]          
+ 80:c49d       30   dialName                        \BOCON_K37_CONFIG_5SOCKET.LIB      31  char[]          
+ 80:c47f       30   dialPwd                         \BOCON_K37_CONFIG_5SOCKET.LIB      32  char[]          
+ 80:c46f       16   apn                             \BOCON_K37_CONFIG_5SOCKET.LIB      36  char[]          
+ 80:c3f7      120   Number                          \BOCON_K37_CONFIG_5SOCKET.LIB      39  char[][]        
+ 80:c3f6        1   serLink                         \BOCON_K37_CONFIG_5SOCKET.LIB      41  char[]          
+ 80:c3f6        0   sip                             \BOCON_K37_CONFIG_5SOCKET.LIB      42  char[][]        
+ 80:c3f6        0   sport                           \BOCON_K37_CONFIG_5SOCKET.LIB      43  unsigned int[]  
+ 80:c3f6        0   sipPwd                          \BOCON_K37_CONFIG_5SOCKET.LIB      44  char[][]        
+ 80:c3f6        0   rtdInterval                     \BOCON_K37_CONFIG_5SOCKET.LIB      45  int[]           
+ 80:c3f6        0   heartbeatInterval               \BOCON_K37_CONFIG_5SOCKET.LIB      46  int[]           
+ 80:c3f6        0   warnTime                        \BOCON_K37_CONFIG_5SOCKET.LIB      47  int[]           
+ 80:c3f6        0   overTime                        \BOCON_K37_CONFIG_5SOCKET.LIB      48  int[]           
+ 80:c3f6        0   reCount                         \BOCON_K37_CONFIG_5SOCKET.LIB      49  char[]          
+ 80:c3ce       40   extendData                      \BOCON_K37_CONFIG_5SOCKET.LIB      51  float[]         
+ 80:c3ca        4   t_config0                       \BOCON_K37_CONFIG_5SOCKET.LIB      53  unsigned long   
+ 80:c3c6        4   t_config2                       \BOCON_K37_CONFIG_5SOCKET.LIB      54  unsigned long   
+ 80:c3c2        4   t_calib0                        \BOCON_K37_CONFIG_5SOCKET.LIB      55  unsigned long   
+ 80:c3be        4   t_calib2                        \BOCON_K37_CONFIG_5SOCKET.LIB      56  unsigned long   
+ 80:c1fe      448   ai_param                        \BOCON_K37_CONFIG_5SOCKET.LIB      72  struct ai_param[]
+ 80:c122      220   ai_param_extend                 \BOCON_K37_CONFIG_5SOCKET.LIB      83  struct ai_param_extend[]
+ 80:c0a3      127   MNParam                         \BOCON_K37_CONFIG_5SOCKET.LIB      89  struct MNParam  
+ 10:00af        2   _orgtablesize                   \Rabbitbios.c                      41  int             
+ 10:00b1        0   _orgtable                       \Rabbitbios.c                      42  struct _orgtable[]
+
+// Parameter and local auto symbol mapping and source reference.
+//Offset Rel. to     Size   Symbol                          File                         Line Num  Type
+      25      SP        2   chk_ip:ip                       \BOCON_K37_CONFIG_5SOCKET.LIB     149  char*           
+      22      SP        1   chk_ip:i                        \BOCON_K37_CONFIG_5SOCKET.LIB     151  char            
+      20      SP        2   chk_ip:t                        \BOCON_K37_CONFIG_5SOCKET.LIB     152  unsigned int    
+       4      SP       16   chk_ip:tp                       \BOCON_K37_CONFIG_5SOCKET.LIB     153  char[]          
+       2      SP        2   chk_ip:temptr                   \BOCON_K37_CONFIG_5SOCKET.LIB     154  char*           
+       0      SP        2   chk_ip:temptr1                  \BOCON_K37_CONFIG_5SOCKET.LIB     155  char*           
+      17      SP        2   wr_Num:no                       \BOCON_K37_CONFIG_5SOCKET.LIB     191  int             
+      19      SP        1   wr_Num:whichChip                \BOCON_K37_CONFIG_5SOCKET.LIB     191  char            
+       0      SP       15   wr_Num:t                        \BOCON_K37_CONFIG_5SOCKET.LIB     193  char[]          
+       3      SP        1   rd_Num:whichChip                \BOCON_K37_CONFIG_5SOCKET.LIB     209  char            
+       0      SP        1   rd_Num:c                        \BOCON_K37_CONFIG_5SOCKET.LIB     211  char            
+       3      SP        1   rd_extendData:whichChip         \BOCON_K37_CONFIG_5SOCKET.LIB     225  char            
+       0      SP        1   rd_extendData:c                 \BOCON_K37_CONFIG_5SOCKET.LIB     227  char            
+       0      SP        0   wr_calib0_tm:_____ZW00000088    \BOCON_K37_CONFIG_5SOCKET.LIB     231  void            
+       0      SP        0   wr_calib2_tm:_____ZW0000008B    \BOCON_K37_CONFIG_5SOCKET.LIB     237  void            
+       0      SP        0   wr_config0_tm:_____ZW0000008E   \BOCON_K37_CONFIG_5SOCKET.LIB     243  void            
+       0      SP        0   wr_config2_tm:_____ZW00000091   \BOCON_K37_CONFIG_5SOCKET.LIB     250  void            
+       2      SP        1   wrSysCode:whichChip             \BOCON_K37_CONFIG_5SOCKET.LIB     259  char            
+       2      SP        1   wrDevNo:whichChip               \BOCON_K37_CONFIG_5SOCKET.LIB     265  char            
+       2      SP        1   wrMN:whichChip                  \BOCON_K37_CONFIG_5SOCKET.LIB     271  char            
+       2      SP        1   wr_sampleInt:whichChip          \BOCON_K37_CONFIG_5SOCKET.LIB     277  char            
+       2      SP        1   wrSysPwd:whichChip              \BOCON_K37_CONFIG_5SOCKET.LIB     283  char            
+       2      SP        1   wrUserPwd:whichChip             \BOCON_K37_CONFIG_5SOCKET.LIB     289  char            
+       2      SP        1   wr_updateFlag:whichChip         \BOCON_K37_CONFIG_5SOCKET.LIB     295  char            
+       2      SP        1   wrUpdateSip:whichChip           \BOCON_K37_CONFIG_5SOCKET.LIB     301  char            
+       2      SP        1   wrDevIP:whichChip               \BOCON_K37_CONFIG_5SOCKET.LIB     309  char            
+       2      SP        1   wrDevMsk:whichChip              \BOCON_K37_CONFIG_5SOCKET.LIB     315  char            
+       2      SP        1   wrDevGtwy:whichChip             \BOCON_K37_CONFIG_5SOCKET.LIB     321  char            
+       2      SP        1   wrDialName:whichChip            \BOCON_K37_CONFIG_5SOCKET.LIB     328  char            
+       2      SP        1   wrDialPwd:whichChip             \BOCON_K37_CONFIG_5SOCKET.LIB     334  char            
+       2      SP        1   wrApn:whichChip                 \BOCON_K37_CONFIG_5SOCKET.LIB     340  char            
+       2      SP        1   wrSerLink:no                    \BOCON_K37_CONFIG_5SOCKET.LIB     354  char            
+       4      SP        1   wrSerLink:whichChip             \BOCON_K37_CONFIG_5SOCKET.LIB     354  char            
+       2      SP        1   wrSip:no                        \BOCON_K37_CONFIG_5SOCKET.LIB     367  char            
+       4      SP        1   wrSip:whichChip                 \BOCON_K37_CONFIG_5SOCKET.LIB     367  char            
+       2      SP        1   wrSport:no                      \BOCON_K37_CONFIG_5SOCKET.LIB     378  char            
+       4      SP        1   wrSport:whichChip               \BOCON_K37_CONFIG_5SOCKET.LIB     378  char            
+       2      SP        1   wrSipPwd:no                     \BOCON_K37_CONFIG_5SOCKET.LIB     387  char            
+       4      SP        1   wrSipPwd:whichChip              \BOCON_K37_CONFIG_5SOCKET.LIB     387  char            
+       2      SP        1   wrRtdInt:no                     \BOCON_K37_CONFIG_5SOCKET.LIB     396  char            
+       4      SP        1   wrRtdInt:whichChip              \BOCON_K37_CONFIG_5SOCKET.LIB     396  char            
+       2      SP        1   wrWarnTime:no                   \BOCON_K37_CONFIG_5SOCKET.LIB     405  char            
+       4      SP        1   wrWarnTime:whichChip            \BOCON_K37_CONFIG_5SOCKET.LIB     405  char            
+       2      SP        1   wrOverTime:no                   \BOCON_K37_CONFIG_5SOCKET.LIB     414  char            
+       4      SP        1   wrOverTime:whichChip            \BOCON_K37_CONFIG_5SOCKET.LIB     414  char            
+       2      SP        1   wrReCount:no                    \BOCON_K37_CONFIG_5SOCKET.LIB     423  char            
+       4      SP        1   wrReCount:whichChip             \BOCON_K37_CONFIG_5SOCKET.LIB     423  char            
+       2      SP        1   wrHeartbeatInt:no               \BOCON_K37_CONFIG_5SOCKET.LIB     432  char            
+       4      SP        1   wrHeartbeatInt:whichChip        \BOCON_K37_CONFIG_5SOCKET.LIB     432  char            
+       2      SP        1   wr_aiparam:ch                   \BOCON_K37_CONFIG_5SOCKET.LIB     442  char            
+       4      SP        1   wr_aiparam:whichChip            \BOCON_K37_CONFIG_5SOCKET.LIB     442  char            
+       2      SP        1   wr_aiparam_extend:ch            \BOCON_K37_CONFIG_5SOCKET.LIB     449  char            
+       4      SP        1   wr_aiparam_extend:whichChip     \BOCON_K37_CONFIG_5SOCKET.LIB     449  char            
+       2      SP        1   wr_extendData:ch                \BOCON_K37_CONFIG_5SOCKET.LIB     456  char            
+       4      SP        1   wr_extendData:whichChip         \BOCON_K37_CONFIG_5SOCKET.LIB     456  char            
+       3      SP        1   rdSysConfig:whichChip           \BOCON_K37_CONFIG_5SOCKET.LIB     463  char            
+       0      SP        1   rdSysConfig:c                   \BOCON_K37_CONFIG_5SOCKET.LIB     465  char            
+       4      SP        1   rd_aiparam:whichChip            \BOCON_K37_CONFIG_5SOCKET.LIB     575  char            
+       1      SP        1   rd_aiparam:ch                   \BOCON_K37_CONFIG_5SOCKET.LIB     577  char            
+       0      SP        1   rd_aiparam:flag                 \BOCON_K37_CONFIG_5SOCKET.LIB     577  char            
+       4      SP        1   rd_aiparam_extend:whichChip     \BOCON_K37_CONFIG_5SOCKET.LIB     669  char            
+       1      SP        1   rd_aiparam_extend:ch            \BOCON_K37_CONFIG_5SOCKET.LIB     671  char            
+       0      SP        1   rd_aiparam_extend:flag          \BOCON_K37_CONFIG_5SOCKET.LIB     671  char            
+       4      SP        1   update_config:whichChip         \BOCON_K37_CONFIG_5SOCKET.LIB     729  char            
+       1      SP        1   update_config:rdChip            \BOCON_K37_CONFIG_5SOCKET.LIB     731  char            
+       0      SP        1   update_config:no                \BOCON_K37_CONFIG_5SOCKET.LIB     731  char            
+       5      SP        1   update_calib:whichChip          \BOCON_K37_CONFIG_5SOCKET.LIB     793  char            
+       2      SP        1   update_calib:channel            \BOCON_K37_CONFIG_5SOCKET.LIB     795  char            
+       1      SP        1   update_calib:rdChip             \BOCON_K37_CONFIG_5SOCKET.LIB     795  char            
+       0      SP        1   update_calib:vori               \BOCON_K37_CONFIG_5SOCKET.LIB     795  char            
+       0      SP        0   check_2configs:_____ZW00000193  \BOCON_K37_CONFIG_5SOCKET.LIB     818  void            
+       2      SP        1   write_MNnumber_param:whichChip  \BOCON_K37_CONFIG_5SOCKET.LIB     853  char            
+       5      SP        1   read_MNnumber_param:whichChip   \BOCON_K37_CONFIG_5SOCKET.LIB     866  char            
+       1      SP        2   read_MNnumber_param:crc         \BOCON_K37_CONFIG_5SOCKET.LIB     868  unsigned int    
+       0      SP        1   read_MNnumber_param:no          \BOCON_K37_CONFIG_5SOCKET.LIB     869  char            
+
+
+// Macro listing and source reference.
+//  Name                           File                         Line Num
+   _RESTRICT_WATCHCODE_            
+   USE_PORTA_AUX_IO                \DEFAULT.H                         57
+   ZWORLD_RESERVED_SIZE            \DEFAULT.H                         71
+   __R3000_LIB__                   \R3000.LIB                         29
+   QD_DIVISOR                      \R3000.LIB                         32
+   QD_OVERFLOW                     \R3000.LIB                         34
+   QD_UNDERFLOW                    \R3000.LIB                         35
+   PWM_FREQ_FACTOR                 \R3000.LIB                        417
+   PWM_SPREAD                      \R3000.LIB                        469
+   PWM_OPENDRAIN                   \R3000.LIB                        470
+   SETUSERMODE                     \DEFAULT.H                         81
+   SETSYSMODE                      \DEFAULT.H                         82
+   _system                         \DEFAULT.H                         83
+   _SYS_CALL_VARS                  \DEFAULT.H                         84
+   _NET_SYSCALL                    \DEFAULT.H                         85
+   _rk_printf                      \DEFAULT.H                         86
+   _rk_sprintf                     \DEFAULT.H                         87
+   DK_ENABLE_BREAKPOINTS           \DEFAULT.H                        125
+   DK_ENABLE_ASMSINGLESTEP         \DEFAULT.H                        133
+   DK_ENABLE_WATCHEXPRESSIONS      \DEFAULT.H                        141
+   DK_ENABLE_TRACING               \DEFAULT.H                        149
+   DK_ENABLE_STACK_TRACING         \DEFAULT.H                        157
+   DK_SEND_STACK_LENGTH            \DEFAULT.H                        165
+   DK_ENABLE_DEBUGKERNEL           \DEFAULT.H                        167
+   DK_ENABLE_TRACING               \DEFAULT.H                        174
+   DK_ENABLE_STACK_TRACING         \DEFAULT.H                        177
+   DK_ENABLE_ASMSINGLESTEP         \DEFAULT.H                        180
+   DK_ENABLE_BREAKPOINTS           \DEFAULT.H                        183
+   DK_ENABLE_WATCHEXPRESSIONS      \DEFAULT.H                        186
+   __DKENTRY_LIB                   \DKENTRY.LIB                        2
+   __DKCOMMON_LIB                  \DKCOMMON.LIB                       2
+   __DKCORE_LIB                    \DKCORE.LIB                         2
+   TC_TYPE_DEBUG                   \DKCORE.LIB                        14
+   TC_DEBUG_NOREQUEST              \DKCORE.LIB                        16
+   TC_DEBUG_SINGLESTEP             \DKCORE.LIB                        17
+   TC_DEBUG_TOGGLEBREAKPOINT       \DKCORE.LIB                        18
+   TC_DEBUG_CLEARBREAKPOINTS       \DKCORE.LIB                        19
+   TC_DEBUG_TOGGLEALLBREAKPOINTS   \DKCORE.LIB                        20
+   TC_DEBUG_ATBREAKPOINT           \DKCORE.LIB                        21
+   TC_DEBUG_STARTPROGRAM           \DKCORE.LIB                        22
+   TC_DEBUG_RUNPROGRAM             \DKCORE.LIB                        23
+   TC_DEBUG_STOPPROGRAM            \DKCORE.LIB                        24
+   TC_DEBUG_ADDWATCH               \DKCORE.LIB                        25
+   TC_DEBUG_DELETEWATCH            \DKCORE.LIB                        26
+   TC_DEBUG_DELETEALLWATCHES       \DKCORE.LIB                        27
+   TC_DEBUG_EXECWATCH              \DKCORE.LIB                        28
+   TC_DEBUG_EXECALLWATCHES         \DKCORE.LIB                        29
+   TC_DEBUG_SENDCHAR               \DKCORE.LIB                        30
+   TC_DEBUG_RESET                  \DKCORE.LIB                        31
+   TC_DEBUG_SETSENDFLAGS           \DKCORE.LIB                        32
+   TC_DEBUG_REGDATA                \DKCORE.LIB                        33
+   TC_DEBUG_WATCHDATA              \DKCORE.LIB                        34
+   TC_DEBUG_ASMDATA                \DKCORE.LIB                        35
+   TC_DEBUG_STACKDATA              \DKCORE.LIB                        36
+   TC_DEBUG_STDIO                  \DKCORE.LIB                        37
+   TC_DEBUG_WRITEREGDATA           \DKCORE.LIB                        38
+   TC_DEBUG_STDIOCHARREADY         \DKCORE.LIB                        39
+   TC_DEBUG_NOOP                   \DKCORE.LIB                        40
+   TC_DEBUG_ENABLEDOPTIONS         \DKCORE.LIB                        41
+   DKF_STEP_INTO                   \DKCORE.LIB                        52
+   DKF_STEP_OVER                   \DKCORE.LIB                        53
+   DKF_STEP_ASM                    \DKCORE.LIB                        54
+   DKF_STEP_SOURCE                 \DKCORE.LIB                        55
+   DKF_STEP_CALL                   \DKCORE.LIB                        56
+   DKF_STEP_LCALL                  \DKCORE.LIB                        57
+   DKF_STAT_AT_BP                  \DKCORE.LIB                        60
+   DKF_STAT_AT_HARD_BP             \DKCORE.LIB                        61
+   DKF_STAT_RUNMODE                \DKCORE.LIB                        62
+   DKF_STAT_STEPMODE               \DKCORE.LIB                        63
+   DKF_STAT_ASMSTEPMODE            \DKCORE.LIB                        64
+   DKF_STAT_ATEXIT                 \DKCORE.LIB                        65
+   DKF_STAT_CONTEXTSWITCH          \DKCORE.LIB                        66
+   DKF_STAT_INWATCH                \DKCORE.LIB                        67
+   _TRACE                          \DKCORE.LIB                       135
+   _TRACEON                        \DKCORE.LIB                       136
+   _TRACEOFF                       \DKCORE.LIB                       137
+   DK_SEND_ASM_LENGTH              \DKCORE.LIB                       141
+   DKF_SEND_STACK                  \DKCORE.LIB                       143
+   DKF_SEND_WATCHES                \DKCORE.LIB                       144
+   DKF_SEND_ASM                    \DKCORE.LIB                       145
+   DKF_SEND_REGS                   \DKCORE.LIB                       146
+   DKF_SEND_STATUS                 \DKCORE.LIB                       147
+   DKF_SEND_ACK                    \DKCORE.LIB                       148
+   DK_ERROR_BPNOTENABLED           \DKCORE.LIB                       159
+   DK_ERROR_ASMSINGLESTEPNOTENABLED \DKCORE.LIB                       160
+   DK_ERROR_WATCHNOTENABLED        \DKCORE.LIB                       161
+   DKF_STDIO_LOCK                  \DKCORE.LIB                       163
+   DKF_GETCHAR_LOCK                \DKCORE.LIB                       164
+   DKF_RESET_LOCK                  \DKCORE.LIB                       165
+   DKF_DK_LOCK                     \DKCORE.LIB                       166
+   DK_STDIO_TIMEOUT                \DKCORE.LIB                       167
+   DK_GETCHAR_TIMEOUT              \DKCORE.LIB                       168
+   dkIOI                           \DKCORE.LIB                       170
+   dkIOE                           \DKCORE.LIB                       171
+   dkALTD                          \DKCORE.LIB                       172
+   DK_RST20                        \DKCORE.LIB                       174
+   DK_RST28                        \DKCORE.LIB                       175
+   dkZZ                            \DKCORE.LIB                       182
+   dkZS                            \DKCORE.LIB                       183
+   dkZD                            \DKCORE.LIB                       184
+   dkZT                            \DKCORE.LIB                       185
+   dkSZ                            \DKCORE.LIB                       186
+   dkSS                            \DKCORE.LIB                       187
+   dkSD                            \DKCORE.LIB                       188
+   dkST                            \DKCORE.LIB                       189
+   dkDZ                            \DKCORE.LIB                       190
+   dkDS                            \DKCORE.LIB                       191
+   dkDD                            \DKCORE.LIB                       192
+   dkDT                            \DKCORE.LIB                       193
+   dkTZ                            \DKCORE.LIB                       194
+   dkTS                            \DKCORE.LIB                       195
+   dkTD                            \DKCORE.LIB                       196
+   dkTT                            \DKCORE.LIB                       197
+   DK_MAX_WATCHES                  \DKCORE.LIB                       274
+   DKF_BP_INACTIVE                 \DKCORE.LIB                       814
+   DKF_BP_ACTIVE                   \DKCORE.LIB                       815
+   DKF_BP_DELETED                  \DKCORE.LIB                       816
+   DKF_BP_CONDITIONAL              \DKCORE.LIB                       817
+   DKF_BP_HARD                     \DKCORE.LIB                       818
+   DKF_BP_INSERT                   \DKCORE.LIB                       821
+   DKF_BP_FOUND                    \DKCORE.LIB                       822
+   DKF_BP_NOTFOUND                 \DKCORE.LIB                       823
+   DKF_BP_EMPTYFOUND               \DKCORE.LIB                       824
+   DKF_BP_EXHAUSTED                \DKCORE.LIB                       825
+   DK_MAX_BREAKPOINTS              \DKCORE.LIB                       830
+   DK_BREAKPOINT_MASK              \DKCORE.LIB                       848
+   DKF_RST_RST28                   \DKCORE.LIB                      3249
+   DKF_RST_RST20                   \DKCORE.LIB                      3250
+   DKF_RST_RST18                   \DKCORE.LIB                      3251
+   __DKAPP_LIB                     \DKAPP.LIB                          2
+   DKF_OPTIONS_BREAKPOINTS         \DKAPP.LIB                         71
+   DKF_OPTIONS_ASMSINGLESTEP       \DKAPP.LIB                         72
+   DKF_OPTIONS_WATCHES             \DKAPP.LIB                         73
+   DK_BREAKPOINTS_ENABLED          \DKAPP.LIB                         75
+   DK_ASMSINGLESTEP_ENABLED        \DKAPP.LIB                         76
+   DK_WATCHES_ENABLED              \DKAPP.LIB                         77
+   __PROGRAM_LIB                   \PROGRAM.LIB                        2
+   _program_debug                  \PROGRAM.LIB                        4
+   _rk_mem_debug                   \MEM.LIB                            5
+   XALLOC_ANY                      \MEM.LIB                           12
+   XALLOC_BB                       \MEM.LIB                           13
+   XALLOC_NOTBB                    \MEM.LIB                           14
+   XALLOC_MAYBBB                   \MEM.LIB                           15
+   _RS_USER_XALLOC_START           \MEM.LIB                           80
+   _RS_XALLOC_START                \MEM.LIB                           81
+   _RS_XALLOC_END                  \MEM.LIB                           82
+   _xavail                         \MEM.LIB                          514
+   _bocon_k37_config_lib           \BOCON_K37_CONFIG_5SOCKET.LIB       3
+   BOCON_K37_PARAM_ADDR            \BOCON_K37_CONFIG_5SOCKET.LIB      17
+
+
+// Function call graph.
+No call graph information available.

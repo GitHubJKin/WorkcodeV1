@@ -1,0 +1,111 @@
+/*** BeginHeader */
+#ifndef rd_1001_flux_jiubo_lib
+#define rd_1001_flux_jiubo_lib
+/*** EndHeader */
+/*******************************************************************************
+九波声迪 WL-1A 超声波明渠流量计(怡文协议)    -- 1001，10010，1002
+1、怡文协议：
+06m02d02:05'  Q=54.42L/S M=00022561  07A1     0D
+2、九波协议：
+T=05-03-28 12:29'31"
+M =00053821
+Q =44.83(21,OK)
+H =0.231(20,OK)
+I1=4.000(01,OK)
+I2=4.000(02,OK)
+I3=4.000(03,OK)
+I4=4.000(23,OK)
+
+*******************************************************************************/
+/*** BeginHeader rd_flux_jiubo */
+int rd_flux_jiubo( char port );
+/*** EndHeader */
+int rd_flux_jiubo( char port )
+{
+   static int status;
+   auto  char * temptr;
+   auto unsigned long total;
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      com_tbuf[0] = 0x11;    //将需要发送的数据放入缓冲区
+      com_tlen = 1;          //发送数据长度
+      //pack_modbus_cmd(0x01, 0x04, 0x1010, 0x02);
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelayMs(1000));
+	  
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if(com_rlen >= 40)                         //接收数据的长度
+      {
+         temptr = strchr(&com_rbuf[10], 'Q');
+         if(temptr != NULL)
+         {
+            temptr = strchr(temptr, '=');
+            temptr ++;
+            com_f[0] = atof(temptr);      //瞬时流量
+         }
+         else
+         {
+            com_f[0] = 0.0;
+            status ++;
+         }
+
+         temptr = strchr(&com_rbuf[10], 'M');
+         if(temptr != NULL)
+         {
+            temptr = strchr(temptr, '=');
+            temptr ++;
+            total = atol(temptr);         //累计流量
+            com_f[1] = total;
+         }
+         else
+         {
+            com_f[1] = 0.0;
+            status ++;
+         }
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+
+/*** BeginHeader rd_flux_jiubo_modbusRTU_handleFunction*/
+int rd_flux_jiubo_modbusRTU_handleFunction(void);
+/*** EndHeader */
+int rd_flux_jiubo_modbusRTU_handleFunction(void)
+{
+	auto int status;
+   auto CHARTOINTTY data;
+   auto union uf l;
+
+   status = 0;
+
+   data.c[1] = com_rbuf[3];
+   data.c[0] = com_rbuf[4];
+   com_f[0] = data.i;
+   com_f[0] /= 32767.0;
+   com_f[0] *= ai_param[15].alarm_H;
+
+   l.ch[3] = com_rbuf[7];
+   l.ch[2] = com_rbuf[8];
+   l.ch[1] = com_rbuf[9];
+   l.ch[0] = com_rbuf[10];
+   com_f[1] = (float)l.l;
+
+   status = 1;
+
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

@@ -1,0 +1,89 @@
+
+/*** BeginHeader */
+#ifndef rd_8016_daojin_cems_lib
+#define rd_8016_daojin_cems_lib
+/*** EndHeader */
+
+
+
+
+/*** BeginHeader rd_daojin_cems*/
+int rd_daojin_cems( char port );
+/*** EndHeader */
+int rd_daojin_cems( char port )
+{
+   static int status;
+   auto int i, k;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      waitfor(DelaySec(30));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 52)&&(com_rbuf[0] == 0x24) &&(com_rbuf[1] == 0x32)&&(com_rbuf[2] == 0x54))
+      {
+         for (i = 0; i < 12; i++)
+         {
+            k = 3 + i * 4;
+            if(com_rbuf[k] == 0xff && com_rbuf[k+1] == 0xff &&
+               com_rbuf[k+2] == 0xff && com_rbuf[k+3] == 0xff)
+            {
+               continue;
+            }
+            else
+            {
+               f.ch[3] = com_rbuf[k];
+               f.ch[2] = com_rbuf[k+1];
+               f.ch[1] = com_rbuf[k+2];
+               f.ch[0] = com_rbuf[k+3];
+               com_f[i] = f.f;         //即时值     
+            }
+         }
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+            for (i = 0; i < 20; i++)
+            {
+               com_f[i] = 0.0;
+            }
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

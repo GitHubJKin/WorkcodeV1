@@ -1,0 +1,5327 @@
+/*** Beginheader */
+#ifndef __BOCON_K37_MENU_LIB
+#define __BOCON_K37_MENU_LIB
+/*** Endheader */
+
+/*** Beginheader */
+
+#use "bocon_k37_bmp.elib"
+#use "bocon_bmp_water.elib"
+#use "bocon_pol_table_5socket.lib"
+#use "bocon_k37_sw2loader.elib"
+#use "bocon_k37_bmp_new_5socket.lib"
+#use "buzushuju_bmp_5socket.lib"
+#use "BOCON_EXPANDPARAMSET_5socket.LIB"
+#use "unitCtrl_5socket.lib"
+
+//各种污染物的总累计量，时间段累计量的记录
+
+#ifdef WUHANHENXIN
+	#define SCREENTIME (SEC_TIMER+1)
+#else
+	#define SCREENTIME 1800
+#endif
+unsigned long tm_ts;		//记录按键超时时间，2分钟
+char aiCh;					//AI和COM通道号
+char com_param_pos;		//串口参数的位置，0-19
+char extend_pos;			//对应的扩展数组的位置，总是与当前的com_param_pos对应
+float batVolt;				//电池电量
+char userMode;				//用户操作模式，0-未登录，1-操作员，2-工程师
+char disp_di_flag;		//实时数据显示界面上显示开关量的标志
+char pol_modify_flag;	//是否修改了编码的标志，为1表示已修改，需要检查设置
+
+struct tm rtc;
+struct tm rtc1;
+unsigned long t0, hisTim;
+
+char dispOnoffFlag;
+char dispDataPage;
+
+char wKey;				//key value
+char oldKey;			//previous key value
+char keyCount;			//同一个键连续输入的次数，控制一个按键上的不同字母
+int keyPos;				//键盘输入的位置
+char keyMode;			//键盘输入模式，数字、大写、小写（1、2、3）
+char keyBuf[48];		//键盘输入缓冲区
+char menuNo;			//menu number
+char menuNoOld;		//old menu number
+char menuFlag;			//display menu flag
+fontInfo fi6x8, fi12x16;
+
+unsigned int count_disp_real;	//显示实时数据的计数
+unsigned long tm_dispoff;		//关闭显示的定时器
+//char workmode[2];
+char serverNoBz;//服务器号
+char startTimeBz[13];//补足数据的开始时间
+char endTimeBz[13];//补足数据的结束时间
+unsigned long bz_rdP_start[SOCKET_NUMBER];
+unsigned long bz_rdP_end[SOCKET_NUMBER];
+char noMin, noMax;
+
+
+//typedef struct
+//{
+//   char devAddr;
+//   unsigned int beginRegister;
+//   unsigned int registerCounter;
+//   DataType dataSort;
+//   unsigned crc;
+//}modbusConfig_t;
+//modbusConfig_t modbusConfig;
+
+/*** Endheader */
+
+
+/*** BeginHeader workmode_bmp */
+extern unsigned long workmode_bmp;
+/*** EndHeader */
+
+// Bitmap : workmode_bmp
+// Buffer Size : 136
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 17 pixels.
+// Width  : 63 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,63,17,workmode_bmp);
+
+xdata workmode_bmp {
+'\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x01',
+'\x00','\x00','\x08','\x80','\x20','\x90','\x00','\xA1',
+'\x3F','\xFC','\x0C','\x80','\x20','\x90','\x00','\x99',
+'\x01','\x00','\x09','\x00','\x27','\xFC','\x00','\x91',
+'\x01','\x00','\x13','\xFE','\x20','\x90','\x7F','\xFD',
+'\x01','\x00','\x12','\x80','\xFB','\xF8','\x00','\x81',
+'\x01','\x00','\x34','\x88','\x22','\x08','\x00','\x81',
+'\x01','\x00','\x50','\xFC','\x73','\xF8','\x00','\x81',
+'\x01','\x00','\x90','\x80','\x6A','\x08','\x3E','\x81',
+'\x01','\x00','\x10','\x80','\xA3','\xF8','\x08','\x41',
+'\x01','\x00','\x10','\x84','\xA0','\x40','\x08','\x41',
+'\x01','\x00','\x10','\xFE','\x27','\xFE','\x08','\x41',
+'\x01','\x00','\x10','\x80','\x20','\x40','\x0B','\x21',
+'\x01','\x00','\x10','\x80','\x20','\xA0','\x1C','\x23',
+'\xFF','\xFE','\x10','\x80','\x20','\x98','\x70','\x13',
+'\x00','\x00','\x10','\x80','\x21','\x0E','\x20','\x0B',
+'\x00','\x00','\x10','\x80','\x26','\x04','\x00','\x05'
+};
+/*** BeginHeader jicunqidizhi_bmp */
+extern unsigned long jicunqidizhi_bmp;
+/*** EndHeader */
+
+// Bitmap : jicunqidizhi_bmp
+// Buffer Size : 150
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 15 pixels.
+// Width  : 78 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,78,15,jicunqidizhi_bmp);
+
+xdata jicunqidizhi_bmp {
+'\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x03',
+'\x02','\x00','\x03','\x00','\x3E','\x7C','\x00','\x20','\x00','\x23',
+'\x01','\x00','\x02','\x00','\x22','\x44','\x11','\x20','\x10','\x23',
+'\x3F','\xFE','\x7F','\xFC','\x22','\x44','\x11','\x20','\x10','\x23',
+'\x21','\x02','\x04','\x00','\x3E','\x7C','\x11','\x24','\x10','\x23',
+'\x5F','\xF4','\x04','\x00','\x01','\x10','\xFD','\x3E','\x10','\x23',
+'\x02','\x80','\x0B','\xF8','\x01','\x08','\x11','\xE4','\xFD','\x23',
+'\x04','\x40','\x18','\x10','\xFF','\xFC','\x17','\x24','\x11','\x3F',
+'\x08','\x20','\x10','\x20','\x06','\xC0','\x11','\x24','\x11','\x23',
+'\x7F','\xFE','\x30','\x20','\x18','\x30','\x11','\x24','\x11','\x23',
+'\x00','\x10','\x57','\xFE','\xE0','\x0E','\x11','\x34','\x11','\x23',
+'\x0F','\x90','\x90','\x20','\x3E','\xFC','\x11','\x28','\x11','\x23',
+'\x08','\x90','\x10','\x20','\x22','\x88','\x1D','\x20','\x1D','\x23',
+'\x0F','\x90','\x10','\x20','\x22','\x88','\x31','\x02','\xF1','\x27',
+'\x08','\x90','\x10','\x20','\x22','\x88','\xC1','\x02','\x47','\xFF'
+};
+
+/*** BeginHeader jicunqigeshu_bmp */
+extern unsigned long jicunqigeshu_bmp;
+/*** EndHeader */
+
+// Bitmap : jicunqigeshu_bmp
+// Buffer Size : 160
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 78 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,78,16,jicunqigeshu_bmp);
+
+xdata jicunqigeshu_bmp {
+'\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x03',
+'\x04','\x00','\x06','\x00','\x7C','\xF8','\x02','\x00','\x10','\x43',
+'\x02','\x00','\x04','\x00','\x44','\x88','\x02','\x00','\x92','\x63',
+'\x7F','\xFC','\xFF','\xF8','\x44','\x88','\x05','\x00','\x54','\x43',
+'\x42','\x04','\x08','\x00','\x7C','\xF8','\x04','\x80','\x38','\x43',
+'\xBF','\xE8','\x08','\x00','\x02','\x20','\x08','\x41','\xFE','\xFF',
+'\x05','\x00','\x17','\xF0','\x02','\x10','\x12','\x30','\x38','\x8B',
+'\x08','\x80','\x30','\x21','\xFF','\xF8','\x22','\x1C','\x56','\x8B',
+'\x10','\x40','\x20','\x40','\x0D','\x80','\xC2','\x08','\x91','\x8B',
+'\xFF','\xFC','\x60','\x40','\x30','\x60','\x02','\x00','\x10','\x53',
+'\x00','\x20','\xAF','\xFD','\xC0','\x1C','\x02','\x01','\xFE','\x53',
+'\x1F','\x21','\x20','\x40','\x7D','\xF8','\x02','\x00','\x24','\x23',
+'\x11','\x20','\x20','\x40','\x45','\x10','\x02','\x00','\x68','\x23',
+'\x1F','\x20','\x20','\x40','\x45','\x10','\x02','\x00','\x18','\x53',
+'\x11','\x20','\x20','\x40','\x45','\x10','\x02','\x00','\x64','\x9F',
+'\x00','\xA0','\x21','\x40','\x7D','\xF0','\x02','\x01','\x81','\x0B'
+};
+/*** Beginheader k37_hmi_init */
+void k37_hmi_init(void);
+/*** endheader */
+void k37_hmi_init(void)  //nodebug
+{
+   auto unsigned long timeval;
+   auto char c;
+
+   t0 = read_rtc();
+	mktm(&rtc, t0);
+
+   keyInit();		// Start-up the keypad driver
+
+	glInit();
+	glBackLight(1);
+   glBuffLock();
+   glBlankScreen();
+   K37PUTNAME
+	glBuffUnlock();
+	glXFontInit(&fi12x16, 12, 16, 32, 127, Font12x16);
+   glXFontInit(&fi6x8, 6, 8, 32, 127, Font6x8);
+
+   dispDataPage = 0;
+   dispOnoffFlag = 1;
+
+   userMode = 0;
+   disp_di_flag = 0;
+   pol_modify_flag = 0;
+
+   serverNoBz = 1;
+   timeval = read_rtc();
+
+   mktm(&rtc, (timeval-86400L));
+   memset(startTimeBz, 0x00, sizeof(startTimeBz));
+   sprintf(startTimeBz, "%02d%02d%02d%02d%02d%02d",
+   	rtc.tm_year-100, rtc.tm_mon,  rtc.tm_mday,  rtc.tm_hour,  rtc.tm_min, rtc.tm_sec);
+
+   mktm(&rtc, timeval);
+   memset(endTimeBz, 0x00, sizeof(endTimeBz));
+   sprintf(endTimeBz, "%02d%02d%02d%02d%02d%02d",
+   	rtc.tm_year-100, rtc.tm_mon,  rtc.tm_mday,  rtc.tm_hour,  rtc.tm_min, rtc.tm_sec);
+
+   for(c = 0; c < SOCKET_NUMBER; c++)
+   {
+   	bz_rdP_start[c] = 0L;
+      bz_rdP_end[c] = 0L;
+   }
+   memset(workmode,'\0',sizeof(workmode));
+   workmode[0] = 'F';
+   workmode[1] = 'F';
+}
+
+/*** Beginheader _check_rtc */
+void _check_rtc( void );
+/*** endheader */
+void _check_rtc(void)
+{
+	auto int i;
+
+	getDs3231(&rtc1);			//读取时钟芯片的内部时间
+   t0 = mktime(&rtc1);
+   tm_rd(&rtc);				//读取系统自己的时间
+   i = (int)(t0 - mktime(&rtc));
+   i = abs(i);
+   if(i > 1)					//如果差异超过1秒
+   {
+   	printf("Set RTC\n");
+      tm_wr(&rtc1);			//更新系统时间
+	   SEC_TIMER = t0;
+      mktm(&rtc, t0);
+      if(i > 20)				//如果差异太大，则需要更新各定时器等
+      {
+      	update_rtc(1);		//以时钟芯片的时间为准
+      }
+   }
+}
+
+/*******************************************************************************
+//显示时间的任务
+*******************************************************************************/
+/*** Beginheader dispTime */
+void dispTime( void );
+/*** endheader */
+void dispTime( void )
+{
+	auto unsigned long bmp;
+   auto char c;
+
+	costate
+   {
+      while(1)
+      {
+			_check_rtc();
+      	if(dispOnoffFlag > 0)
+         {
+	         glBuffLock();
+
+				if((serLink[0] > 1) || (serLink[1] > 1) || (serLink[2] > 1))
+            {	//如果是GPRS，就显示信号强度
+            	if(rssi < 5) bmp = ANT0_bmp;
+	            else if((rssi < 12) || (rssi == 99)) bmp = ANT1_bmp;
+	            else if(rssi < 18) bmp = ANT2_bmp;
+	            else if(rssi < 26) bmp = ANT3_bmp;
+	            else  bmp = ANT4_bmp;
+	            glXPutBitmap (0, 3, 21, 13, bmp);
+            }
+				else
+            {
+            	_glBlankRegion( 0,  0, 22, 16);
+         		glPrintf(5, 3, &fi12x16, "A");	//如果是ADSL，就显示“A”
+         		glPrintf(5, 3, &fi12x16, "E");	//如果是以太网，就显示“E”
+				}
+
+            for(c=0;c<SOCKET_NUMBER;c++)
+            {
+               //if(strcmp(sip[c], "0.0.0.0") == 0)
+               if(serLink[c] == 0)
+               {
+               	glPrintf(24+6*c, 5, &fi6x8, " ");
+               }
+               else
+            	{
+	               if(TCP_OK[c] == 1) glPrintf(24+6*c, 5, &fi6x8, "C");//已联机
+                  else
+                  {
+                  	if(serLink[c] == 1) glPrintf(24+6*c, 5, &fi6x8, "E");
+                     else
+                     {
+                  		if(GPRS_OK == 1) glPrintf(24+6*c, 5, &fi6x8, "G");//已上网未联机
+	               		else glPrintf(24+6*c, 5, &fi6x8, "N");			//未联机
+                     }
+                  }
+	            }
+            }
+
+            if(detMainPwr() == 0)				//外部电源已断电
+            {
+               batVolt = rdBatt();
+               if(batVolt > 7.8)					//4 (8.4 - 7.8) 2.5 Hour
+               {
+                  bmp = boconBat4_bmp;
+               }
+               else if(batVolt > 7.4)			//3 (7.4 - 7.8) 3 Hour
+               {
+                  bmp = boconBat3_bmp;
+               }
+               else if(batVolt > 7.2)			//2 (7.2 - 7.4) 1.5 Hour
+               {
+                  bmp = boconBat2_bmp;
+               }
+               else if(batVolt > 6.8)			//1 (6.8 - 7.2) 0.6 Hour
+               {
+                  bmp = boconBat1_bmp;
+               }
+               else									//0 (6.0 - 6.8) 0.4 Hour
+               {
+                  bmp = boconBat0_bmp;
+               }
+               glXPutBitmap (270, 2, 22, 12, bmp);
+
+               if(batVolt < 6.0)
+					{
+               	msDelay(20);
+               	batVolt = rdBatt();
+                  if(batVolt < 6.0)
+                  {
+							save_before_reset();		//Save history data before shutdown
+							battDisable();				//电池电压过低，自动关机
+                  }
+					}
+            }
+            else glPrintf(260, 2, &fi12x16, "   ");
+
+            if(keyMode == 1)	glPrintf(300, 5, &fi6x8, "123");
+            else if(keyMode == 2)	glPrintf(300, 5, &fi6x8, "ABC");
+            else if(keyMode == 3)	glPrintf(300, 5, &fi6x8, "abc");
+            else	glPrintf(300, 5, &fi6x8, "   ");
+
+            glBuffUnlock();
+            glBuffLock();
+
+	         glPrintf(19, 227, &fi12x16, "%04d",1900+rtc.tm_year);
+	         glXPutBitmap (69, 224, 15, 16, BoconYear_bmp);
+	         glPrintf(87, 227, &fi12x16, "%02d",rtc.tm_mon);
+	         glXPutBitmap (113, 224, 13, 16, BoconMonth_bmp);
+	         glPrintf(131, 227, &fi12x16, "%02d",rtc.tm_mday);
+	         glXPutBitmap (157, 224, 11, 16, BoconDay_bmp);
+	         glPrintf(173, 227, &fi12x16, "%02d",rtc.tm_hour);
+	         glXPutBitmap (199, 224, 15, 16, BoconHour_bmp);
+	         glPrintf(217, 227, &fi12x16, "%02d",rtc.tm_min);
+	         glXPutBitmap (243, 224, 16, 16, BoconMinute_bmp);
+	         glPrintf(261, 227, &fi12x16, "%02d",rtc.tm_sec);
+	         glXPutBitmap (287, 224, 16, 16, BoconSecond_bmp);
+
+            //glPrintf(261, 216, &fi6x8, "%.2f", batVolt);//test
+	         glBuffUnlock();
+         }
+      	waitfor ( DelayMs(300) );
+      }
+   }
+}
+
+/*** Beginheader chk_time */
+int chk_time(char * buf);
+/*** endheader */
+int chk_time(char * buf)
+{
+	auto unsigned int time_day;
+	auto char sr[8];
+   auto char flag;
+
+   flag = 0;
+   rtc1.tm_year = 0;
+   rtc1.tm_mon = 0;
+   rtc1.tm_mday = 0;
+   rtc1.tm_hour = 0;
+   rtc1.tm_min = 0;
+   rtc1.tm_sec = 0;
+
+	sr[0]=buf[0];		//年 2000～2100
+	sr[1]=buf[1];
+	sr[2]='\0';
+	time_day=(unsigned int)atoi(sr);
+	if((time_day>=0)&&(time_day<=100))
+   {
+		flag ++;
+		rtc1.tm_year = time_day + 100;
+   }
+   else return flag;
+
+	sr[0]=buf[2];     //月  1～12
+	sr[1]=buf[3];
+	sr[2]='\0';
+	time_day=(unsigned int)atoi(sr);
+	if((time_day>0)&&(time_day<13))
+   {
+		flag ++;
+		rtc1.tm_mon=time_day;
+   }
+   else return flag;
+
+	sr[0]=buf[4];     //日  1～31
+	sr[1]=buf[5];
+	sr[2]='\0';
+	time_day=(unsigned int)atoi(sr);
+	if((time_day>0)&&(time_day<32))
+   {
+   	flag ++;
+		rtc1.tm_mday=time_day;
+   }
+   else return flag;
+
+	sr[0]=buf[6];     //时  0～23
+	sr[1]=buf[7];
+	sr[2]='\0';
+	time_day=(unsigned int)atoi(sr);
+	if((time_day>=0)&&(time_day<24))
+   {
+   	flag ++;
+		rtc1.tm_hour=time_day;
+   }
+   else return flag;
+
+	sr[0]=buf[8];     //分  0～59
+	sr[1]=buf[9];
+	sr[2]='\0';
+	time_day=(unsigned int)atoi(sr);
+	if((time_day>=0)&&(time_day<60))
+   {
+   	flag ++;
+		rtc1.tm_min=time_day;
+   }
+   else return flag;
+
+   sr[0]=buf[10];     //秒  0～59
+	sr[1]=buf[11];
+	sr[2]='\0';
+	time_day=(unsigned int)atoi(sr);
+	if((time_day>=0)&&(time_day<60))
+   {
+   	flag ++;
+		rtc1.tm_sec=time_day;
+   }
+   return flag;
+}
+
+/*** Beginheader k37RunDisp */
+int k37RunDisp(void);
+/*** endheader */
+int k37RunDisp(void)
+{
+	static int status;
+
+   costate
+   {
+   	status = 0;
+      count_disp_real = 60;							//初始化为马上显示数据
+      tm_dispoff = SEC_TIMER;
+      glBuffLock();
+      clearMenu();
+      dispCompanyName();
+      glBuffUnlock();
+      while(1)
+      {
+      	wKey = keyGet();	//实时数据显示时，按切换键可打开和关闭开关量显示
+         if(wKey == 'S') disp_di_flag = !disp_di_flag;
+      	else if(wKey > 0)
+         {
+         	wKey = 0;
+            break;										//如果其他键，退出
+         }
+      	if(SEC_TIMER > (tm_dispoff + SCREENTIME))		//自动显示30分钟  1800
+         {
+         	dispOnoffFlag = 0;
+				glBackLight(0);							//关闭显示
+            glBuffLock();
+   			glBlankScreen();
+				glBuffUnlock();
+            lcdDisable();								//关闭显示电源
+            //waitfor ( wKey = keyGet() );			//如果用户按键，就恢复显示
+            while(1)
+            {
+            	if(keyGet() > 0) break;
+               waitfor(DelayMs(200));
+            }
+            lcdEnable();								//打开显示电源
+   			lcdReset();									//显示复位
+            tm_dispoff = SEC_TIMER;
+            glInit();									//显示初始化
+            dispOnoffFlag = 1;
+            glBackLight(1);
+            glBuffLock();
+         	dispCompanyName();
+      		glBuffUnlock();
+            count_disp_real = 60;
+         }
+         if(++count_disp_real > 15*3)					//每3秒钟切换一次页面
+         {
+         	count_disp_real = 0;
+				dispData();
+         }
+      	waitfor ( DelayMs(200) );
+	   }
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+Display Setup Result
+*******************************************************************************/
+/*** Beginheader dispCancel,dispModifyFail,dispInputErr,
+						dispModifyOK, dispSearching */
+void dispCancel(void);
+void dispModifyFail(void);
+void dispInputErr(void);
+void dispModifyOK(void);
+void dispSearching(void);
+/*** endheader */
+void dispCancel(void)
+{
+   glBuffLock();
+   clearMenu();
+	glXPutBitmap (126, 80, 68, 16,BoconQuit_bmp);
+	glBuffUnlock();
+}
+void dispModifyFail(void)
+{
+   glBuffLock();
+   clearMenu();
+	glXPutBitmap (126, 80, 68, 16,BoconModifyFail_bmp);
+	glBuffUnlock();
+}
+void dispInputErr(void)
+{
+   glBuffLock();
+   clearMenu();
+	glXPutBitmap (126, 80, 68, 16,BoconInputErr_bmp);
+	glBuffUnlock();
+}
+void dispModifyOK(void)
+{
+   glBuffLock();
+   clearMenu();
+	glXPutBitmap (126, 80, 68, 16,BoconModified_bmp);
+	glBuffUnlock();
+}
+void dispSearching(void)
+{
+	glBuffLock();
+	clearMenu();
+	glXPutBitmap ( 128, 100, 63, 16, bocon_search_bmp);
+	glBuffUnlock();
+}
+
+/*******************************************************************************
+					K37修改参数子函数的显示接口函数
+*******************************************************************************/
+/*** Beginheader dispParamName */
+void dispParamName(char param, char no);
+/*** endheader */
+void dispParamName(char param, char no)
+{
+	glBuffLock();
+	clearMenu();
+
+   switch(param)
+   {
+//第一组，K37系统参数修改画面
+      case 1:
+         glXPutBitmap ( 126,  60, 61, 16, boconSysCode_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", systemCode);
+      	break;
+      case 2:
+			glXPutBitmap (126, 60, 63, 16,BoconDevID_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", devNo);
+         break;
+      case 3:
+         glXPutBitmap (126, 60, 63, 16, BoconMN_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", devMN);
+      	break;
+      case 4:
+         glXPutBitmap (126, 60, 62, 16, bocon_save_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", sampleInterval/60);
+      	break;
+      case 5:
+      	glXPutBitmap (126, 60, 62, 16, boconSetupPwdset_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", sysPwd);
+         break;
+      case 6:
+      	glXPutBitmap (126, 60, 62, 16, boconSetupPwdview_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", userPwd);
+         break;
+      case 7:
+      	tm_rd(&rtc);
+         if(rtc.tm_year >= 100) rtc.tm_year -= 100;
+         glXPutBitmap (126, 60, 63, 16,BoconModRtc2_bmp);
+         glPrintf( 116, 102, &fi12x16, "%02d%02d%02d%02d%02d%02d",
+         	rtc.tm_year,rtc.tm_mon,rtc.tm_mday,
+            rtc.tm_hour,rtc.tm_min,rtc.tm_sec);
+      	break;
+      case 8:
+         glPrintf(116,102,&fi12x16,"%s",workmode);
+      	break;
+//第二组，网络配置参数修改画面
+      case 11:
+      	glXPutBitmap (126, 60, 63, 16,BoconIP1_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", ipaddr);
+      	break;
+      case 12:
+      	glXPutBitmap (126, 60, 63, 16,BoconNetmask1_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", netmsk);
+      	break;
+      case 13:
+      	glXPutBitmap (126, 60, 63, 16,BoconGateway1_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", gatewy);
+      	break;
+      case 14:
+      	glXPutBitmap (126, 60, 63, 16,BoconDialName_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", dialName);
+      	break;
+      case 15:
+      	glXPutBitmap (126, 60, 63, 16,BoconDialPwd_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", dialPwd);
+      	break;
+      case 16:
+      	glPrintf( 112, 60, &fi12x16, "GPRS APN");
+         glPrintf( 116, 102, &fi12x16, "%s", apn);
+      	break;
+//第三组，服务器参数修改画面
+      case 21:
+			glXPutBitmap (140, 60, 63, 15,boconSerLink_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", serLink[no]);
+         break;
+      case 22:
+      	//glPrintf( 114, 62, &fi12x16, "%d#", no+1);
+			glXPutBitmap (140, 60, 63, 16,BoconCenterIp_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", sip[no]);
+         break;
+      case 23:
+      	glXPutBitmap (126, 60, 63, 16,BoconCenterPort_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", sport[no]);
+      	break;
+      case 24:
+			glXPutBitmap (140, 60, 62, 16,BoconSipPwd_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", sipPwd[no]);
+         break;
+      case 25:
+      	glXPutBitmap (140, 60, 61, 16, boconRealInterval_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", rtdInterval[no]);
+      	break;
+      case 26:
+      	glXPutBitmap (140, 60, 62, 16, boconOverTime_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", overTime[no]);
+      	break;
+      case 27:
+      	glXPutBitmap (140, 60, 62, 16, communicationProtocol_bmp);//boconAlarmTime_bmp
+         glPrintf( 116, 102, &fi12x16, "%u", warnTime[no]);
+      	break;
+      case 28:
+      	glXPutBitmap (140, 60, 63, 16, boconReCount_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", reCount[no]);
+      	break;
+      case 29:
+      	glXPutBitmap (126, 60, 62, 16, boconHeartbeat_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", heartbeatInterval[no]/60);
+      	break;
+//第四组，串口参数修改画面
+      case 31:
+         glXPutBitmap (126, 60, 62, 16,BoconComch_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", aiCh+1);
+			break;
+      case 32:
+         glXPutBitmap (126, 60, 63, 16,bocon_polpos_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", com_param_pos+1);
+			break;
+      case 33:
+         glXPutBitmap (126, 60, 62, 16,boconChCode_bmp);
+         if(com_param_pos == 0)
+         {
+         	if(ai_param[aiCh+8].polIndex < BOCON_NO_OF_POL / 2)
+	            glPrintf( 116,102, &fi12x16, "%s", PolCode[ai_param[aiCh+8].polIndex]);
+	         else if(ai_param[aiCh+8].polIndex >= BOCON_NO_OF_POL)
+	            glPrintf( 116,102, &fi12x16, "FFF");
+	         else glPrintf( 116,102, &fi12x16, "%sZ", PolCode[ai_param[aiCh+8].polIndex - BOCON_NO_OF_POL / 2]);
+         }
+         else
+         {
+         	if(extend_pos < 20)
+            {
+            	if(ai_param_extend[extend_pos].polIndex < BOCON_NO_OF_POL / 2)
+	            	glPrintf( 116,102, &fi12x16, "%s", PolCode[ai_param_extend[extend_pos].polIndex]);
+	         	else if(ai_param_extend[extend_pos].polIndex >= BOCON_NO_OF_POL)
+	            	glPrintf( 116,102, &fi12x16, "FFF");
+	         	else glPrintf( 116,102, &fi12x16, "%sZ", PolCode[ai_param_extend[extend_pos].polIndex - BOCON_NO_OF_POL / 2]);
+         	}
+            else
+            {
+            	glPrintf( 116,102, &fi12x16, "FFF");
+            }
+         }
+			break;
+      case 34:
+      	glXPutBitmap (126, 60, 63, 16,BoconEquipNo_bmp);
+         glPrintf( 116,102, &fi12x16, "%d", ai_param[aiCh+8].model);
+			break;
+      case 35:
+         glXPutBitmap (126, 60, 63, 16,BoconBaudrate1_bmp);
+			glPrintf( 116, 102, &fi12x16, "%ld", ai_param[aiCh+8].baudrate);
+			break;
+      case 36:
+      	glXPutBitmap (126, 60, 63, 16,boconParity_bmp);
+         glPrintf( 116,102, &fi12x16, "%d", ai_param[aiCh+8].parity);
+			break;
+      case 37:
+         glXPutBitmap (126, 60, 63, 16,BoconAlarmH_bmp);
+         if(com_param_pos == 0)
+         {
+         	glPrintf( 116,102, &fi12x16, "%.2f", ai_param[aiCh+8].alarm_H);
+         }
+         else
+         {
+         	if(extend_pos < 20)
+            {
+         		glPrintf( 116,102, &fi12x16, "%.2f", ai_param_extend[extend_pos].alarm_H);
+            }
+            else
+            {
+            	glPrintf( 116,102, &fi12x16, "1000.00");
+            }
+         }
+			break;
+      case 38:
+			glXPutBitmap (126, 60, 63, 16,BoconAlarmL_bmp);
+         if(com_param_pos == 0)
+         {
+         	glPrintf( 116,102, &fi12x16, "%.2f", ai_param[aiCh+8].alarm_L);
+         }
+         else
+         {
+         	if(extend_pos < 20)
+            {
+         		glPrintf( 116,102, &fi12x16, "%.2f", ai_param_extend[extend_pos].alarm_L);
+            }
+            else
+            {
+            	glPrintf( 116,102, &fi12x16, "0.00");
+            }
+         }
+			break;
+
+//第五组，模拟量参数修改画面
+		case 41:
+         glXPutBitmap (126, 60, 63, 16,BoconAich_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", aiCh+1);
+			break;
+      case 42:
+         glXPutBitmap (126, 60, 62, 16,boconChCode_bmp);
+         //glPrintf( 116,102, &fi12x16, "%s", PolCode[ai_param[aiCh].polIndex]);
+         if(ai_param[aiCh].polIndex < BOCON_NO_OF_POL / 2)
+         	glPrintf( 116,102, &fi12x16, "%s", PolCode[ai_param[aiCh].polIndex]);
+         else if(ai_param[aiCh].polIndex >= BOCON_NO_OF_POL)
+         	glPrintf( 116,102, &fi12x16, "FFF");
+         else glPrintf( 116,102, &fi12x16, "%sZ", PolCode[ai_param[aiCh].polIndex - BOCON_NO_OF_POL / 2]);
+			break;
+      case 43:
+      	glXPutBitmap (126, 60, 63, 16, bocon_signal_bmp);
+         glPrintf( 116,102, &fi12x16, "%d", ai_param[aiCh].parity);
+			break;
+      case 44:
+      	glXPutBitmap (126, 60, 63, 16, BoconRangeH_bmp);
+         glPrintf( 116,102, &fi12x16, "%.2f", ai_param[aiCh].range_H);
+			break;
+      case 45:
+         glXPutBitmap (126, 60, 63, 16, BoconRangeL_bmp);
+			glPrintf( 116, 102, &fi12x16, "%.2f", ai_param[aiCh].range_L);
+			break;
+      case 46:
+         glXPutBitmap (126, 60, 63, 16, BoconAifactor1_bmp);
+         glPrintf( 116,102, &fi12x16, "%.2f", ai_param[aiCh].factor);
+			break;
+      case 47:
+         glXPutBitmap (126, 60, 63, 16, BoconAlarmH_bmp);
+         glPrintf( 116,102, &fi12x16, "%.2f", ai_param[aiCh].alarm_H);
+			break;
+      case 48:
+			glXPutBitmap (126, 60, 63, 16, BoconAlarmL_bmp);
+         glPrintf( 116,102, &fi12x16, "%.2f", ai_param[aiCh].alarm_L);
+			break;
+
+      case 51:
+			glXPutBitmap (140, 60, 63, 15, boconSerLink_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", serLink[3]);
+         break;
+      case 52:
+      	glXPutBitmap (126, 60, 63, 16, BoconUpdateIp_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", update_sip);
+         break;
+
+//扩展参数设置
+      case 61:
+			glXPutBitmap (140, 60, 63, 15, O2Limit_bmp); //氧量上限设置
+         glPrintf( 116, 102, &fi12x16, "%.2f", extendData[7]);
+         break;
+      case 62:
+			glXPutBitmap (140, 60, 63, 15, flueArea_bmp); //烟道截面积
+         glPrintf( 116, 102, &fi12x16, "%.2f", extendData[3]);
+         break;
+      case 63:
+			glXPutBitmap (140, 60, 63, 15, atmoPressure_bmp); //大气压力
+         glPrintf( 116, 102, &fi12x16, "%.2f", extendData[2]);
+         break;
+      case 64:
+			glXPutBitmap (140, 60, 63, 15, airFactor_bmp); //过量空气系数
+         glPrintf( 116, 102, &fi12x16, "%.2f", extendData[4]);
+         break;
+      case 65:
+         glXPutBitmap (140, 60, 79, 16, suduxishu_bmp); //速度场系数
+         glPrintf( 116, 102, &fi12x16, "%.2f", extendData[0]);
+	 break;
+      case 66:
+         glXPutBitmap (140, 60, 62, 16, leijiliul_bmp);     //累计流量初始值
+         glPrintf( 116, 102, &fi12x16, "%.2f", total_flux);
+	 break;
+      case 67:
+      	glXPutBitmap ( 140, 60,  78, 15, jicunqidizhi_bmp); //寄存器起始位置
+         glPrintf( 116, 102, &fi12x16, "%.0f", extendData[5]);  //寄存器起始位置
+         break;
+      case 68:
+      	glXPutBitmap ( 140, 60,  78, 16, jicunqigeshu_bmp); //寄存器个数
+         glPrintf( 116, 102, &fi12x16, "%.0f", extendData[6]);  //寄存器个数
+         break;
+
+//补足数据
+      case 71:
+         glXPutBitmap (140, 60, 47, 16, serverNo_bmp); //服务器
+         glPrintf( 116, 102, &fi12x16, "%d", serverNoBz);
+         break;
+      case 72:
+         glXPutBitmap ( 140, 60, 31, 16, start_bmp);     //开始时间
+         glXPutBitmap ( 140+32, 60, 29, 16, BoconTime2_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", startTimeBz);
+         break;
+      case 73:
+         glXPutBitmap ( 140, 60, 31, 16, end_bmp);    //结束时间
+         glXPutBitmap ( 140+32, 60, 29, 16, BoconTime2_bmp);
+         glPrintf( 116, 102, &fi12x16, "%s", endTimeBz);
+         break;
+		 
+//modbus设置
+      case 101:
+         glXPutBitmap ( 126,  60, 63, 15, devAddr_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].devAddr);
+      	break;
+      case 102:
+         glXPutBitmap ( 126,  60, 63, 16, dataSort_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].dataSort);
+      	break;
+      case 103:
+         glXPutBitmap ( 126, 60, 31, 16, begin_bmp);
+      	glXPutBitmap ( 126+32, 60, 47, 16, register_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].beginRegister);
+      	break;
+      case 104:
+         glXPutBitmap ( 126, 60,  47, 16, register_bmp);
+      	glXPutBitmap ( 126+48, 60, 31, 16, counter_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].registerCounter);
+      	break;
+      case 105:
+         glXPutBitmap ( 126, 60,  55, 16, Com485_BMP);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].map485);
+      	break;
+      case 106:
+         glXPutBitmap ( 126, 60,  31, 16, type_BMP);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].type);
+      	break;
+
+      default:
+      	dispUnitCtrlParamName(param, no);
+      	break;
+   }
+
+   glXPutBitmap ( 65, 100, 45, 16, boconConfigNow_bmp);
+   glXPutBitmap ( 63, 130, 47, 15, boconConfigModify_bmp);
+   glPlotLine(116, 115, 318, 115);
+   glPlotLine(116, 145, 128, 145);
+	glBuffUnlock();
+}
+
+/*******************************************************************************
+					K37保存参数的接口函数
+*******************************************************************************/
+/*** Beginheader saveParam */
+char saveParam(char param, char no);  //nodebug
+/*** endheader */
+char saveParam(char param, char no)   //nodebug
+{
+	auto float f;
+   auto unsigned long p;
+   auto unsigned long l;
+   auto char flag, i;
+   auto unsigned char index;
+
+   flag = 0;
+	switch(param)//test
+   {
+//第一组，K37系统参数修改画面
+      case 1:		//systemCode，系统编码
+         p = atol(keyBuf);
+         if((p > 20)&&(p < 100))
+         {
+         	systemCode = (unsigned int)p;
+         	wrSysCode(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+         	flag = 1;
+         }
+      	break;
+      case 2:		//设备号
+         p = atol(keyBuf);
+         if((p > 0)&&(p < 65536))
+         {
+         	devNo = (unsigned int)p;
+         	wrDevNo(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+         	flag = 1;
+         }
+      	break;
+      case 3:
+         if((strlen(keyBuf) > 0) && (strlen(keyBuf)<20))
+         {//MN string must = 14
+         	memset(devMN, 0x00, sizeof(devMN));
+         	strcpy(devMN, keyBuf);
+	         wrMN(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+				flag = 1;
+         }
+         break;
+      case 4:		//sampleInterval，输入的是分钟，保存的是秒
+         p = atol(keyBuf);
+         if(p == 1 || p == 2 || p == 3 || p == 4 || p == 5 || p == 6 || p == 10 || p == 15 || p == 20 || p == 30)
+         {
+         	sampleInterval = (unsigned int)p;
+            sampleInterval *= 60;
+         	wr_sampleInt(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+         	flag = 1;
+         }
+      	break;
+   	case 5:		//System pwd
+         if(strlen(keyBuf)<9)
+         {
+         	memset(sysPwd, 0x00, sizeof(sysPwd));
+	   		strcpy(sysPwd, keyBuf);
+            wrSysPwd(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+				flag = 1;
+         }
+      	break;
+      case 6:		//User pwd
+         if(strlen(keyBuf)<9)
+         {
+         	memset(userPwd, 0x00, sizeof(userPwd));
+	   		strcpy(userPwd, keyBuf);
+            wrUserPwd(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+				flag = 1;
+         }
+      	break;
+      case 7:		//SysTime
+         if(chk_time(keyBuf) == 6)
+	      {
+         	t0 = mktime(&rtc1);
+            if(t0 > SEC_TIMER) i = 1;
+            else i = 0;			//时间调整的方向
+
+            tm_wr(&rtc1);		//更新CPU的RTC
+
+            disable_reboot_interrupt();  //将中断关闭
+
+            SEC_TIMER = t0;	//mktime(&rtc1);
+
+            reboot_task();   //更新时间
+            enable_reboot_interrupt(); //将中断重新打开
+
+            setDs3231(&rtc1);	//更新时钟芯片里的时间
+            update_rtc(i);		//后更新定时器，调整NandFlash
+            flag = 1;
+         }
+      	break;
+	case 8:
+      	{
+         	if(strlen(keyBuf) < 2 || (keyBuf[0] == 'F' && keyBuf[1] == 'F' && strlen(keyBuf) == 2))
+            {
+         		workmode[0] = keyBuf[0];
+               workmode[1] = keyBuf[1];
+               for(i = 0; i < 15; i++)
+               {
+               	if((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL))
+                  {
+                  	Savech[i].flag = workmode[0];
+                  }
+               }
+         		flag = 1;
+            }
+         }
+         break;
+//第二组，网络配置参数修改画面
+		case 11:
+         if(chk_ip(keyBuf))
+         {
+         	memset(ipaddr, 0x00, sizeof(ipaddr));
+	   		strcpy(ipaddr, keyBuf);
+            wrDevIP(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+
+         	for(i=0;i<3;i++)
+            {
+            	if(serLink[i] < 2) bocon_close_sock(i);
+            }
+         	config_tcp();
+
+         	flag = 1;
+         }
+         break;
+      case 12:		//Netmask
+         if(chk_ip(keyBuf))
+         {
+         	memset(netmsk, 0x00, sizeof(netmsk));
+	   		strcpy(netmsk, keyBuf);
+            wrDevMsk(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+
+         	for(i=0;i<3;i++)
+            {
+            	if(serLink[i] < 2) bocon_close_sock(i);
+            }
+         	config_tcp();
+
+            flag = 1;
+         }
+      	break;
+      case 13:		//Gateway
+         if(chk_ip(keyBuf))
+         {
+         	memset(gatewy, 0x00, sizeof(gatewy));
+	   		strcpy(gatewy, keyBuf);
+            wrDevGtwy(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+
+         	for(i=0;i<3;i++)
+            {
+            	if(serLink[i] < 2) bocon_close_sock(i);
+            }
+         	config_tcp();
+
+            flag = 1;
+         }
+      	break;
+      case 14:		//DialName
+         if(strlen(keyBuf)<30)
+         {
+         	memset(dialName, 0x00, sizeof(dialName));
+	   		strcpy(dialName, keyBuf);
+            wrDialName(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 15:		//DialPwd
+         if(strlen(keyBuf)<30)
+         {
+         	memset(dialPwd, 0x00, sizeof(dialPwd));
+	   		strcpy(dialPwd, keyBuf);
+            wrDialPwd(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 16:		//APN
+         if(strlen(keyBuf)<sizeof(apn))
+         {
+         	memset(apn, 0x00, sizeof(apn));
+	   		strcpy(apn, keyBuf);
+            wrApn(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+//第三组，服务器参数修改画面
+      case 21:		//通信链路，1-Eth，2-GPRS，3-CDMA，0-NONE
+         p = atol(keyBuf);
+      	if((p >= 0)&&(p < 4))
+         {
+	   		serLink[no] = (unsigned int)p;
+            wrSerLink(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            bocon_close_sock(no);
+            flag = 1;
+         }
+      	break;
+      case 22:		//SIP
+         //if(chk_ip(keyBuf))
+         if(strlen(keyBuf)<30)
+         {
+         	memset(sip[no], 0x00, sizeof(sip[no]));
+	   		strcpy(sip[no], keyBuf);
+            wrSip(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            bocon_close_sock(no);
+            flag = 1;
+         }
+      	break;
+      case 23:		//SPORT
+         p = atol(keyBuf);
+      	if((p > 0)&&(p < 65535))
+         {
+	   		sport[no] = (unsigned int)p;
+            wrSport(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            bocon_close_sock(no);
+            flag = 1;
+         }
+      	break;
+      case 24:		//server pwd
+         if(strlen(keyBuf)<7)
+         {
+         	memset(sipPwd[no], 0x00, sizeof(sipPwd[no]));
+	   		strcpy(sipPwd[no], keyBuf);
+            wrSipPwd(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 25:		//实时值上报周期
+         p = atol(keyBuf);
+      	if((p > 0)&&(p < 60000))
+         {
+	   		rtdInterval[no] = (unsigned int)p;
+            wrRtdInt(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 26:		//超时时间
+         p = atol(keyBuf);
+      	if((p > 0)&&(p < 60000))
+         {
+	   		overTime[no] = (unsigned int)p;
+            wrOverTime(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 27:		//报警周期
+         p = atol(keyBuf);
+      	if((p > 0)&&(p < 60000))
+         {
+	   		warnTime[no] = (unsigned int)p;
+            wrWarnTime(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 28:		//重发次数
+         p = atol(keyBuf);
+      	if((p >= 0)&&(p < 10))
+         {
+	   		reCount[no] = (unsigned int)p;
+            wrReCount(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 29:		//心跳周期
+         p = atol(keyBuf);
+      	if((p >= 0)&&(p < 60))
+         {
+	   		heartbeatInterval[no] = (unsigned int)p;
+            heartbeatInterval[no] *= 60;
+            wrHeartbeatInt(no, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+//第四组，串口参数配置
+      case 31://Choose COM channel
+         p = atol(keyBuf);
+         if((p > 0)&&(p < 9))
+         {
+				aiCh = (unsigned int)p;
+            aiCh --;
+            com_param_pos = 0;	//改了串口号，则将参数序号置为第一个
+         	flag = 1;
+         }
+      	break;
+      case 32://Choose COM 参数序号
+         p = atol(keyBuf);
+         if((p > 0)&&(p < 21))
+         {
+				com_param_pos = (unsigned int)p;
+            com_param_pos --;
+         	flag = 1;
+         }
+      	break;
+      case 33:		//输入污染物编码，查表，判断是否是有效编码
+         if(strlen(keyBuf)<10)
+         {
+         	if(com_param_pos == 0)
+            {
+            	index = queryIndexByPolcode(keyBuf);
+	            if( (strcmp(keyBuf, "FFF") == 0) || ((index >= 0) && (index < BOCON_NO_OF_POL)) )
+	            {
+               	ai_param[aiCh+8].polIndex = index;
+	               wr_aiparam(aiCh+8, CONFIG_IN_FLASH);
+	               pol_modify_flag = 2; //本通道的编码已修改
+	               flag = 1;
+	            }
+            }
+            else if(extend_pos < 20)
+            {
+               index = queryIndexByPolcode(keyBuf);
+               if( (strcmp(keyBuf, "FFF") == 0) || ((index >= 0) && (index < BOCON_NO_OF_POL)) )
+	            {
+               	ai_param_extend[extend_pos].polIndex = index;
+               	ai_param_extend[extend_pos].position = com_param_pos;	//参数位置
+                  ai_param_extend[extend_pos].port = aiCh;	//串口号
+	               wr_aiparam_extend(extend_pos, CONFIG_IN_FLASH);
+	               pol_modify_flag = 2; //本通道的编码已修改
+	               flag = 1;
+	            }
+            }
+         }
+      	break;
+      case 34:
+      	p = atol(keyBuf);
+         if(p > 1000)
+         {
+         	ai_param[aiCh+8].model = (unsigned int)p;
+         	wr_aiparam(aiCh+8, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+         	flag = 1;
+         }
+         break;
+      case 35:
+         l = atol(keyBuf);
+         if((l == 1200) || (l == 2400) || (l == 4800) || (l == 9600)
+         	|| (l == 19200) || (l == 38400) || (l == 57600) || (l == 115200L))
+         {
+         	ai_param[aiCh+8].baudrate = l;
+         	wr_aiparam(aiCh+8, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 36:
+      	p = atol(keyBuf);
+         if((p >= 0) && (p < 5))
+         {
+         	ai_param[aiCh+8].parity = (unsigned int)p;
+         	wr_aiparam(aiCh+8, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+         	flag = 1;
+         }
+         break;
+      case 37:
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	if(com_param_pos == 0)
+            {
+         		ai_param[aiCh+8].alarm_H = f;
+         		wr_aiparam(aiCh+8, CONFIG_IN_FLASH);
+               if(pol_modify_flag == 0) pol_modify_flag = 1;
+               flag = 1;
+            }
+            else if(extend_pos < 20)
+            {
+               ai_param_extend[extend_pos].alarm_H = f;
+         		wr_aiparam_extend(extend_pos, CONFIG_IN_FLASH);
+               if(pol_modify_flag == 0) pol_modify_flag = 1;
+               flag = 1;
+            }
+         }
+      	break;
+      case 38:		//Alarm Low Limit
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	if(com_param_pos == 0)
+            {
+         		ai_param[aiCh+8].alarm_L = f;
+         		wr_aiparam(aiCh+8, CONFIG_IN_FLASH);
+               if(pol_modify_flag == 0) pol_modify_flag = 1;
+            	flag = 1;
+            }
+            else if(extend_pos < 20)
+            {
+               ai_param_extend[extend_pos].alarm_L = f;
+         		wr_aiparam_extend(extend_pos, CONFIG_IN_FLASH);
+               if(pol_modify_flag == 0) pol_modify_flag = 1;
+            	flag = 1;
+            }
+         }
+      	break;
+//第五组，模拟量参数配置
+      case 41://Choose AI channel
+         p = atol(keyBuf);
+         if((p > 0)&&(p < 9))
+         {
+				aiCh = (unsigned int)p;
+            aiCh --;
+         	flag = 1;
+         }
+      	break;
+      case 42:		//PolCode
+         if(strlen(keyBuf)<10)
+         {
+         	index = queryIndexByPolcode(keyBuf);
+            if( (strcmp(keyBuf, "FFF") == 0) || ((index >= 0) && (index < BOCON_NO_OF_POL)) )
+            {
+            	ai_param[aiCh].polIndex = index;
+            	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+               pol_modify_flag = 2;	//本通道的编码已修改
+            	flag = 1;
+            }
+         }
+      	break;
+      case 43:
+      	p = atol(keyBuf);
+         if((p >= 0) && (p < 5))
+         {
+         	ai_param[aiCh].parity = (unsigned int)p;
+         	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+         	flag = 1;
+         }
+         break;
+      case 44:
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	ai_param[aiCh].range_H = f;
+         	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+         break;
+      case 45:
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	ai_param[aiCh].range_L = f;
+         	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+		case 46:		//Factor
+         f = atof(keyBuf);
+         if((f >= 0.2)&&(f <= 5.1))
+         {
+         	ai_param[aiCh].factor = f;
+         	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 47:
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	ai_param[aiCh].alarm_H = f;
+         	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 48:		//Alarm Low Limit
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	ai_param[aiCh].alarm_L = f;
+         	wr_aiparam(aiCh, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+
+      case 51:		//通信链路，1-Eth，2-GPRS，3-CDMA
+         p = atol(keyBuf);
+      	if((p > 0)&&(p < 4))
+         {
+	   		serLink[3] = (unsigned int)p;
+            wrSerLink(3, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 52:		//Update SIP
+         if(strlen(keyBuf)<30)
+         {
+	   		strcpy(update_sip, keyBuf);
+            wrUpdateSip(CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 56:
+      	f = atof(keyBuf);
+         if(f < 100000000)
+         {
+         	extendData[8] = f;
+         	wr_extendData(0x08, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 57:
+         f = atof(keyBuf);
+         if(f < 100000000)
+         {
+         	//ai_param[15].range_H = f;
+            extendData[9] = f;
+         	wr_extendData(0x09, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      	break;
+
+//扩展参数设置
+      case 61://氧量上限设置
+         f = atof(keyBuf);
+         if((f >= 0.0)&&(f < 1000000.0))
+         {
+         	extendData[7] = f;
+         	wr_extendData(0x07, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 62: //烟道截面积
+         f = atof(keyBuf);
+         if((f >= 0.0)&&(f < 1000000.0))
+         {
+         	extendData[3] = f;
+         	wr_extendData(0x03, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 63://大气压力
+         f = atof(keyBuf);
+         if((f >= -1000000.0)&&(f < 1000000.0))
+         {
+         	extendData[2] = f;
+         	wr_extendData(0x02, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 64://过量空气系数
+         f = atof(keyBuf);
+         if((f >= 0.0)&&(f < 1000000.0))
+         {
+         	extendData[4] = f;
+         	wr_extendData(0x04, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 65:
+         f = atof(keyBuf);
+         if((f >= 0.0)&&(f < 1000000.0))
+         {
+         	extendData[0] = f;
+         	wr_extendData(0x00, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+      	break;
+      case 66:
+      	f = atof(keyBuf);
+         if(f >= 0.0)
+         {
+         	total_flux = f;
+		onemsg_wr.AI_Val[ch_flux].Total = total_flux;
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+         break;
+      case 67:
+      	f = atof(keyBuf);
+         if((f >= 0.0)&&(f < 1000000.0))
+         {
+            extendData[5] = f;
+         	wr_extendData(0x05, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+         break;
+       case 68:
+      	f = atof(keyBuf);
+         if((f >= 0.0)&&(f < 1000000.0))
+         {
+            extendData[6] = f;
+         	wr_extendData(0x06, CONFIG_IN_FLASH);
+            if(pol_modify_flag == 0) pol_modify_flag = 1;
+            flag = 1;
+         }
+         break;
+
+         //补足历史数据
+      case 71:
+         p = atol(keyBuf);
+         if((p >= 1)&&(p <= SOCKET_NUMBER)) //服务器
+         {
+            serverNoBz = (unsigned int)p;
+            flag = 1;
+         }
+         break;
+      case 72:
+         p = atol(keyBuf);
+         if(strlen(keyBuf) >= 6 && strlen(keyBuf) <= 12) //开始时间
+         {
+            memset(startTimeBz, 0x00, sizeof(startTimeBz));
+            strcpy(startTimeBz, keyBuf);
+            flag = 1;
+         }
+         break;
+      case 73:
+         p = atol(keyBuf);
+         if(strlen(keyBuf) >= 6 && strlen(keyBuf) <= 12) //结束时间
+         {
+            memset(endTimeBz, 0x00, sizeof(endTimeBz));
+            strcpy(endTimeBz, keyBuf);
+            flag = 1;
+         }
+         break;
+
+//modbus参数设置		 
+      case 101:		//
+         p = atol(keyBuf);
+         if((p > 0)&&(p < 256))
+         {
+         	modbusConfig[aiCh].devAddr = (unsigned int)p;
+			write_modbus_param(aiCh, CONFIG_IN_FLASH);
+         	flag = 1;
+         }
+      	break;
+      case 102:		//
+         p = atol(keyBuf);
+         if((p >= DT_INT)&&(p <= DT_FLOAT_0123))
+         {
+         	modbusConfig[aiCh].dataSort = (unsigned int)p;
+			write_modbus_param(aiCh, CONFIG_IN_FLASH);
+         	flag = 1;
+         }
+      	break;
+      case 103:		//
+         p = atol(keyBuf);
+         if((p >= 0)&&(p <= 65535))
+         {
+         	modbusConfig[aiCh].beginRegister = (unsigned int)p;
+			write_modbus_param(aiCh, CONFIG_IN_FLASH);
+         	flag = 1;
+         }
+      	break;
+      case 104:		//
+         p = atol(keyBuf);
+         if((p > 0)&&(p < 127))
+         {
+         	modbusConfig[aiCh].registerCounter = (unsigned int)p;
+			write_modbus_param(aiCh, CONFIG_IN_FLASH);
+         	flag = 1;
+         }
+      	break;
+      case 105:		//
+         p = atol(keyBuf);
+         if((p >= 0)&&(p <= 1))
+         {
+         	modbusConfig[aiCh].map485 = (unsigned int)p;
+			write_modbus_param(aiCh, CONFIG_IN_FLASH);
+         	flag = 1;
+         }
+      	break;
+      case 106:		//
+         p = atol(keyBuf);
+         if((p >= 0)&&(p <= 1))
+         {
+         	modbusConfig[aiCh].type = (unsigned int)p;
+			write_modbus_param(aiCh, CONFIG_IN_FLASH);
+         	flag = 1;
+         }
+      	break;
+      default:
+         flag = saveUnitCtrlParam(param, no);
+         if(pol_modify_flag == 0 && flag) pol_modify_flag = 1;
+      	break;
+   }
+   return flag;
+}
+
+/*******************************************************************************
+					K37修改参数的主控函数，显示并修改指定的参数
+*******************************************************************************/
+/*** Beginheader modifyParam */
+int modifyParam(char no, char server);
+/*** endheader */
+int modifyParam(char no, char server)
+{
+   static int status;
+   static unsigned long keyTime;
+   //static char cancel;
+   auto char len;
+
+	costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+      dispParamName(no, server);
+
+      oldKey = 0;
+      //cancel = 'C';
+      keyPos = -1;
+      keyCount = 0;
+      keyMode = 1;					//缺省为数字键
+      memset(keyBuf, 0x00, sizeof(keyBuf));
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if(wKey == 'E')			//Enter key
+         {
+         	if(saveParam(no, server) == 1)
+            {
+            	if((no != 31) && (no != 32) && (no != 41))
+               {
+            		dispModifyOK();
+               	waitfor(DelaySec(1));
+               }
+            }
+            else
+            {
+            	if((no != 31) && (no != 32) && (no != 41))
+               {
+            		dispModifyFail();
+               	waitfor(DelaySec(2));
+               }
+            }
+            status = 1;
+			}
+			else if(wKey == 'C')		//Cencal key
+         {
+         	if((no != 31) && (no != 32) && (no != 41))
+            {
+	         	dispCancel();
+	            waitfor(DelaySec(1));
+	            status = 1;
+            }
+         	//status = 1;
+			}
+         else if(wKey == 'U') //将最后输入的那个字符给清除
+         {
+         	if(keyPos >=0)
+            {
+	         	keyBuf[keyPos] = 0x00;
+	            keyPos --;
+            }
+	         keyTime = MS_TIMER;
+	         tm_ts = SEC_TIMER;
+         }
+         else if(wKey == 'D') //将所有输入字符都清除
+         {
+	      	memset(keyBuf, 0x00, sizeof(keyBuf));
+	         keyPos = -1;
+	         keyTime = MS_TIMER;
+	         tm_ts = SEC_TIMER;
+         }
+         else if(wKey == 'S')		//切换键，在数字、大写、小写间切换
+         {
+            if(++keyMode > 3) keyMode = 1;
+            keyCount = 0;
+            oldKey = 0;
+            tm_ts = SEC_TIMER;
+         }
+         else if((wKey == '.') && (keyPos < 47))
+         {
+         	keyBuf[++keyPos] = wKey;
+            //cancel = 0;
+         }
+         else if((wKey == '0') && (keyPos <= 47))
+         {	//可以到47，但是只有连续按键可以调整回一个字符的位置
+         	//实际只能输入0-46共47个字符
+            if(keyMode == 1)		//输入的是数字
+	         {
+	         	if(keyPos < 47)	keyBuf[++keyPos] = wKey;
+	         }
+            else if((oldKey == wKey) && (MS_TIMER < (keyTime + 1000)))
+            {							//输入的是特殊符号
+            	if(keyCount == 0) keyBuf[keyPos] = '-';
+               else if(keyCount == 1) keyBuf[keyPos] = '+';
+               else if(keyCount == 2) keyBuf[keyPos] = '%';
+               else if(keyCount == 3) keyBuf[keyPos] = '_';
+               else if(keyCount == 4) keyBuf[keyPos] = '#';
+               else if(keyCount == 5) keyBuf[keyPos] = ' ';
+					else if(keyCount == 6) keyBuf[keyPos] = ',';
+               else if(keyCount == 7) keyBuf[keyPos] = '/';
+               else if(keyCount == 8) keyBuf[keyPos] = '!';
+               else if(keyCount == 9) keyBuf[keyPos] = '@';
+               else if(keyCount == 10) keyBuf[keyPos] = '$';
+               else if(keyCount == 11) keyBuf[keyPos] = '*';
+
+					if(++keyCount > 11) keyCount = 0;
+            }
+            else
+            {
+            	keyCount = 1;
+               if(keyPos < 47)	keyBuf[++keyPos] = '@';
+            }
+            //cancel = 0;
+            oldKey = wKey;
+				keyTime = MS_TIMER;
+            tm_ts = SEC_TIMER;
+         }
+         else if((wKey >= '1') && (wKey <= '9'))
+			{
+         	if(keyPos < 47)		//最多可输入47个字符
+            {
+            	if(keyMode == 1)	//输入的是数字
+	            {
+	               keyBuf[++keyPos] = wKey;
+	            }
+	            else if((oldKey == wKey) && (MS_TIMER < (keyTime + 1000)))
+	            {						//同一个键，输入不同的字母，位置不移动
+               	if(keyMode == 2)	keyBuf[keyPos] = (wKey - '1') * 3 + 'A' + keyCount;
+                  else keyBuf[keyPos] = (wKey - '1') * 3 + 'a' + keyCount;
+
+                  if(wKey == '9')
+                  {
+                  	if(++keyCount > 1) keyCount = 0;	//Y键上只有2个字母
+                  }
+                  else
+                  {
+                  	if(++keyCount > 2) keyCount = 0;	//一个键上有3个字母
+                  }
+	            }
+               else					//不同的键，同一个键的超时时间为1秒
+               {
+               	keyPos ++;
+               	keyCount = 1;
+                  if(keyMode == 2)  keyBuf[keyPos] = (wKey - '1') * 3 + 'A';
+	               else keyBuf[keyPos] = (wKey - '1') * 3 + 'a';
+               }
+            }
+            //cancel = 0;
+            oldKey = wKey;
+				keyTime = MS_TIMER;
+            tm_ts = SEC_TIMER;
+			}
+         len = strlen(keyBuf);	//只能显示输入字符串的后面17个字符
+         glBuffLock();
+         glPrintf( 116, 132, &fi12x16, "                   "); //先显示字符清除
+         if(len < 17)	glPrintf( 116, 132, &fi12x16, "%s", keyBuf);
+         else	glPrintf( 116, 132, &fi12x16, "%s", &keyBuf[len-17]);
+         if(len > 0)
+         {
+         	glPlotLine(116, 145, 116 + len * 12, 145);
+         }
+         else
+         {
+          	glPlotLine(116, 145, 116 + 1 * 12, 145);
+         }
+         glBuffUnlock();
+      }
+      wKey = 0;
+      keyMode = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+					K37输入密码的函数
+*******************************************************************************/
+/*** Beginheader inputPwd */
+int inputPwd(char mode);
+/*** endheader */
+int inputPwd(char mode)
+{
+   static int status;
+   static unsigned long keyTime;
+   auto char len;
+   auto int i;
+   auto char str[18];
+
+	costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+      glBuffLock();
+		clearMenu();
+      if(mode == 1)
+      {
+      	glXPutBitmap ( 105, 60, 47, 16, BoconInput1_bmp);
+         glXPutBitmap ( 153, 60, 62, 16, boconSetupPwdset_bmp);
+      }
+      else glXPutBitmap ( 114, 60, 84, 16, BoconInputPwd_bmp);
+      glBuffUnlock();
+
+      oldKey = 0;
+      keyPos = -1;
+      keyCount = 0;
+      keyMode = 1;					//缺省为数字键
+      memset(keyBuf, 0x00, sizeof(keyBuf));
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if(wKey == 'E')			//Enter key
+         {
+            if(strcmp(keyBuf, sysPwd) == 0 || strcmp(keyBuf, "37") == 0)
+            {
+            	userMode = 2;
+            }
+            else if(strcmp(keyBuf, userPwd) == 0 || strcmp(keyBuf, "2015") == 0)
+            {
+            	userMode = 1;
+            }
+            if((mode == 1) && (userMode != 2))
+            {
+               glBuffLock();
+	         	clearMenu();
+               glXPutBitmap ( 110, 100, 62, 16, boconSetupPwdset_bmp);
+	         	glXPutBitmap ( 142, 100, 70, 16,BoconPwdErr_bmp);
+	         	glBuffUnlock();
+               waitfor(DelaySec(2));
+            }
+            else if(userMode == 0)
+            {
+               glBuffLock();
+	         	clearMenu();
+	         	glXPutBitmap ( 125, 100, 70, 16,BoconPwdErr_bmp);
+	         	glBuffUnlock();
+               waitfor(DelaySec(2));
+            }
+            status = 1;
+			}
+			else if(wKey == 'C')		//Cencal key
+         {
+         	dispCancel();
+            waitfor(DelaySec(1));
+         	status = 1;
+			}
+         else if(wKey == 'U') //将最后输入的那个字符给清除
+         {
+         	if(keyPos >=0)
+            {
+	         	keyBuf[keyPos] = 0x00;
+	            keyPos --;
+            }
+	         keyTime = MS_TIMER;
+	         tm_ts = SEC_TIMER;
+         }
+         else if(wKey == 'D') //将所有输入字符都清除
+         {
+	      	memset(keyBuf, 0x00, sizeof(keyBuf));
+	         keyPos = -1;
+	         keyTime = MS_TIMER;
+	         tm_ts = SEC_TIMER;
+         }
+         else if(wKey == 'S')		//切换键，在数字、大写、小写间切换
+         {
+            if(++keyMode > 3) keyMode = 1;
+            keyCount = 0;
+            oldKey = 0;
+            tm_ts = SEC_TIMER;
+         }
+         else if((wKey == '.') && (keyPos < 47))
+         {
+         	keyBuf[++keyPos] = wKey;
+            //cancel = 0;
+         }
+         else if((wKey == '0') && (keyPos <= 47))
+         {	//可以到47，但是只有连续按键可以调整回一个字符的位置
+         	//实际只能输入0-46共47个字符
+            if(keyMode == 1)		//输入的是数字
+	         {
+	         	if(keyPos < 47)	keyBuf[++keyPos] = wKey;
+	         }
+            else if((oldKey == wKey) && (MS_TIMER < (keyTime + 1000)))
+            {							//输入的是特殊符号
+            	if(keyCount == 0) keyBuf[keyPos] = '-';
+               else if(keyCount == 1) keyBuf[keyPos] = '+';
+               else if(keyCount == 2) keyBuf[keyPos] = '%';
+               else if(keyCount == 3) keyBuf[keyPos] = '_';
+               else if(keyCount == 4) keyBuf[keyPos] = '#';
+               else if(keyCount == 5) keyBuf[keyPos] = ' ';
+					else if(keyCount == 6) keyBuf[keyPos] = ',';
+               else if(keyCount == 7) keyBuf[keyPos] = '/';
+               else if(keyCount == 8) keyBuf[keyPos] = '!';
+               else if(keyCount == 9) keyBuf[keyPos] = '@';
+               else if(keyCount == 10) keyBuf[keyPos] = '$';
+
+					if(++keyCount > 10) keyCount = 0;
+            }
+            else
+            {
+            	keyCount = 1;
+               if(keyPos < 47)	keyBuf[++keyPos] = '@';
+            }
+            //cancel = 0;
+            oldKey = wKey;
+				keyTime = MS_TIMER;
+            tm_ts = SEC_TIMER;
+         }
+         else if((wKey >= '1') && (wKey <= '9'))
+			{
+         	if(keyPos < 47)		//最多可输入47个字符
+            {
+            	if(keyMode == 1)	//输入的是数字
+	            {
+	               keyBuf[++keyPos] = wKey;
+	            }
+	            else if((oldKey == wKey) && (MS_TIMER < (keyTime + 1000)))
+	            {						//同一个键，输入不同的字母，位置不移动
+               	if(keyMode == 2)	keyBuf[keyPos] = (wKey - '1') * 3 + 'A' + keyCount;
+                  else keyBuf[keyPos] = (wKey - '1') * 3 + 'a' + keyCount;
+
+                  if(wKey == '9')
+                  {
+                  	if(++keyCount > 1) keyCount = 0;	//Y键上只有2个字母
+                  }
+                  else
+                  {
+                  	if(++keyCount > 2) keyCount = 0;	//一个键上有3个字母
+                  }
+	            }
+               else					//不同的键，同一个键的超时时间为1秒
+               {
+               	keyPos ++;
+               	keyCount = 1;
+                  if(keyMode == 2)  keyBuf[keyPos] = (wKey - '1') * 3 + 'A';
+	               else keyBuf[keyPos] = (wKey - '1') * 3 + 'a';
+               }
+            }
+            //cancel = 0;
+            oldKey = wKey;
+				keyTime = MS_TIMER;
+            tm_ts = SEC_TIMER;
+			}
+         len = strlen(keyBuf);	//只能显示输入字符串的后面17个字符
+         glBuffLock();
+         glPrintf( 116, 102, &fi12x16, "                 "); //先显示字符清除
+         memset(str, 0x00, sizeof(str));
+         if((len > 0) && (len < 17))
+         {
+            for (i = 0; i < len; i++)
+            {
+            	str[i] = '#';
+            }
+         }
+         else if(len >= 17)
+         {
+            for (i = 0; i < 17; i++)
+            {
+            	str[i] = '#';
+            }
+         }
+
+         glPrintf( 116, 102, &fi12x16, "%s", str);
+         if(len > 0)
+         {
+         	glPlotLine(116, 115, 116 + len * 12, 115);
+         }
+         else
+         {
+         	glPlotLine(116, 115, 116 + 1 * 12, 115);
+         }
+
+         glBuffUnlock();
+      }
+      wKey = 0;
+      keyMode = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+					K37输入历史查询时间的函数
+*******************************************************************************/
+/*** Beginheader inputTime */
+int inputTime(char menu);
+/*** endheader */
+int inputTime(char menu)
+{
+   static int status;
+   auto char c;
+
+	costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+      glBuffLock();
+		clearMenu();
+      glXPutBitmap ( 105, 60, 47, 16, BoconInput1_bmp);
+      glXPutBitmap ( 153, 60, 29, 16, BoconTime2_bmp);
+      if((menu == 1)||(menu == 2))	glPrintf( 105, 80, &fi12x16, "(YYMMDDHH)");
+      else if((menu == 3)||(menu == 5))	glPrintf( 105, 80, &fi12x16, "(YYMMDD)");
+      else if((menu == 4)||(menu == 6))	glPrintf( 105, 80, &fi12x16, "(YYMM)");
+      glBuffUnlock();
+
+      oldKey = 0;
+      keyPos = -1;
+      keyCount = 0;
+      keyMode = 1;					//缺省为数字键
+      memset(keyBuf, 0x00, sizeof(keyBuf));
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if(wKey == 'E')			//Enter key
+         {
+         	hisTim = 0L;			//无效
+         	c = chk_time(keyBuf);
+            if((menu == 1)||(menu == 2)||(menu == 8))	//YYMMDDHH
+            {
+            	if(c >= 4)
+               {
+               	if(menu == 2)
+                  {
+                     rtc1.tm_min = 59;
+	               	rtc1.tm_sec = 59;
+                  }
+               	hisTim = mktime(&rtc1);
+               }
+            }
+            else if((menu == 3)||(menu == 5))		//YYMMDD
+            {
+            	if(c >= 3)
+               {
+               	rtc1.tm_hour = 23;
+               	rtc1.tm_min = 59;
+	               rtc1.tm_sec = 59;
+	               hisTim = mktime(&rtc1);
+               }
+            }
+            else if((menu == 4)||(menu == 6)||(menu == 7))	//YYMM
+            {
+            	if(c >= 2)
+               {
+               	rtc1.tm_mday = 28;//30
+               	rtc1.tm_hour = 23;
+               	rtc1.tm_min = 59;
+	               rtc1.tm_sec = 59;
+	               hisTim = mktime(&rtc1);
+               }
+            }
+            if(hisTim == 0L)			//输入的查询时间错误
+            {
+            	dispInputErr();
+               waitfor(DelaySec(2));
+            }
+            status = 1;
+			}
+			else if(wKey == 'C')		//Cencal key
+         {
+         	dispCancel();
+            waitfor(DelaySec(1));
+            hisTim = 0L;
+         	status = 1;
+			}
+         else if(wKey == 'U') //将最后输入的那个字符给清除
+         {
+         	if(keyPos >=0)
+            {
+	         	keyBuf[keyPos] = 0x00;
+	            keyPos --;
+            }
+	         tm_ts = SEC_TIMER;
+            glBuffLock();
+            glPrintf( 104, 102, &fi12x16, "           ");
+            glPrintf( 105, 102, &fi12x16, "%s", keyBuf);
+            if(strlen(keyBuf) > 0)
+            {
+         		glPlotLine(105, 115, 105 + strlen(keyBuf) * 12, 115);
+            }
+            else
+            {
+            	glPlotLine(105, 115, 105 + 1 * 12, 115);
+            }
+         	glBuffUnlock();
+         }
+         else if(wKey == 'D') //将所有输入字符都清除
+         {
+	      	memset(keyBuf, 0x00, sizeof(keyBuf));
+	         keyPos = -1;
+	         tm_ts = SEC_TIMER;
+            glBuffLock();
+            glPrintf( 104, 102, &fi12x16, "           ");
+            glPrintf( 105, 102, &fi12x16, "%s", keyBuf);
+         	glPlotLine(105, 115, 105 + 1 * 12, 115);
+         	glBuffUnlock();
+         }
+         else if((wKey >= '0') && (wKey <= '9'))
+			{
+         	if(keyPos < 10)		//最多可输入10个字符
+            {
+	         	keyBuf[++keyPos] = wKey;
+               glBuffLock();
+               glPrintf( 105, 102, &fi12x16, "%s", keyBuf);
+         		glPlotLine(105, 115, 105 + strlen(keyBuf) * 12, 115);
+         		glBuffUnlock();
+            }
+            tm_ts = SEC_TIMER;
+			}
+      }
+      wKey = 0;
+      keyMode = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*** Beginheader disp_select */
+void disp_select(int x, int y, int xlen);
+/*** endheader */
+void disp_select(int x, int y, int xlen)
+{
+   glBuffLock();
+   glSetBrushType(PIXXOR);
+   glFillRegion( x, y, xlen, 18, 0xff);
+   glSetBrushType(PIXBLACK);
+   glBuffUnlock();
+}
+
+/*******************************************************************************
+					K37设置设备号、时间、密码等系统参数的函数
+*******************************************************************************/
+/*** Beginheader dispSetupDevnoNo, dispSetupDevnoSelect,
+                 dispSetupDevnoData, dispSetupDevno */
+void dispSetupDevnoNo(char no);
+void dispSetupDevnoSelect(char no);
+void dispSetupDevnoData(void);
+void dispSetupDevno( int no, char noMin, char noMax );
+/*** endheader */
+void dispSetupDevnoData(void)
+{
+	auto int x;
+   x = 136;
+
+   glPrintf( x, 62, &fi12x16, "%d", systemCode);
+   glPrintf( x, 82, &fi12x16, "%u", devNo);
+   glPrintf( x,102, &fi12x16, "%s", devMN);
+
+   glPrintf( x, 122, &fi12x16, "%d", sampleInterval/60);
+   glXPutBitmap ( 200, 120, 16, 16, BoconMinute_bmp);
+
+   glPrintf( x,142, &fi12x16, "########");		// --sysPwd
+   glPrintf( x,162, &fi12x16, "########");		// --userPwd
+
+   glPlotLine(x, 75, 196, 75);
+   glPlotLine(x, 95, 196, 95);
+   glPlotLine(x,115, 304,115);
+   glPlotLine(x,135, 196,135);
+   glPlotLine(x,155, 232,155);
+   glPlotLine(x,175, 232,175);
+}
+
+void dispSetupDevnoNo(char no)
+{
+	auto int x, y, w, h;
+   auto unsigned long bmp;
+
+   h = 16;
+   x = 65;
+   y = 39 + no * 20;
+   bmp = 0;
+
+   _glBlankRegion( x, y, 65, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+         ++x;
+         w = 61;
+         bmp = boconSysCode_bmp;
+         break;
+      case 2:
+         w = 63;
+         bmp = BoconDevID_bmp;
+         break;
+      case 3:
+         w = 63;
+         bmp = BoconMN_bmp;
+         break;
+      case 4:
+         ++x;
+         w = 62;
+         bmp = bocon_save_bmp;
+         break;
+      case 5:
+         ++x;
+         w = 62;
+         bmp = boconSetupPwdset_bmp;
+         break;
+      case 6:
+         ++x;
+         w = 62;
+         bmp = boconSetupPwdview_bmp;
+         break;
+      case 7:
+         w = 63;
+         bmp = BoconModRtc2_bmp;
+         break;
+      default:
+      	break;
+   }
+
+   if(bmp){
+   	glXPutBitmap (x, y, w, h, bmp);
+   }
+}
+
+void dispSetupDevnoSelect(char no)
+{
+	auto int x, y;
+
+   x = 65;
+   y = 39 + no * 20;
+   disp_select(x, y, x);
+}
+
+void dispSetupDevno( int no, char noMin, char noMax )
+{
+	auto char  c;
+
+   glBuffLock();
+   if(no == 0)
+   {
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 46;
+      glXPutBitmap (105, 34, 111, 16, boconSetupDevno_bmp);
+      dispMenuNo(46, 63, noMin, noMax);
+
+      for(c=noMin;c<=noMax;c++) dispSetupDevnoNo(c);
+	}
+   else if((no >= noMin) && (no <= noMax))
+   {
+   	if(menuNoOld > 0) dispSetupDevnoSelect(menuNoOld);
+      dispSetupDevnoSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   dispSetupDevnoData();
+   glBuffUnlock();
+}
+
+/*** Beginheader setupDevno */
+int setupDevno(void);
+/*** endheader */
+int setupDevno(void)
+{
+   static int status;
+   static char noMin, noMax;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+      noMin = 1;
+      noMax = 7;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupDevno(menuNo, noMin, noMax);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+					if((menuNo>0)&&(menuNo<9)&&(userMode > 1)) waitfor(modifyParam(menuNo, 0));
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		nextLine(noMin, noMax);
+               break;
+
+         	case 'U':	//Up key
+            	previousLine(noMin, noMax);
+               break;
+
+            default:
+            	keyOption(noMin, noMax);
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37设置系统参数的函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37设置网络参数的函数
+*******************************************************************************/
+/*** Beginheader dispSetupNetNo, dispSetupNetSelect,
+                 dispSetupNetData, dispSetupNet */
+void dispSetupNetNo(char no);
+void dispSetupNetSelect(char no);
+void dispSetupNetData(void);
+void dispSetupNet( int no );
+/*** endheader */
+void dispSetupNetData(void)
+{
+	auto char c;
+   glBuffLock();
+   glPrintf( 136, 67, &fi12x16, "%s", ipaddr);
+   glPrintf( 136, 87, &fi12x16, "%s", netmsk);
+   glPrintf( 136,107, &fi12x16, "%s", gatewy);
+   glPrintf( 136,127, &fi12x16, "%s", dialName);
+   glPrintf( 136,147, &fi12x16, "%s", dialPwd);
+   glPrintf( 136,167, &fi12x16, "%s", apn);
+
+   for(c=0;c<6;c++)
+   {
+   	glPlotLine(136, 80+c*20, 316, 80+c*20);
+   }
+   glBuffUnlock();
+}
+
+void dispSetupNetNo(char no)
+{
+	auto int x, y;
+   auto unsigned long bmp;
+
+   x = 65;
+	y = 44 + no * 20;
+   if(no == 6) y += 2;
+
+   switch(no)
+   {
+   	case 1:
+   		bmp = BoconIP1_bmp;
+         break;
+		case 2:
+   		bmp = BoconNetmask1_bmp;
+         break;
+		case 3:
+   		bmp = BoconGateway1_bmp;
+         break;
+		case 4:
+   		bmp = BoconDialName_bmp;
+         break;
+		case 5:
+   		bmp = BoconDialPwd_bmp;
+         break;
+      default:
+      	break;
+   }
+
+   glBuffLock();
+   if(no == 6)
+   {
+   	_glBlankRegion( x, y, 38, 14);
+      glPrintf( x+1, y+1, &fi12x16, "APN");
+   }
+   else
+   {
+   	_glBlankRegion( x, y, x, 18);
+      glXPutBitmap ( x+1, y+1, 63, 16, bmp);
+   }
+   glBuffUnlock();
+}
+
+void dispSetupNetSelect(char no)
+{
+   auto int x, y;
+
+   x = 65;
+	y = 44 + no * 20;
+   if(no == 6)
+   {
+   	y += 2;
+      glBuffLock();
+   	glSetBrushType(PIXXOR);
+   	glFillRegion( x, y, 38, 14, 0xff);
+   	glSetBrushType(PIXBLACK);
+   	glBuffUnlock();
+   }
+	else
+   {
+   	disp_select(x, y, x);
+   }
+}
+
+void dispSetupNet( int no )
+{
+	auto char c;
+
+   if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 46;
+      glXPutBitmap (113, 34,  94, 16, boconSetupNetwork_bmp);
+	   glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+	   glXPutBitmap ( c,128,  13, 11, BoconNo4_bmp);
+	   glXPutBitmap ( c,148,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,168,  13, 11, BoconNo6_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<7;c++) dispSetupNetNo(c);
+	}
+   else if((no > 0) && (no < 7))
+   {
+   	if(menuNoOld > 0) dispSetupNetSelect(menuNoOld);
+      dispSetupNetSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   dispSetupNetData();
+}
+
+/*** Beginheader setupNetwork */
+int setupNetwork(void);
+/*** endheader */
+int setupNetwork(void)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupNet(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+					if((menuNo>0)&&(menuNo<7)&&(userMode>1)) waitfor(modifyParam(menuNo+10, 0));
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 6) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 6) || (menuNo < 1))	menuNo = 6;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey < '7'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37设置网络参数的函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+               K37设置服务器参数的子菜单，选择服务器，1# - 3#
+*******************************************************************************/
+/*** Beginheader dispServerSubNo,dispServerSubSelect */
+void dispServerSubNo(char no);
+void dispServerSubSelect(char no);
+/*** endheader */
+void dispServerSubNo(char no)
+{
+   auto int x, y;
+
+   x = 105;
+   y = 44 + no * 20;
+
+   glBuffLock();
+   _glBlankRegion( x, y, 139, 18);
+   if(no < SOCKET_NUMBER+1)
+   {
+   	glPrintf( ++x, y+3, &fi12x16, "%d#", no);
+   	glXPutBitmap (x+26, ++y, 111, 16, boconSetupServer_bmp);
+   }
+   else
+   {//补足历史数据
+   	glXPutBitmap (x, ++y, 63, 16, buzushuju_bmp);
+   }
+   glBuffUnlock();
+}
+
+void dispServerSubSelect(char no)
+{
+   disp_select(105, 44+no*20, 139);
+}
+
+/*** Beginheader dispServerSubmenu */
+void dispServerSubmenu( int no );
+/*** endheader */
+void dispServerSubmenu( int no )
+{
+   auto char c;
+   auto int i;
+   if(no == 0)
+   {
+      glBuffLock();
+      clearMenu();
+      dispCompanyName();
+
+      c = 86;
+      i = 3;
+      glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+      glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+      glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+      glXPutBitmap ( c,128,  13, 11, BoconNo4_bmp);
+      if(SOCKET_NUMBER - i > 0)
+      glXPutBitmap ( c,148,  13, 11, BoconNo5_bmp);
+      if(SOCKET_NUMBER - (++i) > 0)
+      glXPutBitmap ( c,168,  13, 11, BoconNo6_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<SOCKET_NUMBER+2;c++)dispServerSubNo(c);
+   }
+   else if((no > 0) && (no < SOCKET_NUMBER+2))
+   {
+      if(menuNoOld > 0) dispServerSubSelect(menuNoOld);
+      dispServerSubSelect(menuNo);
+      menuNoOld = menuNo;
+   }
+}
+
+/*** Beginheader setupServerSubmenu */
+int setupServerSubmenu(void);
+/*** endheader */
+int setupServerSubmenu(void)
+{
+   static int status;
+   auto char number_key;
+
+   costate
+   {
+      status = 0;
+      menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = menuNo;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+         if(menuFlag == 0) dispServerSubmenu(menuNo);
+         waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0'))) menuFlag = 1;  //重复按键
+         else menuFlag = 0;
+         switch(wKey)
+         {
+            case 'E':   //Enter key
+               if(menuNo == 0) menuNo = 1;
+               if(menuNo < SOCKET_NUMBER+1)
+               {
+               	waitfor(setupServer(menuNo-1));
+               }
+               else
+               {
+               	waitfor(setupServerBz());
+               }
+               menuNo = 0;
+               menuNoOld = menuNo;
+               menuFlag = menuNo;
+               tm_ts = SEC_TIMER;
+               break;
+
+            case 'C':   //Cencal key
+               menuNo = 0;
+               status = 1;
+               break;
+
+            case 'D':   //Down key
+               menuNo ++;
+               if((menuNo > SOCKET_NUMBER+1) || (menuNo < 1)) menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+            case 'U':   //Up key
+               menuNo --;
+               if((menuNo > SOCKET_NUMBER+1) || (menuNo < 1)) menuNo = SOCKET_NUMBER+1;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+	       number_key = 0x30+SOCKET_NUMBER+2;
+               if((wKey > '0') && (wKey < number_key))
+               {
+                  menuNo = wKey - '0';
+                  tm_ts = SEC_TIMER;
+               }
+               else
+               {
+                  menuFlag = 1;  //其他键不响应
+               }
+               break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+               K37设置服务器参数的子菜单，选择服务器，1# - 3#结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37设置服务器参数的函数
+*******************************************************************************/
+/*** Beginheader dispSetupServerNo, dispSetupServerSelect,
+                 dispSetupServerData, dispSetupServer */
+void dispSetupServerNo(char no);
+void dispSetupServerSelect(char no);
+void dispSetupServerData(char server);
+void dispSetupServer(char server, int no);
+/*** endheader */
+void dispSetupServerData(char server)
+{
+	auto int x, y;
+   auto char c;
+   glBuffLock();
+   glPrintf( 136, 42, &fi12x16, "%d", serLink[server]);
+   if(serLink[server] == 2) glPrintf( 188, 42, &fi12x16, "GPRS");
+   else if(serLink[server] == 0) glPrintf( 188, 42, &fi12x16, "NONE");
+   else if(serLink[server] == 3) glPrintf( 188, 42, &fi12x16, "CDMA");
+   else glXPutBitmap ( 188, 40, 45, 16, boconEth_bmp);//if(serLink[server] == 1)
+
+   glPrintf( 136, 62, &fi12x16, "%s", sip[server]);
+   glPrintf( 136, 82, &fi12x16, "%u", sport[server]);
+   glPrintf( 136,102, &fi12x16, "%s", sipPwd[server]);
+   glPrintf( 136,122, &fi12x16, "%u", rtdInterval[server]);
+   glXPutBitmap ( 188, 120, 16, 16, BoconSecond_bmp);
+   glPrintf( 136,142, &fi12x16, "%u", overTime[server]);
+   glXPutBitmap ( 188, 140, 16, 16, BoconSecond_bmp);
+   glPrintf( 136,162, &fi12x16, "%u", warnTime[server]);
+   if(warnTime[server] == HJ212_2017){
+   	glPrintf(188, 162, &fi12x16, "HJ212_2017");
+   }
+   else{
+   	glPrintf(188, 162, &fi12x16, "HJ212_2005");
+   }
+//   glXPutBitmap ( 188, 160, 16, 16, BoconSecond_bmp);
+
+   glPrintf( 136,182, &fi12x16, "%d", reCount[server]);
+   glPrintf( 136,202, &fi12x16, "%u", heartbeatInterval[server]/60);
+   glXPutBitmap ( 188, 200, 16, 16, BoconMinute_bmp);
+
+   x = 136;
+   y = 55;
+   glPlotLine(x, y, 172, y);
+   glPlotLine(x, 75, 316, 75);
+   glPlotLine(x, 95, 208, 95);
+   y = 115;
+   glPlotLine(x, y, 208,115);
+   for(c=1;c<6;c++) glPlotLine(x, y+c*20, 184,y+c*20);
+   glBuffUnlock();
+}
+
+void dispSetupServerNo(char no)
+{
+	auto int x, y, h;
+
+   h = 16;
+   x = 65;
+   y = 19 + no * 20;
+	glBuffLock();
+   _glBlankRegion( x, y, x, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, 63, h-1, boconSerLink_bmp);
+         break;
+      case 2:
+			glXPutBitmap ( x, y, 63, h, BoconCenterIp_bmp);
+         break;
+      case 3:
+			glXPutBitmap ( x, y, 63, h, BoconCenterPort_bmp);
+         break;
+      case 4:
+			glXPutBitmap ( ++x, y, 62, h, BoconSipPwd_bmp);
+         break;
+      case 5:
+			glXPutBitmap ( ++x, y, 61, h, boconRealInterval_bmp);
+         break;
+      case 6:
+			glXPutBitmap ( x, y, 62, h, boconOverTime_bmp);
+         break;
+      case 7:
+			glXPutBitmap ( x, y, 62, h, communicationProtocol_bmp);
+         break;
+      case 8:
+			glXPutBitmap ( x, y, 63, h, boconReCount_bmp);
+         break;
+      case 9:
+			glXPutBitmap ( ++x, y, 62, h, boconHeartbeat_bmp);
+         break;
+      default:
+      	break;
+	}
+   glBuffUnlock();
+}
+
+void dispSetupServerSelect(char no)
+{
+   auto int x;
+
+   x = 65;
+   disp_select(x, 19 + no * 20, x);
+}
+
+void dispSetupServer(char server, int no )
+{
+	auto char c;
+	if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+      c = 46;
+      glPrintf( 4, 43, &fi12x16, "%d#", server+1);
+	   glXPutBitmap ( c, 43,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 63,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c, 83,  13, 11, BoconNo3_bmp);
+	   glXPutBitmap ( c,103,  13, 11, BoconNo4_bmp);
+	   glXPutBitmap ( c,123,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,143,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,163,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,183,  13, 11, BoconNo8_bmp);
+      glXPutBitmap ( c,203,  13, 11, BoconNo9_bmp);
+      glBuffUnlock();
+
+		for(c=1;c<10;c++) dispSetupServerNo(c);
+	}
+	else if((no > 0) && (no < 10))
+   {
+   	if(menuNoOld > 0) dispSetupServerSelect(menuNoOld);
+      dispSetupServerSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+
+   dispSetupServerData(server);
+}
+
+/*** Beginheader setupServer */
+int setupServer(char no);
+/*** endheader */
+int setupServer(char no)
+{
+   static int status;
+   static char server;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+      server = no;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupServer(server, menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if((menuNo>0)&&(menuNo<10)&&(userMode>1))	waitfor(modifyParam(menuNo+20, server));
+               else menuFlag = 1;
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 9) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 9) || (menuNo < 1))	menuNo = 9;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey <= '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37设置服务器参数的函数结束
+*******************************************************************************/
+
+
+/*******************************************************************************
+               K37补足历史数据
+*******************************************************************************/
+/*** Beginheader dispSetupServerNoBz, dispSetupServerSelectBz,
+                 dispSetupServerDataBz, dispSetupServerBz */
+void dispSetupServerNoBz(char no);
+void dispSetupServerSelectBz(char no);
+void dispSetupServerDataBz(char server);
+void dispSetupServerBz(char server, int no);
+/*** endheader */
+void dispSetupServerDataBz(char server)
+{
+   auto int x, y;
+   auto char c;
+   glBuffLock();
+   glPrintf( 136, 42, &fi12x16, "%d", serverNoBz);
+
+   glPrintf( 136, 62, &fi12x16, "%s", startTimeBz);
+   glPrintf( 136,82, &fi12x16, "%s", endTimeBz);
+
+   x = 136;
+   y = 55;
+   glPlotLine(x, y, 172, y);
+   glPlotLine(x, 75, 280, 75);
+   glPlotLine(x, 95, 280, 95);
+   //y = 115;
+   //glPlotLine(x, y, 280,115);
+
+   glBuffUnlock();
+}
+
+void dispSetupServerNoBz(char no)
+{
+   auto int x, y, h;
+
+   h = 16;
+   x = 65;
+   y = 19 + no * 20;
+   glBuffLock();
+   _glBlankRegion( x, y, x, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+      case 1:
+         glXPutBitmap ( x, y, 47, h, serverNo_bmp);
+         break;
+      case 2:
+         glXPutBitmap ( x, y, 31, h, start_bmp);
+         glXPutBitmap ( x+32, y, 29, 16, BoconTime2_bmp);
+         break;
+      case 3:
+         glXPutBitmap ( x, y, 31, h, end_bmp);
+         glXPutBitmap ( x+32, y, 29, 16, BoconTime2_bmp);
+         break;
+      case 4:
+         glXPutBitmap ( x, y, 63, h, buzushuju_bmp);
+         break;
+      default:
+         break;
+   }
+   glBuffUnlock();
+}
+
+void dispSetupServerSelectBz(char no)
+{
+   auto int x;
+
+   x = 65;
+   disp_select(x, 19 + no * 20, x);
+}
+
+void dispSetupServerBz(char server, int no )
+{
+   auto char c;
+   if(no == 0)
+   {
+      glBuffLock();
+      clearMenu();
+      dispCompanyName();
+      c = 46;
+      glXPutBitmap ( c, 43,  13, 11, BoconNo1_bmp);
+      glXPutBitmap ( c, 63,  13, 11, BoconNo2_bmp);
+      glXPutBitmap ( c, 83,  13, 11, BoconNo3_bmp);
+      glXPutBitmap ( c,103,  13, 11, BoconNo4_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<5;c++) dispSetupServerNoBz(c);
+   }
+   else if((no > 0) && (no < 5))
+   {
+      if(menuNoOld > 0) dispSetupServerSelectBz(menuNoOld);
+      dispSetupServerSelectBz(menuNo);
+      menuNoOld = menuNo;
+   }
+
+   dispSetupServerDataBz(server);
+}
+
+/*** Beginheader setupServerBz */
+int setupServerBz(void);
+/*** endheader */
+int setupServerBz(void)
+{
+   static int status;
+   static char server;
+   auto char bz_flag;//1-成功，0-失败
+   auto int d;
+
+   costate
+   {
+      status = 0;
+      menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+      server = 0;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+         if(menuFlag == 0) dispSetupServerBz(server, menuNo);
+         waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0'))) menuFlag = 1;  //重复按键
+         else menuFlag = 0;
+         switch(wKey)
+         {
+            case 'E':   //Enter key
+               if((menuNo>0)&&(menuNo<4)&&(userMode>1)) waitfor(modifyParam(menuNo+70, server));
+               else if((menuNo == 4) && (userMode > 1))
+               {
+                  if(chk_time(startTimeBz) == 6)
+						{//开始时间
+         				btm[serverNoBz-1] = mktime(&rtc1);
+
+                     if(chk_time(endTimeBz) == 6)
+							{//结束时间
+         					etm[serverNoBz-1] = mktime(&rtc1);
+
+                        if(SEC_TIMER > etm[serverNoBz-1] && etm[serverNoBz-1] > btm[serverNoBz-1])
+                        {
+                        	d = getHisData(&onemsg_rd, 1, btm[serverNoBz-1], 1, 3);//搜索指定时间和类型的记录
+      							if(d < 2)	//未找到
+      							{
+      								d = getNextData(1, btm[serverNoBz-1], 2, 3);//为防止漏记录，向前读一条
+      							}
+
+                           bz_flag = 0;
+                        	if(d > 0)
+                        	{
+                        		bz_rdP_start[serverNoBz-1] = user_rd_page[3];
+
+                              d = getHisData(&onemsg_rd, 1, etm[serverNoBz-1], 1, 3);//搜索指定时间和类型的记录
+      								if(d < 2)	//未找到
+      								{
+      									d = getNextData(1, etm[serverNoBz-1], 2, 3);//为防止漏记录，向前读一条
+      								}
+
+                              if(d > 0)
+                        		{
+                        			bz_rdP_end[serverNoBz-1] = user_rd_page[3];
+                                 bz_flag = 1;
+                              }
+                        	}//end of if(d == 1)
+
+                           if(bz_flag == 0)
+                           {//失败
+                            	bz_rdP_start[serverNoBz-1] = wrPtr;
+                              bz_rdP_end[serverNoBz-1] = wrPtr;
+                           }
+
+                        }
+
+      					}
+      				}
+
+                  if(bz_flag)
+                  {
+                     clearMenu();
+                     glXPutBitmap ( 100, 100, 31, 16, start_bmp);
+                     glXPutBitmap ( 132, 100, 63, 16, buzushuju_bmp);
+                  	waitfor(DelaySec(2));
+                  }
+               }
+               else menuFlag = 1;
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+               break;
+
+            case 'C':   //Cencal key
+               menuNo = 0;
+               status = 1;
+               break;
+
+            case 'D':   //Down key
+               menuNo ++;
+               if((menuNo > 5) || (menuNo < 1)) menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+            case 'U':   //Up key
+               menuNo --;
+               if((menuNo > 5) || (menuNo < 1)) menuNo = 5;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+               if((wKey > '0') && (wKey <= '5'))
+               {
+                  menuNo = wKey - '0';
+                  tm_ts = SEC_TIMER;
+               }
+               else
+               {
+                  menuFlag = 1;  //其他键不响应
+               }
+               break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+               K37补足历史数据结束
+*******************************************************************************/
+
+
+/*******************************************************************************
+					K37设置串口参数的函数
+*******************************************************************************/
+/*** Beginheader dispSetupCommNo, dispSetupCommSelect,
+                 dispSetupCommData, dispSetupComm, dispCommDataTag*/
+void dispSetupCommNo(char no);
+void dispSetupCommSelect(char no);
+void dispSetupCommData(void);
+void dispSetupComm( int no );
+void dispCommDataTag(void);
+
+
+
+/*** endheader */
+
+
+void dispCommDataTag(void)
+{
+	if(ai_param_extend[extend_pos].polIndex < BOCON_NO_OF_POL / 2)
+	{
+		glPrintf( 136, 82, &fi12x16, "%s", PolCode[ai_param_extend[extend_pos].polIndex]);
+	}
+	else if(ai_param_extend[extend_pos].polIndex >= BOCON_NO_OF_POL)
+   {
+		glPrintf( 136, 82, &fi12x16, "FFF");
+   }
+	else
+	{
+		glPrintf( 136, 82, &fi12x16, "%sZ", PolCode[ai_param_extend[extend_pos].polIndex - BOCON_NO_OF_POL / 2]);
+	}
+	glDispPol( 200, 82, ai_param_extend[extend_pos].polIndex);
+
+   glPrintf( 136,162, &fi12x16, "%.2f", ai_param_extend[extend_pos].alarm_H);
+   glPrintf( 136,182, &fi12x16, "%.2f", ai_param_extend[extend_pos].alarm_L);
+}
+
+void dispSetupCommData(void)
+{
+	auto char j, flag;
+   auto int x, y;
+
+   glBuffLock();
+   glPrintf( 136, 42, &fi12x16, "%d", aiCh+1);
+   glPrintf( 136, 62, &fi12x16, "%d", com_param_pos+1);
+   if(com_param_pos == 0)	//显示第一个参数，在ai_param数组里
+   {
+   	if(ai_param[aiCh+8].polIndex < BOCON_NO_OF_POL / 2)
+	   {
+	      glPrintf( 136, 82, &fi12x16, "%s", PolCode[ai_param[aiCh+8].polIndex]);
+	   }
+	   else if(ai_param[aiCh+8].polIndex >= BOCON_NO_OF_POL)
+	      glPrintf( 136, 82, &fi12x16, "FFF");
+	   else
+	   {
+	      glPrintf( 136, 82, &fi12x16, "%sZ", PolCode[ai_param[aiCh+8].polIndex - BOCON_NO_OF_POL / 2]);
+	   }
+	   glDispPol( 200, 82, ai_param[aiCh+8].polIndex);
+
+      glPrintf( 136,162, &fi12x16, "%.2f", ai_param[aiCh+8].alarm_H);
+   	glPrintf( 136,182, &fi12x16, "%.2f", ai_param[aiCh+8].alarm_L);
+   }
+   else	//否则在扩展数组里，需要查找对应的位置
+   {
+   	flag = 0;
+   	for(j=0;j<20;j++)
+      {
+      	if((ai_param_extend[j].port == aiCh)
+         && (ai_param_extend[j].position == com_param_pos))
+         {
+         	extend_pos = j;
+         	flag = 1;
+         	break;
+         }
+      }
+      if(flag == 0)	//还没有设置过，就在扩展数组里找一个空位给他
+      {
+         for(j=0;j<20;j++)
+         {
+         	if(ai_param_extend[j].polIndex >= BOCON_NO_OF_POL)	//未用的位置
+            {
+            	extend_pos = j;
+            	break;
+            }
+         }
+         if(j == 20)	//没有空位了
+         {
+	   		glPrintf( 136, 82, &fi12x16, "FFF");
+      		glPrintf( 136,162, &fi12x16, "1000.00");
+   			glPrintf( 136,182, &fi12x16, "0.00");
+            extend_pos = 20;
+         }
+         else
+         {
+         	dispCommDataTag();
+         }
+      }
+      else
+      {
+      	dispCommDataTag();
+      }
+   }
+
+   glPrintf( 136,102, &fi12x16, "%d", ai_param[aiCh+8].model);
+   glPrintf( 136,122, &fi12x16, "%ld", ai_param[aiCh+8].baudrate);
+   glPrintf( 136,142, &fi12x16, "%d", ai_param[aiCh+8].parity);
+   if(ai_param[aiCh+8].parity == 2)
+   {
+   	glXPutBitmap ( 200, 140, 15, 16, boconOdd_bmp);
+   }
+   else if(ai_param[aiCh+8].parity == 1)
+   {
+   	glXPutBitmap ( 201, 140, 14, 15, boconEven_bmp);
+   }
+   else// if(ai_param[aiCh+8].parity == 0)
+   {
+   	glXPutBitmap ( 200, 141, 15, 14, boconNone_bmp);
+   }
+   glXPutBitmap ( 216, 140, 31, 16, boconParity1_bmp);
+
+   x = 136;
+   for(j=0;j<8;j++)
+   {
+   	y = 55 + j * 20;
+   	if((j<3) || (j==5)) glPlotLine(x, y, 172, y);
+      else glPlotLine(x, y, 256, y);
+   }
+   glBuffUnlock();
+}
+
+void dispSetupCommNo(char no)
+{
+	auto int x, y, h;
+
+   h = 16;
+   x = 65;
+   y = 19 + no * 20;
+
+	glBuffLock();
+   _glBlankRegion( x, y, x, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, 62, h, BoconComch_bmp);
+         break;
+      case 2:
+			glXPutBitmap ( x, y, 63, h, bocon_polpos_bmp);
+         break;
+      case 3:
+			glXPutBitmap ( x, y, 62, h, boconChCode_bmp);
+         break;
+      case 4:
+			glXPutBitmap ( x, y, 63, h, BoconEquipNo_bmp);
+         break;
+      case 5:
+			glXPutBitmap ( x, y, 63, h, BoconBaudrate1_bmp);
+         break;
+      case 6:
+			glXPutBitmap ( x, y, 63, h, boconParity_bmp);
+         break;
+      case 7:
+			glXPutBitmap ( x, y, 63, h, BoconAlarmH_bmp);
+         break;
+      case 8:
+			glXPutBitmap ( x, y, 63, h, BoconAlarmL_bmp);
+         break;
+      case 9:
+			glXPutBitmap ( x, y, 111, h, modbusSet_BMP);
+         break;
+	  
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+void dispSetupCommSelect(char no)
+{
+	auto int x;
+   x = 65;
+   if(no == 9)
+	 	disp_select(65, 19+no*20, 111);
+   else
+   		disp_select(x, 19+no*20, x);
+}
+
+void dispSetupComm( int no )
+{
+	auto char c;
+	if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 46; /*
+      glXPutBitmap (113, 34,  93, 16, boconSetupComm_bmp);
+	   glXPutBitmap ( c, 63,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 83,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,103,  13, 11, BoconNo3_bmp);
+	   glXPutBitmap ( c,123,  13, 11, BoconNo4_bmp);
+	   glXPutBitmap ( c,143,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,163,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,183,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,203,  13, 11, BoconNo8_bmp);   */
+      dispMenuNo(46, 43, 1, 9);
+      glBuffUnlock();
+
+		for(c=1;c<10;c++) dispSetupCommNo(c);
+	}
+	else if((no > 0) && (no < 10))
+   {
+   	if(menuNoOld > 0) dispSetupCommSelect(menuNoOld);
+      dispSetupCommSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+
+   dispSetupCommData();
+}
+
+/*** Beginheader setupComm */
+int setupComm(void);
+/*** endheader */
+int setupComm(void)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      aiCh = 0;
+      com_param_pos = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupComm(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if( (menuNo==1) || (menuNo==2) || ((menuNo>2)&&(menuNo<9)&&(userMode>1)) )
+               {
+               	waitfor(modifyParam(menuNo+30, 0));
+               }
+               else if((menuNo == 9) && (userMode > 1))
+               {
+               		waitfor(setupMosbus());	//modbus参数设置
+//               	waitfor(selfTestCom());	//隐藏的菜单，RS-232串口自检
+               }
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 9) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 9) || (menuNo < 1))	menuNo = 9;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey <= '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*** Beginheader selfTestCom */
+int selfTestCom(void);
+/*** endheader */
+int selfTestCom(void)
+{
+   static int status;
+   static char ch;
+
+	costate
+   {
+   	status = 0;
+      glBuffLock();
+      clearMenu();
+      glPrintf( 92, 34, &fi12x16, "RS-232 Test");
+	   glBuffUnlock();
+
+      for(ch=0;ch<6;ch++)
+      {
+      	com_open(ch, 9600);
+         glBuffLock();
+	      glPrintf( 92, 67+ch*20, &fi12x16, "COM%d Test", ch+1);
+	      glBuffUnlock();
+      	tm_ts = SEC_TIMER;
+      	while(SEC_TIMER < (tm_ts + 120))
+	      {
+	         memset(com_tbuf, '1', sizeof(com_tbuf));
+	         com_tbuf[20] = '\0';
+	         com_tlen = 20;
+	         com_write(ch);
+	         waitfor(DelayMs(500));
+	         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+	         com_read(ch);
+	         if(strcmp(com_tbuf, com_rbuf) == 0)	break;	//Loop back OK
+	         else if((wKey = keyGet()) == 'C')	break;	//User Cancel
+            else	waitfor(DelaySec(1));						//Continue
+	      }
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         if(wKey == 'C')
+         {
+	         sprintf(com_tbuf, "Cancel");
+         }
+         else if(SEC_TIMER < (tm_ts + 120))
+         {
+            sprintf(com_tbuf, "OK  ");
+         }
+         else
+         {
+            sprintf(com_tbuf, "Fail");
+         }
+         glBuffLock();
+	      glPrintf( 152, 67+ch*20, &fi12x16, com_tbuf);
+	      glBuffUnlock();
+
+         com_close(ch);
+      }
+      waitfor(DelaySec(3));
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37设置串口参数的函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37设置模拟量参数的函数
+*******************************************************************************/
+/*** Beginheader dispSetupAiNo, dispSetupAiSelect,
+                 dispSetupAiData, dispSetupAi */
+void dispSetupAiNo(char no);
+void dispSetupAiSelect(char no);
+void dispSetupAiData(void);
+void dispSetupAi( int no );
+/*** endheader */
+
+void dispSetupAiData(void)
+{
+	auto int x, y;
+   auto char c;
+   glBuffLock();
+   glPrintf( 136, 62, &fi12x16, "%d", aiCh+1);
+   if(ai_param[aiCh].polIndex < BOCON_NO_OF_POL / 2)	//显示污染物编码
+   {
+		glPrintf( 136, 82, &fi12x16, "%s", PolCode[ai_param[aiCh].polIndex]);
+   }
+   else if(ai_param[aiCh].polIndex >= BOCON_NO_OF_POL)
+   {
+   	glPrintf( 136, 82, &fi12x16, "FFF");
+   }
+   else
+   {
+   	glPrintf( 136, 80, &fi12x16, "%sZ", PolCode[ai_param[aiCh].polIndex - BOCON_NO_OF_POL / 2]);
+   }
+   glDispPol( 200, 82, ai_param[aiCh].polIndex);		//显示污染物中文名称
+
+   glPrintf( 136, 102, &fi12x16, "%d", ai_param[aiCh].parity);	//显示信号类型
+   if(ai_param[aiCh].parity == 1) glXPutBitmap (200, 100, 30, 16, bocon_amps_bmp);
+   else if(ai_param[aiCh].parity == 2) glXPutBitmap (200, 100, 31, 16, bocon_diff_bmp);
+   else glXPutBitmap (200, 100, 30, 15, bocon_volt_bmp);
+
+   glPrintf( 136,122, &fi12x16, "%.2f", ai_param[aiCh].range_H);
+   glPrintf( 136,142, &fi12x16, "%.2f", ai_param[aiCh].range_L);
+   glPrintf( 136,162, &fi12x16, "%.3f", ai_param[aiCh].factor);
+   glPrintf( 136,182, &fi12x16, "%.2f", ai_param[aiCh].alarm_H);
+   glPrintf( 136,202, &fi12x16, "%.2f", ai_param[aiCh].alarm_L);
+
+   x = 136;
+   for(c=0;c<8;c++)
+   {
+   	y = 75 + c * 20;
+   	if(c < 3) glPlotLine(x, y, 172, y);
+      else glPlotLine(x, y, 256, y);
+   }
+   glBuffUnlock();
+}
+
+void dispSetupAiNo(char no)
+{
+	auto int x, y, w, h;
+
+   w = 63;
+   h = 16;
+   x = 65;
+   y = 39 + no * 20;
+
+	glBuffLock();
+   _glBlankRegion( x, y, x, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, w, h, BoconAich_bmp);
+         break;
+      case 2:
+			glXPutBitmap ( x, y, w-1, h, boconChCode_bmp);
+         break;
+      case 3:
+      	glXPutBitmap ( x, y, w, h, bocon_signal_bmp);
+      	break;
+      case 4:
+			glXPutBitmap ( x, y, w, h, BoconRangeH_bmp);
+         break;
+      case 5:
+			glXPutBitmap ( x, y, w, h, BoconRangeL_bmp);
+         break;
+      case 6:
+			glXPutBitmap ( x, y, w, h, BoconAifactor1_bmp);
+         break;
+      case 7:
+			glXPutBitmap ( x, y, w, h, BoconAlarmH_bmp);
+         break;
+      case 8:
+			glXPutBitmap ( x, y, w, h, BoconAlarmL_bmp);
+         break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+void dispSetupAiSelect(char no)
+{
+	auto int x;
+   x = 65;
+   disp_select(x, 39+no*20, x);
+}
+
+void dispSetupAi( int no )
+{
+	auto char c;
+	if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 46;
+      glXPutBitmap (106, 34, 111, 16, boconSetupAna_bmp);
+	   glXPutBitmap ( c, 63,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 83,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,103,  13, 11, BoconNo3_bmp);
+	   glXPutBitmap ( c,123,  13, 11, BoconNo4_bmp);
+	   glXPutBitmap ( c,143,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,163,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,183,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,203,  13, 11, BoconNo8_bmp);
+      glBuffUnlock();
+
+		for(c=1;c<9;c++) dispSetupAiNo(c);
+	}
+	else if((no > 0) && (no < 9))
+   {
+   	if(menuNoOld > 0) dispSetupAiSelect(menuNoOld);
+      dispSetupAiSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   dispSetupAiData();
+}
+
+/*** Beginheader setupAi */
+int setupAi(void);
+/*** endheader */
+int setupAi(void)
+{
+   static int status;
+   static char flag;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      flag = 0;
+      aiCh = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(flag == 0)	dispSetupAi(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	flag = 1;	//重复按键
+			else flag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if( (menuNo == 1) || ((menuNo>1)&&(menuNo<9)&&(userMode>1)) )
+               {
+               	waitfor(modifyParam(menuNo+40, 0));
+               }
+               else if((menuNo == 9) && (userMode > 1))
+               {
+               	waitfor(calibAi());	//隐藏的菜单，校验AI通道
+               }
+               else flag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 8;
+               tm_ts = SEC_TIMER;
+               break;
+
+				//模拟量参数设置子菜单下的隐藏功能：校验AI通道
+            case '9':
+            	if(userMode > 1)
+               {
+               	menuNo = 9;
+                  flag = 1;
+                  tm_ts = SEC_TIMER;
+               }
+               break;
+            default:
+            	if((wKey > '0') && (wKey < '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	flag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+					K37通过显示和键盘校验模拟量通道的接口函数
+*******************************************************************************/
+/*** Beginheader dispCalibAi */
+void dispCalibAi(float low, float hi, char ok);
+/*** endheader */
+void dispCalibAi(float low, float hi, char ok)
+{
+   glBuffLock();
+   glPrintf( 128, 67, &fi12x16, "%d", aiCh+1);
+   glPrintf( 128, 87, &fi12x16, "%.3f", low);
+   glPrintf( 128,107, &fi12x16, "%.3f", hi);
+   if(ai_param[aiCh].parity == 1)
+   {
+   	glPrintf( 128,147, &fi12x16, "%6.3fmA", anaInAmpsAver(aiCh));
+   }
+   else if(ai_param[aiCh].parity == 0)
+   {
+   	glPrintf( 128,147, &fi12x16, "%6.4fV ", anaInVoltsAver(aiCh));
+   }
+
+   if(ok) glPrintf( 128,167, &fi12x16, "Calib OK");
+   else glPrintf( 128,167, &fi12x16, "        ");
+   glBuffUnlock();
+}
+/*** Beginheader dispCalibAi1 */
+void dispCalibAi1(void);
+/*** endheader */
+void dispCalibAi1(void)
+{
+	glBuffLock();
+   glSetBrushType(PIXXOR);
+   glFillRegion( 65, 46 + 20*menuNo, 48, 16, 0xff);
+   glSetBrushType(PIXBLACK);
+   glBuffUnlock();
+}
+
+/*** Beginheader calibAi */
+int calibAi(void);
+/*** endheader */
+int calibAi(void)
+{
+   static int status, cnt_ai;
+
+   static unsigned int value1, value2;	//anaIn value
+	static float low, hi;	//input low & high value
+   static char pos, flag;	//key buffer position, Calib Ok flag
+
+	costate
+   {
+   	status = 0;
+      cnt_ai = 0;
+		menuNo = 0;
+      aiCh = 0;
+
+      flag = 0;
+      low = 0.0;
+      hi = 0.0;
+      value1 = 0;
+      value2 = 0;
+      glBuffLock();
+      clearMenu();
+      glPrintf( 112, 34, &fi12x16, "AI Calib");
+	   glXPutBitmap ( 46, 68,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( 46, 88,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( 46,108,  13, 11, BoconNo3_bmp);
+   	glPrintf( 66, 67, &fi12x16, "AiCh=");
+   	glPrintf( 66, 87, &fi12x16, "Low =");
+   	glPrintf( 66,107, &fi12x16, "High=");
+   	//glPrintf( 66,147, &fi12x16, "Amps=");
+		glBuffUnlock();
+
+      pos = 0;
+      memset(keyBuf, 0x00, sizeof(keyBuf));
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	dispCalibAi(low, hi, flag);	//按任意键更新显示
+      	waitfor ( (wKey = keyGet()) || (SEC_TIMER > (tm_ts + 120)) || (++cnt_ai > 2000) );
+         cnt_ai = 0;
+         if(wKey == 'E')	//Enter key
+         {
+         	if((menuNo == 2) && (userMode > 1) && (flag == 0))	//Input Low Amp
+            {
+               value1 = anaInAver(aiCh, 0);
+            }
+            else if((menuNo == 3) && (userMode > 1) && (flag == 0))//Input Hi Amp
+            {
+               value2 = anaInAver(aiCh, 0);
+               if((low > 0) && (hi > 0) && (low != hi) && (value1 > 0))
+               {
+               	if((ai_param[aiCh].parity >= 0) && (ai_param[aiCh].parity < 2))
+                  {
+	               	anaInCalib(aiCh, ai_param[aiCh].parity, value1, low, value2, hi);
+	               	anaInEEWr(aiCh, ai_param[aiCh].parity, CONFIG_IN_FLASH);
+	               	anaInEERd(aiCh, ai_param[aiCh].parity, CONFIG_IN_FLASH);
+                  }
+	               flag = 1;
+               }
+            }
+            pos = 0;
+            memset(keyBuf, 0x00, sizeof(keyBuf));
+            tm_ts = SEC_TIMER;
+			}
+			else if(wKey == 'C')	//Cencal key
+         {
+         	menuNo = 0;
+            status = 1;
+			}
+			else if(wKey == 'D')	//Down key
+         {
+         	if(menuNo > 0) dispCalibAi1();	//消除显示上一个子项
+         	menuNo ++;
+            if((menuNo > 3) || (menuNo < 1))	menuNo = 1;
+            dispCalibAi1();						//显示当前子项
+            pos = 0;									//清键盘缓冲区
+            memset(keyBuf, 0x00, sizeof(keyBuf));
+            tm_ts = SEC_TIMER;
+			}
+			else if(wKey == 'U')	//Up key
+         {
+         	if(menuNo > 0) dispCalibAi1();
+         	menuNo --;
+            if((menuNo > 3) || (menuNo < 1))	menuNo = 3;
+            dispCalibAi1();
+            pos = 0;
+            memset(keyBuf, 0x00, sizeof(keyBuf));
+            tm_ts = SEC_TIMER;
+			}
+         else if(wKey == 'S')	//切换键无功能
+         {
+         }
+         else if(wKey > 0x20)	//输入的是数字
+         {
+            if((menuNo == 1) && (wKey > '0') && (wKey < '9'))
+            {
+            	if(aiCh != (wKey - '0' - 1))	//通道已切换
+               {
+               	aiCh = wKey - '0' - 1;
+                  low = 0.0;
+                  hi = 0.0;
+	               flag = 0;
+                  pos = 0;
+                  memset(keyBuf, 0x00, sizeof(keyBuf));
+               }
+            }
+            else if(menuNo == 2)
+            {
+            	keyBuf[pos++] = wKey;
+            	low = atof(keyBuf);
+            }
+            else if(menuNo == 3)
+            {
+            	keyBuf[pos++] = wKey;
+               hi = atof(keyBuf);
+            }
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37设置模拟量参数的函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37设置远程升级参数的函数
+*******************************************************************************/
+/*** Beginheader dispUpdateNo, dispUpdateSelect,
+                 dispUpdateData, dispSetupUpdate */
+void dispUpdateNo(char no);
+void dispUpdateSelect(char no);
+void dispUpdateData(void);
+void dispSetupUpdate( int no );
+/*** endheader */
+void dispUpdateData(void)
+{
+   glBuffLock();
+   glPrintf( 136, 67, &fi12x16, "%d", serLink[3]);
+   if(serLink[3] == 2) glPrintf( 188, 67, &fi12x16, "GPRS");
+   //else if(serLink[3] == 0) glPrintf( 188, 67, &fi12x16, "NONE");
+   else if(serLink[3] == 3) glPrintf( 188, 67, &fi12x16, "CDMA");
+   else glXPutBitmap ( 188, 65, 45, 16, boconEth_bmp);
+
+   glPrintf( 136, 87, &fi12x16, "%s", update_sip);
+
+   glPlotLine(136,  80, 172, 80);
+   glPlotLine(136, 100, 316, 100);
+   glPlotLine(150, 180, 316, 180);
+   glPlotLine(150, 200, 316, 200);
+   glBuffUnlock();
+}
+
+void dispUpdateNo(char no)
+{
+	auto int x, y;
+   x = 65;
+   y = 44 + no * 20;
+   glBuffLock();
+   _glBlankRegion( x, y, x, 18);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, 63, 15, boconSerLink_bmp);
+         break;
+      case 2:
+      	glXPutBitmap ( x, y, 63, 16, BoconUpdateIp_bmp);
+      	break;
+      case 3:
+      	glXPutBitmap ( x, y,  63, 16, BoconUpdateCmd_bmp);
+      	break;
+      case 4:
+      	glXPutBitmap ( x, y,  95, 16, clearHistory_bmp);
+      	break;
+      case 5:
+      	glXPutBitmap ( x, y,  62, 16, SynchronousSend_bmp);
+      	break;
+      case 6:
+			glXPutBitmap (x, y, 79, 15, fazhi_bmp); //做样最小流量
+         glPrintf( 150, y, &fi12x16, "%.2f", extendData[8]);
+         break;
+      case 7:
+         glXPutBitmap ( x, y,  63, 16, rtperiod_bmp);
+         glPrintf( 150, y, &fi12x16, "%.2f", extendData[9]);
+         break;
+      case 8:
+      	glXPutBitmap ( x, y,  63, 16, rtcontrol_bmp);
+         break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+void dispUpdateSelect(char no)
+{
+	auto int x;
+   x = 65;
+
+   if(no == 4)
+   {
+   	x = 97;
+   	disp_select(65, 44+no*20, x);
+   }
+   else
+   {
+   	x = 65;
+   	disp_select(x, 44+no*20, x);
+   }
+}
+
+void dispSetupUpdate( int no )
+{
+	auto char c;
+
+   if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 46;
+      glXPutBitmap (128, 34,  63, 16, BoconUpdateCmd_bmp);
+	   glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+      glXPutBitmap ( c,128,  13, 11, BoconNo4_bmp);
+      glXPutBitmap ( c,148,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,168,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,188,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,208,  13, 11, BoconNo8_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<9;c++) dispUpdateNo(c);
+	}
+	else if((no > 0) && (no < 9))
+   {
+   	if(menuNoOld > 0) dispUpdateSelect(menuNoOld);
+      dispUpdateSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   dispUpdateData();
+}
+
+/*** Beginheader setupUpdate */
+int setupUpdate(void);
+/*** endheader */
+int setupUpdate(void)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupUpdate(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if((menuNo>0)&&(menuNo<3)&&(userMode>1))
+               {
+               	waitfor(modifyParam(menuNo+50, 0));
+               }
+               else if((menuNo == 3) && (userMode > 1))
+               {
+               	waitfor(updateCode());
+               }
+               else if((menuNo == 4) && (userMode > 1))
+               {
+               	waitfor(clearHistoryData());
+               }
+               else if((menuNo == 5) && (userMode > 1))
+               {
+               	waitfor(synchronousSendData());
+               }
+               else if((menuNo == 6 || menuNo == 7) && (userMode > 1))
+               {
+               	waitfor(modifyParam(menuNo+50, 0));
+               }
+               else if((menuNo == 8) && (userMode > 1))
+               {
+                  waitfor(rtControl());
+                  //memset(rtControlFlag,0x01,sizeof(rtControlFlag));
+               }
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 8;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey < '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/*** Beginheader rtControl */
+int rtControl(void);
+/*** endheader */
+int rtControl(void)
+{
+	static int status;
+   auto char i;
+   costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+
+      glBuffLock();
+		clearMenu();
+   	//dispCompanyName();
+      glXPutBitmap (105, 40, 109, 30, BoconUpdateWarn1_bmp);
+   	glBuffUnlock();
+
+      waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+      if(wKey == 'E')		//Update
+      {
+         glBuffLock();
+			clearMenu();
+         //memset(rtControlFlag,0x01,sizeof(rtControlFlag));
+         //do_flag = 1;
+         //rt_do_timer = SEC_TIMER;
+   		glBuffUnlock();
+      }
+      //if(btn == 25)		//Cancel
+      else
+      {
+      	dispCancel();
+         waitfor ( DelaySec(1) );
+      }
+	   status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37系统远程升级函数
+*******************************************************************************/
+/*** Beginheader updateCode */
+int updateCode(void);
+/*** endheader */
+int updateCode(void)
+{
+	static int status;
+   auto char i;
+   costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+
+      glBuffLock();
+		clearMenu();
+   	//dispCompanyName();
+      glXPutBitmap (105, 40, 109, 30, BoconUpdateWarn1_bmp);
+      glXPutBitmap ( 40, 90, 239, 48, BoconUpdateCmdWarn_bmp);
+   	glBuffUnlock();
+
+      waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+      if(wKey == 'E')		//Update
+      {
+         glBuffLock();
+			clearMenu();
+   		glBuffUnlock();
+
+         save_before_reset();			//保存历史数据
+         for(i=0;i<SOCKET_NUMBER;i++)				//关闭所有的连接
+         {
+         	bocon_close_sock(i);
+         }
+      	StartLoaderFrUserCode();	//切换到升级模式
+      }
+      //if(btn == 25)		//Cancel
+      else
+      {
+      	dispCancel();
+         waitfor ( DelaySec(1) );
+      }
+	   status = 1;
+   }
+   return status;
+}
+
+/*** BeginHeader eraseAllRecord*/
+void eraseAllRecord(void);
+/*** EndHeader */
+void eraseAllRecord(void)
+{
+	auto int status;
+   auto unsigned long page;
+   auto int i;
+
+   #ifdef DEBUG_PRINTF
+   printf("begin erase flash \n");
+   #endif
+   for (page = 0L; page < 524288L; page += 128L)
+   {
+   	status = nf_eraseBlock(&nandFlash, page);
+      if(status != 0)
+      {
+         #ifdef DEBUG_PRINTF
+         printf("erase error %u page \n", page);
+         #endif
+      	nf_eraseBlock(&nandFlash, page);
+      }
+   }
+
+   wrPtr = 0L;
+   for (i = 0; i < SOCKET_NUMBER; i++)
+   {
+   	if(un_tx_page.ptr[i] > wrPtr)
+   	{
+   		un_tx_page.ptr[i] = wrPtr;
+      	un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR)-2);
+   	}
+   }
+
+   #ifdef DEBUG_PRINTF
+   printf("erase flash finish \n");
+   #endif
+}
+
+/*** BeginHeader clearHistoryData*/
+int clearHistoryData(void);
+/*** EndHeader */
+int clearHistoryData(void)
+{
+	static int status;
+   auto char i;
+   costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+
+      glBuffLock();
+		clearMenu();
+      glXPutBitmap (105, 40, 109, 30, BoconUpdateWarn1_bmp);
+      glXPutBitmap ( 96, 90, 127, 16, BoconClearHsitoryWarn_bmp);
+   	glBuffUnlock();
+
+      waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+      if(wKey == 'E')		//Update
+      {
+         glBuffLock();
+			clearMenu();
+         glXPutBitmap ( 112, 100,  95, 16, clearHistory_bmp);
+   		glBuffUnlock();
+         eraseAllRecord();
+
+      }
+      //if(btn == 25)		//Cancel
+      else
+      {
+      	dispCancel();
+         waitfor ( DelaySec(1) );
+      }
+	   status = 1;
+   }
+   return status;
+}
+
+/*** BeginHeader synchronousSendData*/
+int synchronousSendData(void);
+/*** EndHeader */
+int synchronousSendData(void)
+{
+	static int status;
+   auto char i;
+   costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+
+      glBuffLock();
+		clearMenu();
+      glXPutBitmap (105, 40, 109, 30, BoconUpdateWarn1_bmp);
+      glXPutBitmap ( 129, 100,  62, 16, SynchronousSend_bmp);
+   	glBuffUnlock();
+
+      waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+      if(wKey == 'E')		//Update
+      {
+         glBuffLock();
+			clearMenu();
+         glXPutBitmap ( 129, 100,  62, 16, SynchronousSend_bmp);
+   		glBuffUnlock();
+         waitfor ( DelaySec(3) );
+         for(i = 0; i < SOCKET_NUMBER; i++)
+         {
+         	un_tx_page.ptr[i] = wrPtr;
+         }
+         un_tx_page.ptr[0] = wrPtr;	//标记为无未上传记录
+      	un_tx_page.ptr[1] = wrPtr;
+      	un_tx_page.ptr[2] = wrPtr;
+      	un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR)-2);
+      }
+      else
+      {
+      	dispCancel();
+         waitfor ( DelaySec(1) );
+      }
+	   status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37系统远程升级函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37查询系统信息的函数
+*******************************************************************************/
+/*** Beginheader queryProductNo */
+int queryProductNo(void);
+/*** endheader */
+int queryProductNo(void)
+{
+	static int status;
+
+   costate
+   {
+   	status = 0;
+      tm_ts = SEC_TIMER;
+
+      glBuffLock();
+		clearMenu();
+      glXPutBitmap ( 10, 60, 62, 16, BoconProductNo_bmp);
+      glXPutBitmap ( 10,100, 62, 15, BoconProductDate_bmp);
+      glXPutBitmap ( 10,120, 63, 16, BoconHwVer_bmp);
+      glXPutBitmap ( 10,140, 63, 16, BoconHwVer_bmp);
+      glXPutBitmap ( 10,140, 15, 16, BoconSwVer_bmp);
+      glBuffUnlock();
+      glBuffLock();
+
+      glPrintf( 83, 62, &fi12x16, "%s", SysIDBlock.serialNumber);
+      glPrintf(  10, 82, &fi12x16, "MAC   %02X-%02X-%02X-%02X-%02X-%02X",
+	       SysIDBlock.macAddr[0], SysIDBlock.macAddr[1], SysIDBlock.macAddr[2],
+	       SysIDBlock.macAddr[3], SysIDBlock.macAddr[4], SysIDBlock.macAddr[5]);
+      glPrintf( 83, 102, &fi12x16, "%02d%02d",SysIDBlock.timestamp[0], SysIDBlock.timestamp[1]);
+	   glXPutBitmap ( 133, 100, 15, 16, BoconYear_bmp);
+	   glPrintf( 151, 102, &fi12x16, "%02d",SysIDBlock.timestamp[2]);
+	   glXPutBitmap (177, 100, 13, 16, BoconMonth_bmp);
+	   glPrintf(195, 102, &fi12x16, "%02d",SysIDBlock.timestamp[3]);
+	   glXPutBitmap (221, 100, 11, 16, BoconDay_bmp);
+
+      glPrintf( 83, 122, &fi12x16, "%s", &hwVersion[4]);
+      glPrintf( 83, 142, &fi12x16, "%s", SW_VERSION);
+
+
+   	glBuffUnlock();
+
+      waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+	   status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37系统远程升级函数结束
+*******************************************************************************/
+
+
+/*******************************************************************************
+					K37设置扩展参数的函数
+*******************************************************************************/
+/*** Beginheader dispExpandParamData, dispExpandParamSelect,
+                 dispExpandParam, dispExpandParamNo */
+void dispExpandParamData(void);
+void dispExpandParamSelect(char no);
+void dispExpandParam( int no );
+void dispExpandParamNo(char no);
+/*** endheader */
+void dispExpandParamData(void)
+{
+   glBuffLock();
+   /*glPrintf( 136, 67, &fi12x16, "%.2f", ai_param[15].range_H);  //氧量上限设置
+
+   glPrintf( 136, 87, &fi12x16, "%.2f", ai_param[15].alarm_H);  //烟道截面积
+   glPrintf( 260, 87, &fi12x16, "m");
+   glPrintf( 272, 87, &fi6x8, "2");
+
+   glPrintf( 136, 107, &fi12x16, "%.2f", ai_param[12].alarm_H); //大气压力
+   glPrintf( 260, 107, &fi12x16, "Pa");
+
+   glPrintf( 136, 127, &fi12x16, "%.2f", ai_param[13].alarm_H); //过量空气系数
+
+   glPrintf( 145, 147, &fi12x16, "%.2f", ai_param[15].range_L); //速度场系数
+
+   glPrintf( 145, 167, &fi12x16, "%.0f", total_flux);  //累计流量初始值
+
+   glPrintf( 260, 167, &fi12x16, "m");
+   glPrintf( 272, 167, &fi6x8, "3");
+   glPrintf( 152, 187, &fi12x16, "%.0f", ai_param[12].range_H);  //寄存器起始位置
+
+   glPrintf( 152, 207, &fi12x16, "%.0f", ai_param[15].range_H);  //寄存器个数
+   */
+   glPrintf( 136, 67, &fi12x16, "%.2f", extendData[7]);  //氧量上限设置
+
+   glPrintf( 136, 87, &fi12x16, "%.2f", extendData[3]);  //烟道截面积
+   glPrintf( 260, 87, &fi12x16, "m");
+   glPrintf( 272, 87, &fi6x8, "2");
+
+   glPrintf( 136, 107, &fi12x16, "%.2f", extendData[2]); //大气压力
+   glPrintf( 260, 107, &fi12x16, "Pa");
+
+   glPrintf( 136, 127, &fi12x16, "%.2f", extendData[4]); //过量空气系数
+
+   glPrintf( 145, 147, &fi12x16, "%.2f", extendData[0]); //速度场系数
+
+   glPrintf( 145, 167, &fi12x16, "%.0f", total_flux);  //累计流量初始值
+
+   glPrintf( 260, 167, &fi12x16, "m");
+   glPrintf( 272, 167, &fi6x8, "3");
+   //glPrintf( 152, 187, &fi12x16, "%.0f", extendData[5]);  //寄存器起始位置
+
+   //glPrintf( 152, 207, &fi12x16, "%.0f", extendData[6]);  //寄存器个数
+   glPlotLine(136,  80, 250, 80);
+   glPlotLine(136, 100, 250, 100);
+   glPlotLine(136,  120, 250, 120);
+   glPlotLine(136,  140, 250, 140);
+   glPlotLine(145,  160, 250, 160);
+   glPlotLine(145,  180, 250, 180);
+   //glPlotLine(152,  200, 250, 200);
+   //glPlotLine(152,  220, 250, 220);
+   glBuffUnlock();
+}
+
+void dispExpandParamNo(char no)
+{
+	auto int x, y;
+   x = 65;
+   y = 44 + no * 20;
+   glBuffLock();
+   _glBlankRegion( x, y, x, 18);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, 63, 15, O2Limit_bmp);    //氧量上限设置
+         break;
+      case 2:
+      	glXPutBitmap ( x, y, 63, 16, flueArea_bmp); //烟道截面积
+      	break;
+      case 3:
+      	glXPutBitmap ( x, y,  63, 16, atmoPressure_bmp); //大气压力
+      	break;
+      case 4:
+      	glXPutBitmap ( x, y,  63, 16, airFactor_bmp); //过量空气系数
+      	break;
+      case 5:
+      	glXPutBitmap ( x, y,  79, 16, suduxishu_bmp); //速度场系数
+      	break;
+      case 6:
+         glXPutBitmap ( x, y,  62, 16, leijiliul_bmp);  //累计流量初始值
+         break;
+      case 7:
+      	dispDataUnit(x, y);
+      	break;
+      case 8:
+      	dispSampleUnit(x, y);
+      	break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+void dispExpandParamSelect(char no)
+{
+	auto int x;
+
+   x = 65;
+   if(no == 5)
+   {
+   	disp_select(x, 44+no*20, 81);
+   }
+   else
+   {
+   	disp_select(x, 44+no*20, x);
+   }
+}
+
+void dispExpandParam( int no )
+{
+	auto char c;
+
+   if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 46;
+      glXPutBitmap (113, 34,  94, 16, expandParamSet_bmp);
+	   glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+      glXPutBitmap ( c,128,  13, 11, BoconNo4_bmp);
+      glXPutBitmap ( c,148,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,168,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,188,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,208,  13, 11, BoconNo8_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<9;c++) dispExpandParamNo(c);
+	}
+	else if((no > 0) && (no < 9))
+   {
+   		if(menuNoOld > 0) dispExpandParamSelect(menuNoOld);
+      	dispExpandParamSelect(menuNo);
+			menuNoOld = menuNo;
+   }
+   dispExpandParamData();
+}
+
+/*** Beginheader setupExpandParam */
+int setupExpandParam(void);
+/*** endheader */
+int setupExpandParam(void)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispExpandParam(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if(menuNo == 7){
+                	waitfor(setupUnitCtrl(UNIT_CTRL_DATA));
+               }
+               else if(menuNo == 8){
+                	waitfor(setupUnitCtrl(UNIT_CTRL_SAMPLE));
+               }
+               else if((menuNo>0)&&(menuNo<9)&&(userMode>1))
+               {
+               		waitfor(modifyParam(menuNo+60, 0));
+               }
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 8;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey < '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*******************************************************************************
+					K37系统设置子菜单的显示接口函数
+*******************************************************************************/
+/*** Beginheader dispSetupNo, dispSetupSelect */
+void dispSetupNo(char no);
+void dispSetupSelect(char no);
+/*** endheader */
+void dispSetupNo(char no)
+{
+	auto int x, y, h;
+
+   h = 16;
+   x = 105;
+   y = 44 + no * 20;
+
+	glBuffLock();
+   _glBlankRegion( x, y, 113, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, 111, h, boconSetupDevno_bmp);
+         break;
+      case 2:
+			glXPutBitmap ( ++x, y,  94, h, boconSetupNetwork_bmp);
+         break;
+      case 3:
+			glXPutBitmap ( x, y, 111, h, boconSetupServer_bmp);
+         break;
+      case 4:
+			glXPutBitmap ( ++x, y,  93, h, boconSetupComm_bmp);
+         break;
+      case 5:
+			glXPutBitmap ( x, y, 111, h, boconSetupAna_bmp);
+         break;
+      case 6:
+			glXPutBitmap ( x, y,  63, h, BoconUpdateCmd_bmp);
+         break;
+      case 7:
+         glXPutBitmap ( x, y, 30, h, BoconQuery1_bmp);
+   		glXPutBitmap ( x+31, y, 62, h, BoconProductNo_bmp);
+         break;
+      case 8:
+			glXPutBitmap ( x, y,  94, h, expandParamSet_bmp);
+         break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+void dispSetupSelect(char no)
+{
+   disp_select(105, 44+no*20, 113);
+}
+
+/*** Beginheader dispSetupMenu */
+void dispSetupMenu( int no );
+/*** endheader */
+void dispSetupMenu( int no )
+{
+	auto char c;
+   if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 86;
+      glXPutBitmap (120, 34,  62, 16, BoconMenu7_bmp);
+	   glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+	   glXPutBitmap ( c,128,  13, 11, BoconNo4_bmp);
+	   glXPutBitmap ( c,148,  13, 11, BoconNo5_bmp);
+	   glXPutBitmap ( c,168,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,188,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,208,  13, 11, BoconNo8_bmp);
+      glBuffUnlock();
+
+	   for(c=1;c<9;c++) dispSetupNo(c);
+	}
+   else if((no > 0) && (no < 9))
+   {
+   	if(menuNoOld > 0) dispSetupSelect(menuNoOld);
+      dispSetupSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+}
+
+/*** Beginheader setupMenu */
+int setupMenu(void);
+/*** endheader */
+int setupMenu(void)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupMenu(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+            	switch(menuNo)
+         		{
+            	   case 1:
+	                  waitfor(setupDevno());
+	                  break;
+	               case 2:
+	                  waitfor(setupNetwork());
+	                  break;
+	               case 3:
+                     waitfor(setupServerSubmenu());
+                     break;
+                  case 4:
+                  	waitfor(setupComm());
+                  	break;
+                  case 5:
+                  	waitfor(setupAi());
+                  	break;
+                  case 6:
+                  	if(userMode < 2)
+                     {
+                     	waitfor(inputPwd(1));
+                     	if(userMode < 2)
+                     	{
+                     		//display 权限不够,延时退出
+                        }
+                     }
+                  	if(userMode > 1)	waitfor(setupUpdate());
+                  	break;
+                  case 7:
+                  	waitfor(queryProductNo());
+                     break;
+                  case 8:
+                  	waitfor(setupExpandParam());  //扩展参数设置
+                     break;
+                  default:
+                  	menuFlag = 1;
+                  	break;
+	            }
+               menuNo = 0;
+               menuNoOld = menuNo;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 8;
+               tm_ts = SEC_TIMER;
+               break;
+
+				//系统设置子菜单下的隐藏功能：如果连续按切换键超过1秒，
+            case 'S':	//拥有系统设置权限的用户，可在电池供电的时候关机
+            	if((detMainPwr() == 0) && (userMode > 1))
+               {
+            		waitfor(DelaySec(1));
+               	if(keyGet() == 'S')
+                  {
+                     if(pol_modify_flag > 0)
+      	            {
+	                  #ifdef COMPILE_SECONDARY_PROG
+                     	t_config2 = t_config0 + 1000;
+	                     wr_config2_tm();
+	                  #else
+                     	t_config0 = t_config2 + 1000;
+	                     wr_config0_tm();
+	                  #endif
+	                  }
+                  	save_before_reset();	//Save history data before shutdown
+                  	battDisable();
+                  }
+               }
+               break;
+            default:
+            	if((wKey > '0') && (wKey < '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      userMode = 0;					//标记为未登录
+      if(pol_modify_flag > 0)
+      {
+   	#ifdef COMPILE_SECONDARY_PROG
+      	t_config2 = t_config0 + 1000;
+   		wr_config2_tm();
+   	#else
+      	t_config0 = t_config2 + 1000;
+   		wr_config0_tm();
+   	#endif
+      }
+      if(pol_modify_flag == 2)	//本通道的编码已修改
+      {
+         polCodeInit();				//检查并更新参数配置
+         init_ch_data();			//初始化通道数据
+      }
+      pol_modify_flag = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37系统设置子菜单的显示接口函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37历史记录查询子菜单的显示接口函数
+*******************************************************************************/
+/*** Beginheader dispHistoryNo, dispHistorySelect */
+void dispHistoryNo(char no);
+void dispHistorySelect(char no);
+/*** endheader */
+void dispHistoryNo(char no)
+{
+	auto int x, y, h;
+
+   h = 16;
+   x = 105;
+   y = 39 + no * 20;
+
+	glBuffLock();
+   _glBlankRegion( x, y, 96, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+   		glXPutBitmap ( x, y, 63, h, BoconHistoryRecord_bmp);
+   		_glBlankRegion( x, y, 31, h);
+   		glXPutBitmap ( x, y, 30, h, BoconQuery1_bmp);
+         break;
+      case 2:
+         glXPutBitmap ( x, y, 30, h, BoconQuery1_bmp);
+   		glXPutBitmap ( x+31, y, 31, h, BoconHour2_bmp);
+   		glXPutBitmap ( x+63, y, 31, h, BoconData1_bmp);
+         break;
+      case 3:
+         glXPutBitmap ( x, y, 30, h, BoconQuery1_bmp);
+   		glXPutBitmap ( x+32, y, 11, h, BoconDay_bmp);
+   		glXPutBitmap ( x+45, y, 31, h, BoconData1_bmp);
+         break;
+      case 4:
+         glXPutBitmap ( x, y, 30, h, BoconQuery1_bmp);
+   		glXPutBitmap ( x+31, y, 13, h, BoconMonth_bmp);
+   		glXPutBitmap ( x+45, y, 31, h, BoconData1_bmp);
+         break;
+      case 5:
+         glXPutBitmap ( x, y, 31, h, BoconHour2_bmp);
+   		glXPutBitmap ( x+32, y, 30, h-1, BoconSum_bmp);
+   		glXPutBitmap ( x+64, y, 29, h, BoconCurve1_bmp);
+         break;
+      case 6:
+         glXPutBitmap ( x+2, y, 11, h, BoconDay_bmp);
+   		glXPutBitmap ( x+16, y, 30, h-1, BoconSum_bmp);
+   		glXPutBitmap ( x+48, y, 29, h, BoconCurve1_bmp);
+         break;
+      case 7:
+         glXPutBitmap ( x, y, 13, h, BoconMonth_bmp);
+   		glXPutBitmap ( x+16, y, 30, h-1, BoconSum_bmp);
+   		glXPutBitmap ( x+48, y, 29, h, BoconCurve1_bmp);
+         break;
+      case 8:
+         glXPutBitmap ( x, y, 63, h, BoconHistoryRecord_bmp);
+   		glXPutBitmap ( x+64, y, 30, h, BoconOutput_bmp);
+         break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+void dispHistorySelect(char no)
+{
+   disp_select(105, 39+no*20, 96);
+}
+
+/*** Beginheader dispHistoryMenu */
+void dispHistoryMenu( int no );
+/*** endheader */
+void dispHistoryMenu( int no )
+{
+	auto char c;
+   if(no == 0)
+   {
+   	glBuffLock();
+   	clearMenu();
+	   dispCompanyName();
+
+      c = 86;
+      glXPutBitmap ( 113, 34, 63, 16, BoconHistoryRecord_bmp);
+   	glXPutBitmap ( 177, 34, 30, 16, BoconQuery1_bmp);
+	   glXPutBitmap ( c, 63,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 83,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,103,  13, 11, BoconNo3_bmp);
+	   glXPutBitmap ( c,123,  13, 11, BoconNo4_bmp);
+	   glXPutBitmap ( c,143,  13, 11, BoconNo5_bmp);
+	   glXPutBitmap ( c,163,  13, 11, BoconNo6_bmp);
+      glXPutBitmap ( c,183,  13, 11, BoconNo7_bmp);
+      glXPutBitmap ( c,203,  13, 11, BoconNo8_bmp);
+      glBuffUnlock();
+
+	   for(c=1;c<9;c++) dispHistoryNo(c);
+	}
+	else if((no > 0) && (no < 9))
+   {
+   	if(menuNoOld > 0) dispHistorySelect(menuNoOld);
+      dispHistorySelect(menuNo);
+		menuNoOld = menuNo;
+   }
+
+   //glBuffLock();
+   //glPrintf( 220, 62, &fi12x16, "%ld", wrPtr);
+   //glBuffUnlock();
+}
+
+/*** Beginheader historyMenu */
+int historyMenu(void);
+/*** endheader */
+int historyMenu(void)
+{
+   static int status;
+   static char menu;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispHistoryMenu(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+            	if(menuNo == 0)	menuFlag = 1;
+               else
+               {
+               	menu = menuNo;
+                  if(menu != 8)
+                  {
+	               	waitfor(inputTime(menu));		//等待输入查询时间
+                  }
+
+                  if(hisTim > 0 || menu == 8)						//输入的时间是有效的
+                  {
+                     dispSearching();
+
+                     if((menu > 0) && (menu < 5))			//查询记录
+                     {
+                     	waitfor(queryHistoryRecord(menu));
+                     }
+                     else if((menu > 4) && (menu < 8))	//查询曲线
+                     {
+                     	waitfor(queryHistoryCurve(menu - 3));
+                     }
+                     else if(menu == 8)		//导出历史数据
+                     {
+                     	waitfor(queryHistoryOutput());
+                     }
+                  }
+                  menuNo = 0;
+                  menuNoOld = menuNo;
+               }
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 8) || (menuNo < 1))	menuNo = 8;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey < '9'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      userMode = 0;		//标记为未登录
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37历史纪录查询子菜单的显示接口函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+					K37主菜单的显示接口函数
+*******************************************************************************/
+/*** Beginheader dispMainNo, dispMainSelect, dispMainMenu */
+void dispMainNo(char no);
+void dispMainSelect(char no);
+void dispMainMenu( int no, char noMin, char noMax );
+/*** endheader */
+void dispMainNo(char no)
+{
+	auto int x, y, h;
+
+   h = 16;
+   x = 105;
+   y = 79 + no * 20;
+
+   _glBlankRegion( x, y, 96, h+2);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y,  79, h, BoconMenu1_bmp);
+         break;
+      case 2:
+         glXPutBitmap ( x, y, 63, h, BoconHistoryRecord_bmp);
+   		glXPutBitmap ( x+64, y, 30, h, BoconQuery1_bmp);
+         break;
+      case 3:
+			glXPutBitmap ( x, y, 62, h, BoconMenu7_bmp);
+         break;
+      default:
+      	break;
+   }
+}
+
+void dispMainSelect(char no)
+{
+   disp_select(105, 79+no*20, 96);
+}
+
+void dispMainMenu( int no, char noMin, char noMax )
+{
+	auto char c;
+
+   glBuffLock();
+   if(no == 0)
+   {
+      clearMenu();
+	   dispCompanyName();
+      K37MAINMENU
+
+      dispMenuNo(86, 103, noMin, noMax);
+	   for(c=noMin;c<=noMax;c++) dispMainNo(c);
+	}
+   else if((no >= noMin) && (no <= noMax))
+   {
+   	if(menuNoOld > 0) dispMainSelect(menuNoOld);
+      dispMainSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   glBuffUnlock();
+}
+
+/*** Beginheader mainMenu */
+int mainMenu(void);
+/*** endheader */
+int mainMenu(void)
+{
+   static int status;
+   static char noMin;
+   static char noMax;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      userMode = 0;
+      menuNoOld = menuNo;
+   	tm_ts = SEC_TIMER;
+   	menuFlag = 0;
+      noMin = 1;
+      noMax = 3;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispMainMenu(menuNo, noMin, noMax);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+            	if(menuNo == 0) menuFlag = 1;
+               else
+               {
+               	switch(menuNo)
+	               {
+	                  case 1:
+	                     waitfor(k37RunDisp());
+	                     break;
+	                  case 2:
+	                     waitfor(inputPwd(0));
+	                     if(userMode > 0)  waitfor(historyMenu());
+	                     break;
+	                  case 3:
+	                     waitfor(inputPwd(0));
+	                     if(userMode > 0)  waitfor(setupMenu());
+	                     break;
+	                  default:
+	                     menuFlag = 1;
+	                     break;
+	               }
+	               menuNo = 0;
+                  menuNoOld = menuNo;
+               }
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               menuNoOld = menuNo;
+            	break;
+
+         	case 'D':	//Down key
+               nextLine(noMin, noMax);
+               break;
+
+         	case 'U':	//Up key
+               previousLine(noMin, noMax);
+               break;
+
+            default:
+               keyOption(noMin, noMax);
+            	break;
+         }
+      }
+      wKey = 0;
+      userMode = 0;
+      status = 1;
+   }
+   return status;
+}
+/*******************************************************************************
+					K37主菜单的显示接口函数结束
+*******************************************************************************/
+
+/*******************************************************************************
+K37按键和液晶显示的主任务，包括按键驱动，各级菜单显示，实时时间等
+*******************************************************************************/
+/*** Beginheader k37_key_disp_task */
+void k37_key_disp_task(void);
+/*** endheader */
+void k37_key_disp_task(void)
+{
+	dispTime();                	//显示时间
+
+	costate
+	{
+   	while(1)
+      {
+			waitfor(mainMenu());		//主菜单
+      	waitfor(k37RunDisp());	//显示实时数据
+      }
+	}
+}
+
+/*** BeginHeader restoreSysParam*/
+void restoreSysParam(void);
+/*** EndHeader */
+void restoreSysParam(void)
+{
+	auto char ch;
+
+	for(ch=0;ch<SOCKET_NUMBER;ch++)
+   {
+   	if(isalnum(sip[ch][0])) continue;
+   	serLink[ch] = 1;	//Ethernet
+      wrSerLink(ch, CONFIG_IN_FLASH);
+		sport[ch] = 8000+ch;//1001
+   	memset(sip[ch], '\0', sizeof(sip[ch]));
+   	strcpy(sip[ch], "192.168.1.24");
+   	wrSip(ch, CONFIG_IN_FLASH);
+   	wrSport(ch, CONFIG_IN_FLASH);
+
+      memset(sipPwd[ch], '\0', sizeof(sipPwd[ch]));
+      strcpy(sipPwd[ch], "123456");
+      wrSipPwd(ch, CONFIG_IN_FLASH);
+
+      rtdInterval[ch] = 30;	//实时周期
+      overTime[ch] = 5;			//超时时间
+      warnTime[ch] = 30;		//报警周期
+      reCount[ch] = 3;
+      heartbeatInterval[ch] = 120;
+      wrRtdInt(ch, CONFIG_IN_FLASH);
+      wrOverTime(ch, CONFIG_IN_FLASH);
+      wrWarnTime(ch, CONFIG_IN_FLASH);
+      wrReCount(ch, CONFIG_IN_FLASH);
+      wrHeartbeatInt(ch, CONFIG_IN_FLASH);
+
+      for(ch = 0; ch < 10; ch++){
+    		extendData[ch] = 1.0;
+         wr_extendData(ch, CONFIG_IN_FLASH);
+   	}
+
+      printf("restore server %d param\r\n", ch);
+   }
+
+   for(ch = 0; ch < sizeof(sysPwd) - 1; ch++)
+   {
+   	if(isalnum(sysPwd[ch]) || sysPwd[ch] == 0x00) continue;
+
+      memset(sysPwd, '\0', sizeof(sysPwd));
+   	strcpy(sysPwd, "88888888");
+   	wrSysPwd(CONFIG_IN_FLASH);
+      printf("restore syspwd\r\n");
+   }
+}
+
+/*** BeginHeader dispMenuNo*/
+void dispMenuNo(int x, int y, char minNo, char maxNo);
+/*** EndHeader */
+void dispMenuNo(int x, int y, char minNo, char maxNo)
+{
+	auto char no;
+   auto int yPos;
+   auto unsigned long noBmp;
+
+   for(no = minNo; no <= maxNo; no++){
+   	yPos = y + (no - minNo) * 20;
+   	switch(no){
+       	case 1:
+         noBmp = BoconNo1_bmp;
+         break;
+       	case 2:
+         noBmp = BoconNo2_bmp;
+         break;
+       	case 3:
+         noBmp = BoconNo3_bmp;
+         break;
+       	case 4:
+         noBmp = BoconNo4_bmp;
+         break;
+       	case 5:
+         noBmp = BoconNo5_bmp;
+         break;
+       	case 6:
+         noBmp = BoconNo6_bmp;
+         break;
+       	case 7:
+         noBmp = BoconNo7_bmp;
+         break;
+       	case 8:
+         noBmp = BoconNo8_bmp;
+         break;
+       	case 9:
+         noBmp = BoconNo9_bmp;
+         break;
+         default:
+         noBmp = 0;
+         break;
+      }
+      if(noBmp)
+      	glXPutBitmap( x, yPos, 13, 11, noBmp);
+   }
+}
+
+/*** BeginHeader nextLine*/
+void nextLine(char noMin, char noMax);
+/*** EndHeader */
+void nextLine(char noMin, char noMax)
+{
+   menuNo ++;
+   if((menuNo > noMax) || (menuNo < noMin))	menuNo = noMin;
+   tm_ts = SEC_TIMER;
+}
+
+/*** BeginHeader previousLine*/
+void previousLine(char noMin, char noMax);
+/*** EndHeader */
+void previousLine(char noMin, char noMax)
+{
+   menuNo --;
+   if((menuNo > noMax) || (menuNo < noMin))	menuNo = noMax;
+   tm_ts = SEC_TIMER;
+}
+
+/*** BeginHeader keyOption*/
+void keyOption(char noMin, char noMax);
+/*** EndHeader */
+void keyOption(char noMin, char noMax)
+{
+   if((wKey >= noMin + '0') && (wKey <= noMax + '0'))
+   {
+   	menuNo = wKey - '0';
+      tm_ts = SEC_TIMER;
+   }
+   else
+   {
+   	menuFlag = 1;	//其他键不响应
+   }
+}
+
+/*** BeginHeader clearMenu*/
+void clearMenu(void);
+/*** EndHeader */
+void clearMenu(void)
+{
+ 	_glBlankRegion( 0, 20, 320, 205);
+}
+
+/*** BeginHeader dispCompanyName*/
+void dispCompanyName(void);
+/*** EndHeader */
+void dispCompanyName(void)
+{
+ 	K37PUTNAME
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */

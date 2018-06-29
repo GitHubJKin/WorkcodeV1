@@ -1,0 +1,118 @@
+
+/*** BeginHeader */
+#ifndef rd_2023_cod_delin_short_lib
+#define rd_2023_cod_delin_short_lib
+/*** EndHeader */
+
+
+/*******************************************************
+简化的德林COD通讯协议
+发送取数指令：25 43 32 39 41 0d
+返回:		25H	32H	30H	33H	30H	30H	31H	30H	33H	0DH
+				(20时)  (30分)  ( 四个字节,103ml )
+*******************************************************/
+/*** BeginHeader rd_cod_delin_short */
+int rd_cod_delin_short( char port );
+/*** EndHeader */
+int rd_cod_delin_short( char port )
+{
+   static int status;
+   auto union uf data;
+   auto struct tm time;
+   auto char temp[7];
+   auto float zhengshu;
+   auto float xiaoshu;
+
+   costate
+   {
+	  status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      com_tbuf[0] = 0x25;
+      com_tbuf[1] = 0x43;
+      com_tbuf[2] = 0x32;
+      com_tbuf[3] = 0x39;
+      com_tbuf[4] = 0x41;
+      com_tbuf[5] = 0x0d;
+      com_tlen = 6;
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+   	if((com_rlen >= 10)&&(com_rbuf[0]==0x25)&&(com_rbuf[9]==0x0d))
+	   {
+         memset(temp,0x00,sizeof(temp));
+         memcpy(temp,&com_rbuf[5],4);
+         zhengshu = atof(temp);
+         printf("zhengshu = %.2f\n",zhengshu);
+
+         //memset(temp,0x00,sizeof(temp));
+         //memcpy(temp,&com_rbuf[19],2);
+         //xiaoshu = atof(temp);
+         //printf("xiaoshu = %.2f\n",xiaoshu);
+
+         com_f[0] = zhengshu;
+
+         old_com_f[0] = com_f[0];
+		 //deviceStatus = 0;
+
+         status = 1;
+	   }
+	   else
+      {
+      	//if(deviceStatus < 5)
+      	//{
+      	//	com_f[0] = old_com_f[0];
+      	//	deviceStatus++;
+      	//	status = 1;
+		//}
+		//else
+		//{
+         	status = 2;
+         	com_f[0] = 0.0;
+        // 	old_com_f[0] = 0.0;
+		//}
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,81 @@
+
+/*** BeginHeader */
+#ifndef rd_1035_flux_qining_lib
+#define rd_1035_flux_qining_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+广州奇宁化工明渠流量计?  Modbus-RTU RS485 1200~9600,N,8,1	     -1035
+*******************************************************************************/
+/*** BeginHeader rd_flux_qining */
+int rd_flux_qining( char port );
+/*** EndHeader */
+int rd_flux_qining( char port )
+{
+	static int status;
+	auto union uf f;
+	costate
+	{
+		status = 0;
+		pack_modbus_cmd(0x02, 0x03, 0x00, 0x02);	//从00H地址开始读2寄存器
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		memset(com_rbuf,0x00,sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x02) && (com_rbuf[1] == 0x03))
+		{
+			f.ch[3] = com_rbuf[3];
+			f.ch[2] = com_rbuf[4];
+			f.ch[1] = com_rbuf[5];
+			f.ch[0] = com_rbuf[6];
+			com_f[0] = (float)f.f;//瞬时流量
+
+			pack_modbus_cmd(0x02, 0x03, 0x14, 0x02);	//从00H地址开始读2寄存器
+			com_write(port);
+			waitfor(DelayMs(1000));
+			memset(com_rbuf,0x00,sizeof(com_rbuf));
+			com_read(port);
+			if((com_rlen >= 6) && (com_rbuf[0] == 0x02) && (com_rbuf[1] == 0x03))
+			{
+				f.ch[3] = com_rbuf[3];
+				f.ch[2] = com_rbuf[4];
+				f.ch[1] = com_rbuf[5];
+				f.ch[0] = com_rbuf[6];
+				com_f[1] = (float)f.l;//累计流量
+			}
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+			com_f[1] = 0.0;
+		}
+		com_sec = read_rtc();//时间
+	}
+	return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

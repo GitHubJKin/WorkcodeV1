@@ -1,0 +1,108 @@
+
+/*** BeginHeader */
+#ifndef rd_2050_some_huashijie_modbus_lib
+#define rd_2050_some_huashijie_modbus_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_some_huashijie_modbus */      //case 2050:华时捷仪器通讯协议(485口接多个仪表,地址位为01,...) 14-03-19
+int rd_some_huashijie_modbus( char port );
+/*** EndHeader */
+int rd_some_huashijie_modbus( char port )
+{
+	static int status;
+   auto long templ;
+   auto char tempc[16];
+   auto struct tm comTime;
+   auto int i;
+   auto unsigned int v;
+   static int someAdd;
+   auto char *point;
+   auto int k;
+   auto union uf AI;
+
+   costate
+   {
+       status = 0;
+
+       for(someAdd = 0; someAdd < ai_param[15].alarm_L;someAdd++)
+       {
+       		memset(com_tbuf, 0x00, sizeof(com_tbuf));
+				pack_modbus_cmd(someAdd+1, 0x03, 0x00, 0x0A);
+       		com_write(port);
+       		waitfor(DelayMs(3000));
+
+       		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+       		com_read(port);
+
+       		if((com_rlen >= 25)&&(com_rbuf[0] == (someAdd+1))&&(com_rbuf[1] == 0x03))//&&(com_rbuf[2]==(0x30+someAdd+1))&&(com_rbuf[3]==0x30))
+       		{
+       			AI.ch[3] = com_rbuf[3];
+	      		AI.ch[2] = com_rbuf[4];
+	      		AI.ch[1] = com_rbuf[5];
+	      		AI.ch[0] = com_rbuf[6];
+
+	      		com_f[someAdd] = AI.f;
+
+	      		if(com_rbuf[22]==0x01)
+        			{
+                	com_f[someAdd] *= 1000.0;
+					}
+					else if(com_rbuf[22]==0x03)
+					{
+						com_f[someAdd] /= 1000.0;
+					}
+					else
+					{}
+            	com_sec = read_rtc();
+       		}
+       		else
+       		{
+            	com_f[someAdd] = 0.0;
+	   		}
+	   		waitfor(DelayMs(2000));
+	   }
+
+
+	   	status = 1;
+   		com_sec = read_rtc();
+   		if(status == 0) status = 1;
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

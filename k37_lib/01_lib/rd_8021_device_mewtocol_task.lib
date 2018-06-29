@@ -1,0 +1,118 @@
+
+/*** BeginHeader */
+#ifndef rd_8021_device_mewtocol_task_lib
+#define rd_8021_device_mewtocol_task_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_device_mewtocol*/
+int rd_device_mewtocol( char port );
+/*** EndHeader */
+/*******************************************************************************
+松下电工FP系列可编程控制器
+通信协议MEWTOCOL
+*******************************************************************************/
+int rd_device_mewtocol( char port )
+{
+   static int status;
+   auto char tempc[9];
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, "%01#RDD0152101525**\r");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);//加上那回车，一般返回29个字符.
+      if((com_rlen >= 28)&&(strncmp(com_rbuf, "%01$RD", 6)==0))
+      {
+         memset(tempc,0x00,sizeof(tempc));
+         strncpy(tempc, &com_rbuf[18], 8);
+         com_f[0] = (float)(atol(tempc));    //即时值
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader rd_device_mewtocol_task*/
+int rd_device_mewtocol_task( char port, char deviceType );
+/*** EndHeader */
+/*******************************************************************************
+函数功能：读取松下电工的仪表
+参数1：是采用什么COM读取数据的；
+参数2：1-读COD，2-读总铜，3-氨氮
+返回：0-正在读取数据，1-读取成功，2-读取失败
+*******************************************************************************/
+int rd_device_mewtocol_task( char port, char deviceType )
+{
+   static int status;
+
+   costate
+   {
+      waitfor((status = rd_device_mewtocol(port)));
+      switch (deviceType)
+      {
+        case 1:
+               com_f[0] /= 10.0; //COD
+               break;
+        case 2:
+               com_f[0] /= 10000.0;  //总铜
+               break;
+        case 3:
+               com_f[0] /= 100.0;    //氨氮
+               break;
+        default: ;
+      }
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,75 @@
+
+/*** BeginHeader */
+#ifndef rd_1021_cod_multiranger_lib
+#define rd_1021_cod_multiranger_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_multiranger_cod*/
+int rd_multiranger_cod( char port );
+/*** EndHeader */
+int rd_multiranger_cod( char port )
+{
+   static int status;
+   auto union uf f;
+   auto CHARTOINTTY data;
+   auto struct tm comTime;
+   auto int i;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 1009, 0x02);
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 8)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03))
+      {
+         data.c[1] = com_rbuf[3];
+         data.c[0] = com_rbuf[4];
+         com_f[0] = ((float)data.i) / 10000.0 * ai_param[15].alarm_H;        //˲ʱֵ
+
+         pack_modbus_cmd(0x01, 0x03, 1039, 0x02);
+         com_write(port);
+         waitfor(DelayMs(3000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if((com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03))
+         {
+            f.ch[3] = com_rbuf[3];
+            f.ch[2] = com_rbuf[4];
+            f.ch[1] = com_rbuf[5];
+            f.ch[0] = com_rbuf[6];
+            com_f[1] = ((float)f.l) / 100.0;
+         }
+         status = 1;
+      	com_sec = read_rtc();
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         status = 2;
+      	com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+

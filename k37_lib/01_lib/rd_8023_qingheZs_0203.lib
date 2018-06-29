@@ -1,0 +1,88 @@
+
+/*** BeginHeader */
+#ifndef rd_8023_qingheZs_0203_lib
+#define rd_8023_qingheZs_0203_lib
+/*** EndHeader */
+
+
+
+
+/*** BeginHeader rd_qingheZs_0203*/
+int rd_qingheZs_0203( char port );
+/*** EndHeader */
+int rd_qingheZs_0203( char port )
+{
+   auto char ch;
+   static float f1, f2, f3;
+
+   //查找折算值
+      f3 = ai_param[13].alarm_H;   //测点实测的过量空气系数
+      if(getSampleChannel("S01", &ch, 1, &f2) == 1)
+      {
+         f2 = 21.0 - f2;
+         if((f2 > 0.0) && (f3 > 0.0))
+         {
+            f2 = (21.0 / f2) / f3;
+
+            if(getSampleChannel("02", &ch, 1, &f1) == 1)
+            {
+               com_f[0] = f1 * f2;
+            }
+
+            if(getSampleChannel("03", &ch, 1, &f1) == 1)
+            {
+               com_f[1] = f1 * f2;
+            }
+         }
+         else
+         {
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+         }
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+      return 1;
+
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

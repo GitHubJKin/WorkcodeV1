@@ -1,0 +1,156 @@
+
+/*** BeginHeader */
+#ifndef rd_9101_6_hebei_feishui_lib
+#define rd_9101_6_hebei_feishui_lib
+/*** EndHeader */
+
+
+/*******************************************************
+河北废水
+发送:02 06 00 01 00 01 (22个FF) 0C 59 03
+接收:                  
+flag为0就不主动发数据.
+flag值为(0~6)1是累计流量,2是COD,3是氨氮,4是PH,5是BOD,6是TOC
+*******************************************************/
+/*** BeginHeader rd_hebei_feishui */
+int rd_hebei_feishui( char port, char flag ); 
+/*** EndHeader */
+int rd_hebei_feishui( char port, char flag )
+{
+   static int status 
+   static unsigned long tmpt 
+   auto int i 
+   auto long tmpl 
+   costate
+   {
+      status = 0 
+
+      if(flag != 0)
+      {
+         memset(com_tbuf, 00, sizeof(com_tbuf)) 
+         for(i=0 i<31 i++)com_tbuf[i] = FF //先31个字符全部填入FF
+         com_tbuf[0] = 02 //数据头
+         com_tbuf[1] = 06 //数据头
+         com_tbuf[2] = 00 //00为指令,01为数据
+         com_tbuf[3] = 01 //厂家ID(例如01)
+         com_tbuf[4] = 00 //类别ID,00为水,01为气
+         com_tbuf[5] = 01 //功能码,01为立即回传数据,,其余22字节为无用字节,用ff填充
+         com_tbuf[28] = 0C //CRC
+         com_tbuf[29] = 59 //CRC
+         com_tbuf[30] = 03 //结束
+         com_tlen = 31 
+         com_write(port) 
+      }
+
+      tmpt = SEC_TIMER 
+      while(SEC_TIMER < (tmpt + 1))//(tmpt + 70))  //原来是等70秒,现设成1其实是无任何意义的.
+      {
+         waitfor(DelayMs(1500)) 
+         memset(com_rbuf, 00, sizeof(com_rbuf)) 
+         com_read(port) 
+         if(com_rlen >= 31) break 
+      }
+      if(com_rlen >= 31 && com_rbuf[0]==02 && com_rbuf[1]==06 && /*com_rbuf[4]==01 &&//00是水的,01是气的 */
+         com_rbuf[27]==00 && com_rbuf[30]==03)//[27]0值就是无故障.
+      {
+         tmpl = 0 
+         if(flag == 1)//累计流量   //[5][6][7][8]
+         {
+            if((com_rbuf[5]==FF)&&(com_rbuf[6]==FF)&&(com_rbuf[7]==FF)&&(com_rbuf[8]==FF))
+               tmpl = 0   //要排除了全是FF的数据才是正确的.
+            else
+            {
+               tmpl |= com_rbuf[5] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[6] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[7] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[8] 
+               com_f[0] = tmpl         //累计流量
+               status = 1 
+            }
+         }
+         else if(flag == 2)//COD   //[15][16][17] //而[9,10,11,12,,,13,14,]是过流断流时间
+         {
+            if((com_rbuf[15]==FF)&&(com_rbuf[16]==FF)&&(com_rbuf[17]==FF))
+               tmpl = 0 
+            else
+            {
+               tmpl |= com_rbuf[15] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[16] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[17] 
+               com_f[0] = tmpl         //COD
+               status = 1 
+            }
+         }
+         else if(flag == 3)//氨氮   //[18][19]
+         {
+            if((com_rbuf[18]==FF)&&(com_rbuf[19]==FF))
+               tmpl = 0 
+            else
+            {
+               tmpl |= com_rbuf[18] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[19] 
+               com_f[0] = tmpl         //氨氮
+               status = 1 
+            }
+         }
+         else if(flag == 4)//PH   //[20][21]
+         {
+            if((com_rbuf[20]==FF)&&(com_rbuf[21]==FF))
+               tmpl = 0 
+            else
+            {
+               tmpl |= com_rbuf[20] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[21] 
+               com_f[0] = tmpl         //PH
+               status = 1 
+            }
+         }
+         else if(flag == 5)//BOD   //[22][23]
+         {
+            if((com_rbuf[22]==FF)&&(com_rbuf[23]==FF))
+               tmpl = 0 
+            else
+            {
+               tmpl |= com_rbuf[22] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[23] 
+               com_f[0] = tmpl         //BOD
+               status = 1 
+            }
+         }
+         else if(flag == 6)//TOC   //[24][25]
+         {
+            if((com_rbuf[24]==FF)&&(com_rbuf[25]==FF))
+               tmpl = 0 
+            else
+            {
+               tmpl |= com_rbuf[24] 
+               tmpl <<= 8 
+               tmpl |= com_rbuf[25] 
+               com_f[0] = tmpl         //TOC
+               status = 1 
+            }
+         }
+                                    //[26]空余,[27]0值表示无故障,[28][29]CRC,[30]结束
+      }
+      if(status == 0)
+      {
+         memset(com_f, 00, sizeof(com_f)) 
+         status = 2 
+      }
+      com_sec = read_rtc() 
+   }
+   return status 
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

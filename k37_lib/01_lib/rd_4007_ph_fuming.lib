@@ -1,0 +1,51 @@
+
+/*** BeginHeader */
+#ifndef rd_4007_ph_fuming_lib
+#define rd_4007_ph_fuming_lib
+/*** EndHeader */
+
+
+/*******************************************************
+福建福铭的PH:Modbus RTU协议,RS485,9600bps,8bit,N,1bit            
+PH仪表返回9字节，格式如下（16进制）：
+本机地址 03  04  PH(高字节)  PH(低字节) 温度(高字节)  温度(低字节)  CRC
+*******************************************************/
+
+/*** BeginHeader rd_ph_fuming */
+int rd_ph_fuming( char port );
+/*** EndHeader */
+int rd_ph_fuming( char port )
+{
+	static int status;
+	auto union uf f;
+	costate
+	{
+		status = 0;
+		pack_modbus_cmd(0x01, 0x03, 0x00, 0x02); //构建modbus协议包
+		com_write(port);                         //串口发送数据
+		waitfor(DelayMs(1000));                  //延时1s
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);                         //串口读取接收到的数据,保存在com_rbuf
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+		{
+			f.ch[1] = com_rbuf[3];
+			f.ch[0] = com_rbuf[4];
+			com_f[0] = (float)(f.i[0] /100.0); //读到的PH值要除以100
+
+			status = 1; //读取成功返回1
+		}
+		else
+		{
+			status = 2;    //读取失败返回2
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

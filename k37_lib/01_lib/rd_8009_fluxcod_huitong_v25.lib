@@ -1,0 +1,73 @@
+
+/*** BeginHeader */
+#ifndef rd_8009_fluxcod_huitong_v25_lib
+#define rd_8009_fluxcod_huitong_v25_lib
+/*** EndHeader */
+
+
+/**********************************
+攀钢汇同2.5代协议
+发送:
+01 03 01 F4 00 02 84 05 （此为读取COD的命令）
+01 03 0D 49 00 02 17 71 （此为读取流量的命令）
+接收: 数据格式为浮点型
+01 03 04 40 00 44 9A 5C 98(此为COD数据，解析出来氨氮值为1234)
+01 03 04 70 00 45 B1 12 17(此为流量数据，解析出来流量数据为5678)
+************************************/
+
+/*** BeginHeader rd_fluxcod_huitong_v25 */
+int rd_fluxcod_huitong_v25( char port );
+/*** EndHeader */
+int rd_fluxcod_huitong_v25( char port ) 
+{
+	static int status;
+	auto union uf f;
+	static char flag;
+
+	costate {
+		status = 0;
+		flag = 0;
+
+		pack_modbus_cmd(0x01, 0x03, 0x0D49, 0x02);//读流量
+		com_write(port);
+		waitfor(DelayMs(2000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) ) {
+			f.ch[1] = com_rbuf[3];
+			f.ch[0] = com_rbuf[4];
+			f.ch[3] = com_rbuf[5];
+			f.ch[2] = com_rbuf[6];
+			com_f[0] = f.f;
+			flag++;
+		} else com_f[0] = 0.0;
+
+		waitfor(DelayMs(2000));
+
+		pack_modbus_cmd(0x01, 0x03, 0x01F4, 0x02); //读COD
+		com_write(port);
+		waitfor(DelayMs(2000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) ) {
+			f.ch[1] = com_rbuf[3];
+			f.ch[0] = com_rbuf[4];
+			f.ch[3] = com_rbuf[5];
+			f.ch[2] = com_rbuf[6];
+			com_f[2] = f.f;
+			flag++;
+		} else com_f[2] = 0.0;
+
+		if(flag > 0) status = 1;
+		else status = 2;
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

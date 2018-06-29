@@ -1,0 +1,73 @@
+/*** BeginHeader */
+#ifndef rd_1011_flux_huigu_lib
+#define rd_1011_flux_huigu_lib
+/*** EndHeader */
+
+
+/*******************************************************************
+	汇谷
+读瞬时流量命令：：99 04 71 C2 [0d][0a]
+读取总累计流量值：：99 04 72 C1 [0d][0a]
+*******************************************************************/
+/*** BeginHeader rd_flux_huigu */
+int rd_flux_huigu( char port );
+/*** EndHeader */
+int rd_flux_huigu( char port )
+{
+   static int status;
+   auto  char * temptr;
+   auto unsigned long total;
+   auto char str[12];
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      strcpy(com_tbuf, ":990471C2\r\n");
+      com_tlen = strlen(com_tbuf);          //发送数据长度
+      com_write(port);       //调用发送函数,将数据发送出去
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if((com_rlen >= 0) && (com_rbuf[0] == ':') && (com_rbuf[com_rlen-1] == 0x0a))                         //接收数据的长度
+      {
+         memset(str, 0x00, sizeof(str));
+         strncpy(str, &com_rbuf[7], 5);
+         com_f[0] = atof(str);      //瞬时流量
+
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         strcpy(com_tbuf, ":990471C2\r\n");
+         com_tlen = strlen(com_tbuf);          //发送数据长度
+         com_write(port);       //调用发送函数,将数据发送出去
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+         com_read(port);
+         if((com_rlen >= 0) && (com_rbuf[0] == ':') && (com_rbuf[com_rlen-1] == 0x0a))
+         {
+            memset(str, 0x00, sizeof(str));
+            strncpy(str, &com_rbuf[7], 10);
+            com_f[1] = atof(str);      //瞬时流量
+         }
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

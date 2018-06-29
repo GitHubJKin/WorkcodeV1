@@ -1,0 +1,95 @@
+
+/*** BeginHeader */
+#ifndef rd_1029_flux_dianci_lib
+#define rd_1029_flux_dianci_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+Modbus电磁流量计协议  RS485或RS232 600-9600,N,8,1	     -1029
+*******************************************************************************/
+/*** BeginHeader rd_flux_dianci */
+int rd_flux_dianci( char port );
+/*** EndHeader */
+int rd_flux_dianci( char port )
+{
+	static int status;
+	auto union uf f;
+
+	costate
+	{
+		status = 0;
+
+		pack_modbus_cmd(0x01, 0x03, 0x00, 0x02);
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+		{
+			f.ch[3] = com_rbuf[3];
+			f.ch[2] = com_rbuf[4];
+			f.ch[1] = com_rbuf[5];
+			f.ch[0] = com_rbuf[6];
+			com_f[0] = f.f;			//瞬时流量
+
+			pack_modbus_cmd(0x01, 0x03, 0x03, 0x02);
+		  com_write(port);
+		  waitfor(DelayMs(1000));
+
+			memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		  com_read(port);
+
+		  if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+		  {
+				f.ch[3] = com_rbuf[3];
+				f.ch[2] = com_rbuf[4];
+				f.ch[1] = com_rbuf[5];
+				f.ch[0] = com_rbuf[6];
+				com_f[1] = (float)f.l;//总流量低字节
+
+				pack_modbus_cmd(0x01, 0x03, 0x05, 0x02);
+			com_write(port);
+			waitfor(DelayMs(1000));
+
+			memset(com_rbuf, 0x00, sizeof(com_rbuf));
+			com_read(port);
+			if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+			{
+				f.ch[3] = com_rbuf[3];
+					f.ch[2] = com_rbuf[4];
+					f.ch[1] = com_rbuf[5];
+					f.ch[0] = com_rbuf[6];
+					com_f[1] += f.f;//总流量小数
+			}
+		  }
+			status = 1;
+		}
+		//else
+		if(status == 0)
+		{
+			status = 2;
+			com_f[0] = 0.0;
+			com_f[1] = 0.0;
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+

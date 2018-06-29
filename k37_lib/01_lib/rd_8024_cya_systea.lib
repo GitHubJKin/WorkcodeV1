@@ -1,0 +1,149 @@
+
+/*** BeginHeader */
+#ifndef rd_8024_cya_systea_lib
+#define rd_8024_cya_systea_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_cya_systea*/
+int rd_cya_systea(char port);
+/*** EndHeader */
+int rd_cya_systea(char port)                          //氰化物            //5501
+{  //发送命令:#r<CR><LF>
+//仪表只测量一个参数时:
+//02／08／10　　　07:58        //10年08月02日.
+//0028.67
+   static int status;
+   auto float v;
+   auto char *p1;
+   auto char *p2;
+   auto char cc[10];
+   auto struct tm comTime;
+   costate
+   {
+      status = 0;
+
+      com_tbuf[0] = '#';
+      com_tbuf[1] = 'r';
+      com_tbuf[2] = 0x0D;
+      com_tbuf[3] = 0x0A;
+      com_tlen = 4;
+      com_write(port);
+      waitfor(DelayMs(5000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+
+      if( com_rlen >= 15 )
+      {
+           memset(cc,0x00,sizeof(cc));
+           memcpy(cc,&com_rbuf[0],2);
+           comTime.tm_mday = atoi(cc);//日
+
+           memset(cc,0x00,sizeof(cc));
+           memcpy(cc,&com_rbuf[3],2);
+           comTime.tm_mon = atoi(cc);//月
+
+           memset(cc,0x00,sizeof(cc));
+           memcpy(cc,&com_rbuf[6],2);
+           comTime.tm_year = atoi(cc)+2000-1900;//年
+
+           p1 = com_rbuf;
+           p2 = strchr(p1,':');
+           if(p2 != NULL)
+           {
+               p2 -= 2;
+               memset(cc,0x00,sizeof(cc));
+               memcpy(cc,p2,2);
+               comTime.tm_hour = atoi(cc);//时
+               p2 += 3;
+               memset(cc,0x00,sizeof(cc));
+               memcpy(cc,p2,2);
+               comTime.tm_min = atoi(cc);//分
+               comTime.tm_sec = 0;       //秒
+               com_sec = mktime(&comTime);//取得时间
+
+              p2 = strchr(p1,0x0a);
+              if(p2 != NULL)
+              {//-/-
+                  p2 += 1;
+                  com_f[0] = atof(p2); //第一个参数 -------
+
+                  p1 = p2;
+                  p2 = strchr(p1,' ');//找空格
+                  if(p2 != NULL)
+                  {
+                     p2 += 1;
+                     com_f[1] = atof(p2); //第二个参数-----
+
+                     p1 = p2;
+                     p2 = strchr(p1,' ');//找空格
+                     if(p2 != NULL)
+                     {
+                        p2 += 1;
+                        com_f[2] = atof(p2); //第三个参数-------
+
+                        p1 = p2;
+                        p2 = strchr(p1,' ');//找空格
+                        if(p2 != NULL)
+                        {
+                           p2 += 1;
+                           com_f[3] = atof(p2); //第四个参数-------
+                        }
+                     }
+                  }
+              }//-/-
+           }
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+         com_f[3] = 0.0;
+         com_sec = read_rtc();
+      }
+      if(status == 0)status = 1;
+   }
+   return status;
+}
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

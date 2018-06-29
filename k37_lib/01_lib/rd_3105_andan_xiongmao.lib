@@ -1,0 +1,61 @@
+
+/*** BeginHeader */
+#ifndef rd_3105_andan_xiongmao_lib
+#define rd_3105_andan_xiongmao_lib
+/*** EndHeader */
+
+
+/*******************************************************
+南京泽美 熊猫氨氮仪表协议                      
+发送:01 03 03 EA 00 04 CRC
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_andan_xiongmao */
+int rd_andan_xiongmao( char port );
+/*** EndHeader */
+int rd_andan_xiongmao( char port )
+{
+	static int status;
+   union  uf AI;
+   auto CHARTOINTTY anData;
+   auto struct tm time;
+
+   costate
+   {
+   	status = 0;
+      pack_modbus_cmd(0x01, 0x03, 1002, 0x04);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 13)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03)&&(com_rbuf[2]==0x08)/*&&(com_rbuf[3]==0x02)*/)
+      {
+      		time.tm_year = hex2dec(com_rbuf[3])+100;
+         time.tm_mon  = hex2dec(com_rbuf[4]);
+         time.tm_mday = hex2dec(com_rbuf[5]);
+         time.tm_hour = hex2dec(com_rbuf[6]);
+         time.tm_min  = hex2dec(com_rbuf[7]);
+         time.tm_sec  = hex2dec(com_rbuf[8]);
+         com_sec = mktime(&time);
+		anData.c[1] = com_rbuf[9];
+		anData.c[0] = com_rbuf[10];
+	      com_f[0] = (float)anData.i/100.0;				//氨氮值
+         status = 1;
+   	}
+      if(status == 0)
+	  {
+         com_f[0] = 0.0;
+         com_sec = read_rtc();			//时间
+         status = 2;
+      }
+
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

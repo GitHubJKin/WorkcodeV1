@@ -1,0 +1,85 @@
+
+/*** BeginHeader */
+#ifndef rd_8026_cmes_iii_lib
+#define rd_8026_cmes_iii_lib
+/*** EndHeader */
+
+
+/*******************************************************
+                       
+
+*******************************************************/
+
+/*** BeginHeader rd_cmes_iii */
+int rd_cmes_iii( char port );
+/*** EndHeader */
+int rd_cmes_iii( char port )
+{
+   static int status;
+      auto int i;
+      auto union uf ftoc;
+
+      costate
+      {
+         status = 0;
+
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         com_tbuf[0] = 0x3E;
+         com_tbuf[1] = 0x2A;
+         com_tbuf[2] = 0x07;
+         com_tbuf[3] = 0xD1;
+         com_tbuf[4] = 0x00;
+         com_tbuf[5] = 0x00;
+         com_tbuf[6] = 0x00;
+         com_tbuf[7] = 0x0C;
+         com_tlen = 8;
+         com_write(port);
+
+         waitfor(DelaySec(1));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+
+      if((com_rlen>=54)&&(com_rbuf[0]==0x3C)&&(com_rbuf[1]==0x2A)&&(com_rbuf[5]==0x30))
+      {
+         for(i = 0;i < 12;i++)
+         {
+            ftoc.ch[0] = com_rbuf[i*4+6];
+            ftoc.ch[1] = com_rbuf[i*4+7];
+            ftoc.ch[2] = com_rbuf[i*4+8];
+            ftoc.ch[3] = com_rbuf[i*4+9];
+             com_f[i] = ftoc.f;
+             old_com_f[i] = com_f[i];
+          }
+          deviceStatus = 0;
+          status = 1;
+      }
+      else
+      {
+         if(deviceStatus < 10)
+         {
+            for(i = 0;i < 12;i++)
+            {
+               com_f[i] = old_com_f[i];
+               status = 1;
+             }
+             deviceStatus++;
+         }
+         else
+         {
+            memset(com_f, 0x00,sizeof(com_f));
+            memset(old_com_f, 0x00, sizeof(old_com_f));
+            status = 2;
+          }
+      }
+
+         com_sec = read_rtc();
+   }
+
+      return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

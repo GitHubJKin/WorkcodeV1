@@ -1,0 +1,908 @@
+/*** BeginHeader */
+#ifndef BOCON_K37_SMP_SUM_LIB
+#define BOCON_K37_SMP_SUM_LIB
+/*** EndHeader */
+
+/*** BeginHeader */
+char doStatus;
+/*** EndHeader */
+
+/*******************************************************************************
+实时数据显示的函数		--标准函数--
+最多显示6个中文字符，如"化学需氧量折"
+最多显示数据长度为12个，如"1234567890.1"，如超过，会影响单位的显示
+*******************************************************************************/
+/*** Beginheader dispData */
+void dispData(void);
+/*** endheader */
+void dispData(void)
+{
+    auto char begin, count, c;
+    auto int x, y;
+
+    begin = dispDataPage * 8;
+    if ((dispDataPage + 1) * 8 < CodeNumber) count = (dispDataPage + 1) * 8;
+    else count = CodeNumber;
+
+    glBuffLock();
+    _glBlankRegion(0,  20, 320, 200);
+
+    if (modbusConfig[7].devAddr == 100 || modbusConfig[7].devAddr == 200 || modbusConfig[7].devAddr == 201)
+    {
+	if (runMode == 1 && ch_flux < 15)
+	{
+	    glXPutBitmap(6, 20, 60, 16, fluxSum_bmp);
+	    x = 248;
+	    y = 20;
+	    glPrintf(x,  y, &fi12x16, "m");         //烟气流速
+	    glPrintf(x + 12,  y, &fi6x8, "3");
+	    glPrintf(104, 20, &fi12x16, "%.2f", onemsg_wr.AI_Val[ch_flux].Total);
+	    //      glPrintf(104, 20, &fi12x16, "%.2f", fluxSumbak);
+	}
+    }
+
+#ifdef DISP_JIDIANQI
+    glXPutBitmap(6, 20, 48, 15, jidianqi_bmp);
+    x = 248;
+    y = 20;
+    glPrintf(104, 20, &fi12x16, "%d", doStatus);
+#endif
+
+    glBuffUnlock();
+    for (c = begin; c < count; c++)
+    {
+	x = 248;
+	y = 40 + (c % 8) * 20;
+	glBuffLock();
+	//显示污染物名称列表
+	glDispPol(6, y, CodePosition[c].posTable);
+	//废水单位
+	if ((CodePosition[c].posTable == 0) || (CodePosition[c].posTable == 100))
+	{
+	    if (dataUnit.b01 == B01_UNIT_M3H)
+	    {
+		glPrintf(x,  y, &fi12x16, "m /h");
+		glPrintf(x + 12,  y, &fi6x8, "3");
+	    }
+	    else
+	    {
+		glPrintf(x,  y, &fi12x16, "L/s");
+	    }
+	}
+	else if (((CodePosition[c].posTable > 2) && (CodePosition[c].posTable < 34)) ||
+		 ((CodePosition[c].posTable > 102) && (CodePosition[c].posTable < 134)))
+	{
+	    glPrintf(x,  y, &fi12x16, "mg/L");
+	}
+	//废气单位
+	else if ((CodePosition[c].posTable == 34) || (CodePosition[c].posTable == 134))
+	{
+#if (KAIMINGKEJI == 1)
+	    glPrintf(x,  y, &fi12x16, "g/h");
+#else
+	    if (dataUnit.b02 == B02_UNIT_M3S)
+	    {
+		glPrintf(x,  y, &fi12x16, "m /s");
+	    }
+	    else
+	    {
+		glPrintf(x,  y, &fi12x16, "m /h");
+	    }
+	    glPrintf(x + 12,  y, &fi6x8, "3");
+#endif
+	}
+	else if (((CodePosition[c].posTable > 34) && (CodePosition[c].posTable <= 71)) ||
+		 ((CodePosition[c].posTable > 134) && (CodePosition[c].posTable <= 171)))
+	{
+#if (CHANGSHAHUASHIJIE == 1)
+		if(CodePosition[c].posTable == 71)
+			glPrintf(x,  y, &fi12x16, "m/s");
+		else
+		{
+			glPrintf(x,  y, &fi12x16, "mg/m");			//废气污染物单位
+			glPrintf(x + 48,  y, &fi6x8, "3");
+		}
+#else
+		glPrintf(x,  y, &fi12x16, "mg/m");			//废气污染物单位
+		glPrintf(x + 48,  y, &fi6x8, "3");
+
+#endif
+	}
+	else if ((CodePosition[c].posTable == 72) || (CodePosition[c].posTable == 76)
+		 || (CodePosition[c].posTable == 172) || (CodePosition[c].posTable == 176))
+	{
+	    glXPutBitmap(x, y, 7, 11, bocon_percent_bmp); //氧含量百分比
+	}
+	else if ((CodePosition[c].posTable == 73) || (CodePosition[c].posTable == 173))
+	{
+	    glPrintf(x,  y, &fi12x16, "m/s");
+	}
+	else if ((CodePosition[c].posTable == 74) || (CodePosition[c].posTable == 174))
+	{
+	    glPrintf(x,  y, &fi6x8, "o");
+	    glPrintf(x + 7,  y, &fi12x16, "C"); //烟气温度，摄氏度
+	}
+	else if ((CodePosition[c].posTable == 75) || (CodePosition[c].posTable == 175))
+	{
+	    glPrintf(x,  y, &fi12x16, "Pa");
+	}
+	else if ((CodePosition[c].posTable == 77) || (CodePosition[c].posTable == 177))
+	{
+#if(XICHANGSANFENG == 0)
+	    glPrintf(x,  y, &fi6x8, "o");
+	    glPrintf(x + 7,  y, &fi12x16, "C");  //烟气温度，摄氏度
+#endif
+	}
+	else if ((CodePosition[c].posTable == 78) || (CodePosition[c].posTable == 178))
+	{
+	    glPrintf(x,  y, &fi12x16, "m");    //烟道截面积
+	    glPrintf(x + 12,  y, &fi6x8, "2");
+	}
+	else if ((CodePosition[c].posTable == 79) || (CodePosition[c].posTable == 179))
+	{
+	    if (dataUnit.s08 == S08_UNIT_PA)
+	    {
+		glPrintf(x,  y, &fi12x16, "Pa");
+	    }
+	    else if (dataUnit.s08 == S08_UNIT_KPA)
+	    {
+		glPrintf(x,  y, &fi12x16, "KPa");
+	    }
+	    else
+	    {
+		glPrintf(x,  y, &fi12x16, "MPa");
+	    }
+	}
+	//扩展污染物单位
+#define ______________EXTERN______________
+
+#if (ZHAOQINGLVTUO == 1)
+	else if ((CodePosition[c].posTable == 80) || (CodePosition[c].posTable == 180))
+	{
+	    glPrintf(x,  y, &fi12x16, "L/s");
+	}
+	else if (((CodePosition[c].posTable >= 81) && (CodePosition[c].posTable <= 95)) ||
+		 ((CodePosition[c].posTable >= 181) && (CodePosition[c].posTable <= 195)))
+	{
+	    glPrintf(x,  y, &fi6x8, "o");
+	    glPrintf(x + 7,  y, &fi12x16, "C");
+	}
+#endif
+#if(HANGZHOUHAICHI == 1)
+	else if (((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 81)) ||
+		 ((CodePosition[c].posTable >= 180) && (CodePosition[c].posTable <= 181)))
+	{
+	    glPrintf(x,  y, &fi12x16, "mg/L");
+	}
+#endif
+#if (XIAMENYUANSHENGTAI == 1)
+	else if (((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 86)) ||
+		 ((CodePosition[c].posTable >= 180) && (CodePosition[c].posTable <= 186)))
+	{
+	    glPrintf(x,  y, &fi12x16, "mg/m");
+	    glPrintf(x + 48,  y, &fi6x8, "3");
+	}
+#endif
+#if (JAINGXIYIZHENG == 1 || JIANGXIJIAHAOYONGSHENG == 1)
+
+	else if ((CodePosition[c].posTable == 80) || (CodePosition[c].posTable == 180))
+	{
+	    glPrintf(x,  y, &fi12x16, "ppm");
+	}
+	else if (((CodePosition[c].posTable >= 81) && (CodePosition[c].posTable <= 82))||
+		((CodePosition[c].posTable >= 181) && (CodePosition[c].posTable <= 182)))
+	{
+	    glPrintf(x,  y, &fi12x16, "mg/L");
+	}
+#endif
+#if (NANJINGHONGKAI == 1)
+	else if ((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 99))
+	{
+	    glPrintf(x,  y, &fi12x16, "mg/m");
+	    glPrintf(x + 48,  y, &fi6x8, "3");
+	}
+#endif
+	
+#if (HUNANTUOAN == 1)
+		else if ((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 99))
+		{
+			glPrintf(x,  y, &fi12x16, "mg/m");
+			glPrintf(x + 48,  y, &fi6x8, "3");
+		}
+#endif
+
+#if (JIANGXIBOYUAN == 1)
+	else if ((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 99))
+	{
+	    glPrintf(x,  y, &fi12x16, "mg/L");
+	}
+#endif
+#if (GUANGZHOUBIYUAN == 1)
+	else if ((CodePosition[c].posTable == 80) || (CodePosition[c].posTable == 180))
+	{
+	    glPrintf(x-16,  y, &fi12x16, "mm/min");
+	}
+#endif
+#if (CHANGSHAHUASHIJIE == 1)
+	else if (((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 99)) ||
+		 ((CodePosition[c].posTable >= 180) && (CodePosition[c].posTable <= 199)))
+	{
+	    glPrintf(x,  y, &fi6x8, "o");
+	    glPrintf(x + 7,  y, &fi12x16, "C");
+	}
+#endif
+#if (QINGDAOLUBO == 1)
+		else if ((CodePosition[c].posTable >= 80) && (CodePosition[c].posTable <= 99))
+		{
+			glPrintf(x,  y, &fi12x16, "mg/m");
+			glPrintf(x + 48,  y, &fi6x8, "3");
+		}
+#endif
+
+	//显示污染物的瞬时值
+	if (Savech[CodePosition[c].posAI].val < 100000.0)
+	{
+#if (SET_POINT_NUM == 1)
+	    glPrintf(104, y + 2, &fi12x16, "%.1f", Savech[CodePosition[c].posAI].val);    //均值
+#elif (SET_POINT_NUM == 2)
+	    {
+#if(JIAOTONGWUZI == 1)
+		if (CodePosition[c].posTable != 79) glPrintf(104, y + 2, &fi12x16, "%.2f", Savech[CodePosition[c].posAI].val);    //均值
+		else glPrintf(104, y + 2, &fi12x16, "%.3f", Savech[CodePosition[c].posAI].val);    //压力三位小数
+#else
+		glPrintf(104, y + 2, &fi12x16, "%.2f", Savech[CodePosition[c].posAI].val);    //均值
+#endif
+	    }
+#elif (SET_POINT_NUM == 3)
+	    glPrintf(104, y + 2, &fi12x16, "%.3f", Savech[CodePosition[c].posAI].val);    //均值
+#else
+	    glPrintf(104, y + 2, &fi12x16, "%.4f", Savech[CodePosition[c].posAI].val);    //均值
+#endif
+	}
+	else
+	{
+	    glPrintf(104, y + 2, &fi12x16, "%.0f", Savech[CodePosition[c].posAI].val);    //均值
+	}
+	glPrintf(308, y + 2, &fi12x16, "%c", Savech[CodePosition[c].posAI].flag);   //显示通道状态标志
+	glBuffUnlock();
+    }
+
+    if (disp_di_flag)
+    {
+	glBuffLock();
+	glPrintf(106, 206, &fi12x16, "DI=%02X", Poldi);
+	glBuffUnlock();
+    }
+
+    c = (char)((CodeNumber - 1) / 8);                  //共计有多少页需要显示
+    if (++dispDataPage > c) dispDataPage = 0;     //自动分页显示
+}
+
+/*******************************************************************************
+进行最终的统计，计算废水及废气的排放总量、均值等		--标准函数--
+1、废水
+2、废气
+3、未设置废水和废气
+*******************************************************************************/
+/*** BeginHeader k37_calc_sum */
+void k37_calc_sum(void);
+/*** EndHeader */
+void k37_calc_sum(void)
+{
+    auto char i;
+    auto unsigned char p;    //临时编码值
+
+
+    if (runMode == 1) //污水参数统计，计算采样时间段各污染物的总量
+    {
+	//以下代码处理污水流量的累计
+	if (ch_flux < 8) //模拟流量计的时间段总量 = 流速 * 时间
+	{                     //累计流量需要累加
+	    if (dataUnit.b01 == B01_UNIT_M3H) onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 3600.0;
+	    else onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 1000.0; //流量为吨
+
+
+	    onemsg_wr.AI_Val[ch_flux].Total += onemsg_wr.AI_Val[ch_flux].Sum;
+	    fluxSumbak = total_flux + onemsg_wr.AI_Val[ch_flux].Total; //备份当前累计流量
+//         fluxSumbak = onemsg_wr.AI_Val[ch_flux].Total;	//备份当前累计流量
+	}
+	else                  //串口流量计的时间段总量 = 当前累计流量 - 前条记录的累计流量
+	{                     //累计流量已保存在Total里，不需处理
+	    /*if(fluxSumbak == 0.0)	//初始设置流量计时，备份累计流量为0，如此时读到累计流量很大，会导致此时段统计不对
+	     {
+	    onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 1000.0;
+	     }
+	    else onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Total - fluxSumbak;
+	   
+	     //20110114增加的，因为每次升级程序后有问题
+	     if((onemsg_wr.AI_Val[ch_flux].Sum <= 0.0) ||
+	    (onemsg_wr.AI_Val[ch_flux].Sum > (onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 500.0)))
+	     {//小于0或者大于两倍
+	    onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 1000.0;
+	     }   */
+
+	    if (dataUnit.b01 == B01_UNIT_M3H) onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 3600.0;
+	    else onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 1000.0; //流量为吨
+
+
+//         fluxSumbak = total_flux + onemsg_wr.AI_Val[ch_flux].Total;	//备份当前累计流量
+	    fluxSumbak =  onemsg_wr.AI_Val[ch_flux].Total; //备份当前累计流量
+							   //onemsg_wr.AI_Val[ch_flux].Total += onemsg_wr.AI_Val[ch_flux].Sum;//不需要累加
+	}
+	//以下循环处理其他污染物的累计
+	for (i = 0; i < ALLADCHANNELS; i++)
+	{
+	    if ((i != ch_flux) && (onemsg_wr.AI_Val[i].polIndex < BOCON_NO_OF_POL)) //通道在用
+	    {
+		p = onemsg_wr.AI_Val[i].polIndex;
+		if (((p > 0) && (p < 3)) || ((p > 100) && (p < 103)))  //PH值和色度没有累计值
+		{
+		    onemsg_wr.AI_Val[i].Sum = onemsg_wr.AI_Val[i].Avg;
+		    onemsg_wr.AI_Val[i].Total = onemsg_wr.AI_Val[i].Avg;
+		}
+		else
+		{
+		    onemsg_wr.AI_Val[i].Sum = onemsg_wr.AI_Val[i].Avg * onemsg_wr.AI_Val[ch_flux].Sum / 1000.0; //千克
+		    onemsg_wr.AI_Val[i].Total += onemsg_wr.AI_Val[i].Sum; //累计总量的计算，方法须进一步确认
+		}
+
+	    }
+	}
+    }
+    else if (runMode == 2)    //废气参数统计
+    {
+	if (dataUnit.b02 == B02_UNIT_M3S) onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval; //立方米    B02=m3/s
+	else onemsg_wr.AI_Val[ch_flux].Sum = onemsg_wr.AI_Val[ch_flux].Avg * sampleInterval / 3600.0; //立方米  B02=m3/h
+
+	for (i = 0; i < ALLADCHANNELS; i++)
+	{
+	    if (i == ch_flux)
+	    {
+		onemsg_wr.AI_Val[i].Total += onemsg_wr.AI_Val[i].Sum;
+	    }
+	    else if (onemsg_wr.AI_Val[i].polIndex < BOCON_NO_OF_POL) //通道在用且不是流量通道
+	    {
+		p = onemsg_wr.AI_Val[i].polIndex;
+		if (((p > 71) && (p < 80)) || ((p > 171) && (p < 180))) //温度、湿度、压力等没有累计值
+		{
+		    onemsg_wr.AI_Val[i].Sum = onemsg_wr.AI_Val[i].Avg;
+		    onemsg_wr.AI_Val[i].Total = onemsg_wr.AI_Val[i].Avg;
+		}
+		else
+		{
+		    onemsg_wr.AI_Val[i].Sum = onemsg_wr.AI_Val[i].Avg * onemsg_wr.AI_Val[ch_flux].Sum / 1000000.0; //千克
+		    onemsg_wr.AI_Val[i].Total += onemsg_wr.AI_Val[i].Sum; //累计总量的计算，方法须进一步确认
+		}
+	    }
+	}
+    }
+    else //无流速时参数的统计
+    {
+	for (i = 0; i < ALLADCHANNELS; i++)
+	{
+	    if (onemsg_wr.AI_Val[i].polIndex < BOCON_NO_OF_POL)
+	    {
+		onemsg_wr.AI_Val[i].Sum = 0.0; //onemsg_wr.AI_Val[i].Avg * sampleInterval / 1000.0;//此时总量不可靠
+		onemsg_wr.AI_Val[i].Total += onemsg_wr.AI_Val[i].Sum;
+	    }
+	}
+    }
+}
+
+/*******************************************************************************
+调试打印数据结构的内容
+*******************************************************************************/
+/*** BeginHeader disp_data_struct */
+void disp_data_struct(ONEMSG_struct *data);
+/*** EndHeader */
+void disp_data_struct(ONEMSG_struct *data)
+{
+    auto char c;
+
+    mktm(&rtc1, data->Btime);
+    printf("%ld(%02d/%02d/%02d %02d:%02d:%02d),%d\n", data->Btime,
+	   rtc1.tm_year - 100, rtc1.tm_mon, rtc1.tm_mday,
+	   rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec,
+	   data->type);
+    printf("%ld,%s%d%s,DI=%02X,SUM=%ld\n", data->Btime, RED, data->type, BLACK, data->DI_Val, data->sum);
+    for (c = 0; c < ALLADCHANNELS; c++)
+    {
+	if (data->AI_Val[c].polIndex != BOCON_NO_OF_POL)
+	{
+	    if (c < 8) printf("%sAi%d=", RED, c);
+	    else if (c < 0x10) printf("%sCom%d=", RED, c - 8);
+	    else printf("%sExt%02d=", RED, c - 0x10);
+
+	    if (data->AI_Val[c].polIndex < BOCON_NO_OF_POL / 2) printf("%s, ", PolCode[data->AI_Val[c].polIndex]);
+	    else if (data->AI_Val[c].polIndex >= BOCON_NO_OF_POL) printf("FFF, ");
+	    else printf("%sZ, ", PolCode[data->AI_Val[c].polIndex - BOCON_NO_OF_POL / 2]);
+
+	    printf("%sT=%ld, F=%c, ", BLACK, data->AI_Val[c].time, data->AI_Val[c].flag);
+	    printf("Sum=%.1f, Min=%.2f, Avg=%.2f, Max=%.2f, ",
+		   data->AI_Val[c].Sum, data->AI_Val[c].Min, data->AI_Val[c].Avg, data->AI_Val[c].Max);
+	    printf("ZsF=%d, ZsSum=%.1f,ZsMin=%.2f, ZsAvg=%.2f, ZsMax=%.2f\n",
+		   data->AI_Val[c].ZsFlag, data->AI_Val[c].ZsSum, data->AI_Val[c].ZsMin,
+		   data->AI_Val[c].ZsAvg, data->AI_Val[c].ZsMax);
+	}
+    }
+    printf("\n\n");
+}
+
+/*******************************************************************************
+统计计算的统一接口函数,可统计小时、日、月的总量、均值等
+*******************************************************************************/
+/*** BeginHeader calc_save_accumulate */
+void calc_save_accumulate(ONEMSG_struct *msg);
+/*** EndHeader */
+void calc_save_accumulate(ONEMSG_struct *msg)
+{
+    auto char i, j;
+
+    for (j = 0; j < ALLADCHANNELS; j++)        //进行统计
+    {
+	if (onemsg_rd.AI_Val[j].polIndex < BOCON_NO_OF_POL) //本通道在用
+	{  //以当前编码为准，如以前有但现在没有的编码，则不统计
+	    if (onemsg_rd.AI_Val[j].polIndex == msg->AI_Val[j].polIndex)
+	    {  //如果首尾页的编码位置是相同的，就直接计算
+		i = j;   //由于默认通道编码的位置是不变的，这样应该高效些
+	    }
+	    else  //否则需要查找编码的位置
+	    {
+		for (i = 0; i < ALLADCHANNELS; i++)
+		{
+		    if (onemsg_rd.AI_Val[j].polIndex == msg->AI_Val[i].polIndex)  //找到编码位置
+		    {
+			break;
+		    }
+		}
+	    }
+	    if (i < ALLADCHANNELS)   //如果尾页有的参数，但是首页没有，如何统计？--不统计
+	    {
+		if (onemsg_rd.AI_Val[j].Min > msg->AI_Val[i].Min) onemsg_rd.AI_Val[j].Min = msg->AI_Val[i].Min;
+		if (onemsg_rd.AI_Val[j].ZsMin > msg->AI_Val[i].ZsMin) onemsg_rd.AI_Val[j].ZsMin = msg->AI_Val[i].ZsMin;
+		if (onemsg_rd.AI_Val[j].Max < msg->AI_Val[i].Max) onemsg_rd.AI_Val[j].Max = msg->AI_Val[i].Max;
+		if (onemsg_rd.AI_Val[j].ZsMax < msg->AI_Val[i].ZsMax) onemsg_rd.AI_Val[j].ZsMax = msg->AI_Val[i].ZsMax;
+		onemsg_rd.AI_Val[j].Avg += msg->AI_Val[i].Avg;
+		onemsg_rd.AI_Val[j].ZsAvg += msg->AI_Val[i].ZsAvg;
+		onemsg_rd.AI_Val[j].Sum += msg->AI_Val[i].Sum;
+		onemsg_rd.AI_Val[j].ZsSum += msg->AI_Val[i].ZsSum;
+		if (onemsg_rd.AI_Val[j].Total < msg->AI_Val[i].Total) onemsg_rd.AI_Val[j].Total = msg->AI_Val[i].Total;
+		if (onemsg_rd.AI_Val[j].ZsTotal < msg->AI_Val[i].ZsTotal) onemsg_rd.AI_Val[j].ZsTotal = msg->AI_Val[i].ZsTotal;
+	    }
+	} //通道在用
+    } //搜索所有通道
+
+    for (j = 0; j < 8; j++)
+    {
+	onemsg_rd.DI_Time[j] += msg->DI_Time[j];
+    }
+}
+
+/*** BeginHeader is_flag_ok*/
+int is_flag_ok(char flag);
+/*** EndHeader */
+int is_flag_ok(char flag)
+{
+    auto int status;
+
+    status = 1;
+    if (flag == 'D')
+    {
+	status = 1;
+    }
+
+    return status;
+}
+
+/*** BeginHeader init_cnt*/
+void init_cnt(ONEMSG_struct *msg, int *cnt, int ch_count);
+/*** EndHeader */
+void init_cnt(ONEMSG_struct *msg, int *cnt, int ch_count)
+{
+    auto int i;
+    for (i = 0; i < ch_count; i++)
+    {
+	if (is_flag_ok(msg->AI_Val[i].flag))
+	{
+	    cnt[i] = 1;
+	}
+	else
+	{
+	    msg->AI_Val[i].Avg = 0.0;
+	    msg->AI_Val[i].ZsAvg = 0.0;
+	    msg->AI_Val[i].Sum = 0.0;
+	    msg->AI_Val[i].ZsSum = 0.0;
+	    cnt[i] = 0;
+	}
+    }
+}
+
+/*******************************************************************************
+onemsg_wr缓冲区正准备保存的是下一个小时的第一条纪录，在保存记录前
+先统计本小时内的数据并保存一条小时统计数据
+mode	2 - 小时
+    3 - 日
+
+如果累计流量从串口流量计读出来，如何利用？？？
+
+*******************************************************************************/
+///*** BeginHeader calc_save_hour_day */
+//void calc_save_hour_day(char mode);
+///*** EndHeader */
+//void calc_save_hour_day(char mode)
+//{
+//    auto ONEMSG_struct msg;
+//    auto unsigned long page;
+//    auto int rc, cnt;
+//    auto unsigned long t, t_end;
+//    auto char j;
+//    auto unsigned char p;    //临时编码值
+//
+//    if (wrPtr > 0) page = wrPtr - 1;  //取保存的最新一条数据
+//				      //else page = 0;	//最后一个小时的统计数据还在onemsg_rd中，统计日数据时就不需要再读了
+//    else page = nandFlash.pages - 1; //覆盖写回到0页时，错误的取0页里的时间，现改为指向尾页
+//    if (mode == 2) rc = read_nf_page(&onemsg_rd, page, 4); //读最后一页到读缓冲区
+//    else rc = 0;
+//
+//    if (page > 0) page--;                //最后一页已读出，页号往回一条记录
+//
+//    if (mode == 2) //小时
+//    {
+//	if ((rc == 0) && ((onemsg_rd.type == 1) || (onemsg_rd.type == 5)))
+//	{ //上一条记录必须是分钟记录，否则说明本小时内没有可统计的
+//	    t = onemsg_rd.Btime / 3600L;    //计算本小时的起止时间点
+//	}
+//	else
+//	{
+//	    t = onemsg_wr.Btime / 3600L - 1;    //取当前时间的上一小时
+//	}
+//	t *= 3600L;
+//	t_end = t + 3600L;
+//    }
+//    else if (mode == 3) //日
+//    {
+//	t = onemsg_rd.Btime / 86400L;   //计算本日的起止时间点
+//	t *= 86400L;
+//	t_end = t + 86400L;
+//    }
+//
+//    cnt = 1;
+//    msg.Btime = t + 1;
+//    while ((rc == 0) && (msg.Btime >= t) && (msg.Btime < t_end))
+//    {    //只对这天内的小时统计数据进行统计
+//	rc = read_nf_page(&msg, page, 4); //读下一个记录
+//	if ((msg.type == (mode - 1)) || ((msg.type == 5) && (mode == 2)))
+//	{ //日统计数据的对象是小时记录，小时统计的对象是分钟记录
+//	    calc_save_accumulate(&msg);
+//	    cnt++;    //记录数
+//	} //是小时记录
+//	else if (msg.type == mode) break;  //已到了上一条的统计记录处，肯定没有需要统计的了
+//	if (page > 0) page--;            //往回搜索，由于是逐页往回查，所以较花时间，不能查月数据
+//	else page = nandFlash.pages - 1;      //在每天0点统计日数据就还可以接受，大约耗时5-10秒
+//
+//    }
+//
+//    for (j = 0; j < ALLADCHANNELS; j++) //统计完成，计算均值
+//    {
+//	onemsg_rd.AI_Val[j].Avg = onemsg_rd.AI_Val[j].Avg / cnt;
+//	onemsg_rd.AI_Val[j].ZsAvg = onemsg_rd.AI_Val[j].ZsAvg / cnt;
+//    }
+//
+//    for (j = 0; j < ALLADCHANNELS; j++)
+//    {
+//	if ((j != ch_flux) && (onemsg_wr.AI_Val[j].polIndex < BOCON_NO_OF_POL)) //通道在用
+//	{
+//	    p = onemsg_rd.AI_Val[j].polIndex;                    //PH值和色度没有累计值
+//	    if (((p > 0) && (p < 3)) ||
+//		((p > 100) && (p < 103)) ||
+//		((p > 71) && (p < 80)) ||
+//		((p > 171) && (p < 180)))
+//	    {
+//		onemsg_rd.AI_Val[j].Sum = onemsg_rd.AI_Val[j].Avg;
+//		onemsg_rd.AI_Val[j].Total = onemsg_rd.AI_Val[j].Avg;
+//	    }
+//	}
+//    }
+//
+//    onemsg_rd.type = mode;
+//    onemsg_rd.Btime = t_end - 1; //存入本统计时段的最大时间值
+//    onemsg_rd.sum = sampleSUM((char *)&onemsg_rd, MSGSIZE - 4);
+//    DBG(
+//	if (mode == 3) printf("1D");
+//	else if (mode == 2) printf("1H"); //打出找到并处理了多少个数据
+//	printf(" %ld, %d records at %ld\r\n", onemsg_rd.Btime, cnt, (page + 1) % nandFlash.pages);
+//       )
+//
+//    saveRecord(&onemsg_rd);
+//}
+/*** BeginHeader calc_save_hour_day */
+void calc_save_hour_day(char mode);
+/*** EndHeader */
+void calc_save_hour_day(char mode)
+{
+    auto ONEMSG_struct msg;
+    auto unsigned long page;
+    auto int rc, cnt;
+    auto unsigned long t, t_end;
+    auto char j;
+    auto unsigned char p;    //临时编码值
+    auto unsigned err_count;
+
+    if (wrPtr > 0) page = wrPtr - 1;  //取保存的最新一条数据
+				      //else page = 0;	//最后一个小时的统计数据还在onemsg_rd中，统计日数据时就不需要再读了
+    else page = nandFlash.pages - 1; //覆盖写回到0页时，错误的取0页里的时间，现改为指向尾页
+    if (mode == 2)
+    {
+    	 rc = read_nf_page(&onemsg_rd, page, 4); //读最后一页到读缓冲区
+    }
+    else
+    {
+    	 rc = 0;
+    }
+
+    if (page > 0) page--;                //最后一页已读出，页号往回一条记录
+
+    if (mode == 2) //小时
+    {
+	if ((rc == 0) && ((onemsg_rd.type == 1) || (onemsg_rd.type == 5)))
+	{ //上一条记录必须是分钟记录，否则说明本小时内没有可统计的
+	    t = onemsg_rd.Btime / 3600L;    //计算本小时的起止时间点
+	}
+	else
+	{
+	    t = onemsg_wr.Btime / 3600L - 1;    //取当前时间的上一小时
+	}
+	t *= 3600L;
+	t_end = t + 3600L;
+    }
+    else if (mode == 3) //日
+    {
+	t = onemsg_rd.Btime / 86400L;   //计算本日的起止时间点
+	t *= 86400L;
+	t_end = t + 86400L;
+    }
+
+    cnt = 1;
+    err_count = 0;
+    msg.Btime = t + 1;
+    //while ((rc == 0) && (msg.Btime >= t) && (msg.Btime < t_end))
+    while(1)
+    {    //只对这天内的小时统计数据进行统计
+	 	rc = read_nf_page(&msg, page, 4); //读下一个记录
+      if(rc != 0)
+      {
+      	err_count++;
+         if(err_count > nandFlash.erasepages)
+         {
+            break;
+         }
+         else
+         {
+            if (page > 0) page--;            //往回搜索，由于是逐页往回查，所以较花时间，不能查月数据
+				else page = nandFlash.pages - 1;      //在每天0点统计日数据就还可以接受，大约耗时5-10秒
+          	continue;
+         }
+      }
+      else if((msg.Btime < t) || (msg.Btime >= t_end))
+      {
+       	break;
+      }
+
+      if(rc == 0)
+      {
+      	printf("true, page %ld ", page);
+         disp_data_struct(&msg);
+      }
+      else
+      {
+       	printf("false, page %ld\r\n", page);
+      }
+
+		if ((msg.type == (mode - 1)) || ((msg.type == 5) && (mode == 2)))
+		{ //日统计数据的对象是小时记录，小时统计的对象是分钟记录
+	    	calc_save_accumulate(&msg);
+	    	cnt++;    //记录数
+		} //是小时记录
+		else if (msg.type == mode) break;  //已到了上一条的统计记录处，肯定没有需要统计的了
+		if (page > 0) page--;            //往回搜索，由于是逐页往回查，所以较花时间，不能查月数据
+		else page = nandFlash.pages - 1;      //在每天0点统计日数据就还可以接受，大约耗时5-10秒
+
+    }
+
+    for (j = 0; j < ALLADCHANNELS; j++) //统计完成，计算均值
+    {
+	onemsg_rd.AI_Val[j].Avg = onemsg_rd.AI_Val[j].Avg / cnt;
+	onemsg_rd.AI_Val[j].ZsAvg = onemsg_rd.AI_Val[j].ZsAvg / cnt;
+    }
+
+    for (j = 0; j < ALLADCHANNELS; j++)
+    {
+	if ((j != ch_flux) && (onemsg_wr.AI_Val[j].polIndex < BOCON_NO_OF_POL)) //通道在用
+	{
+	    p = onemsg_rd.AI_Val[j].polIndex;                    //PH值和色度没有累计值
+	    if (((p > 0) && (p < 3)) ||
+		((p > 100) && (p < 103)) ||
+		((p > 71) && (p < 80)) ||
+		((p > 171) && (p < 180)))
+	    {
+		onemsg_rd.AI_Val[j].Sum = onemsg_rd.AI_Val[j].Avg;
+		onemsg_rd.AI_Val[j].Total = onemsg_rd.AI_Val[j].Avg;
+	    }
+	}
+    }
+
+    onemsg_rd.type = mode;
+    onemsg_rd.Btime = t_end - 1; //存入本统计时段的最大时间值
+    onemsg_rd.sum = sampleSUM((char *)&onemsg_rd, MSGSIZE - 4);
+    DBG(
+	if (mode == 3) printf("1D");
+	else if (mode == 2) printf("1H"); //打出找到并处理了多少个数据
+	printf(" %ld, %d records at %ld\r\n", onemsg_rd.Btime, cnt, (page + 1) % nandFlash.pages);
+       )
+
+    saveRecord(&onemsg_rd);
+}
+
+/*******************************************************************************
+onemsg_wr缓冲区正准备保存的是下一个小时的第一条纪录，在保存记录前
+先统计本月内的数据并保存一条月统计数据
+月统计总是在最后一天的日统计完成后马上进行，此时最后一个日统计数据
+还在onemsg_rd中，统计月数据时就不需要再读了
+mode	2 - 小时
+    3 - 日
+*******************************************************************************/
+/*** BeginHeader calc_save_month */
+void calc_save_month(void);
+/*** EndHeader */
+void calc_save_month(void)
+{
+    auto ONEMSG_struct msg;
+    auto int cnt;
+    auto unsigned long t_start, t_end;
+    auto unsigned long t_day;
+    auto char j, d;
+    auto unsigned char p;    //临时编码值
+
+    t_start = adj_month_sec(onemsg_rd.Btime, 2); //上月最大值
+    t_end = adj_month_sec(onemsg_rd.Btime, 0);   //本月最大值
+    t_day = t_end - 86400L;                             //从本月的倒数第二天开始
+
+    j = 0;
+    cnt = 1;
+    msg.Btime = t_start + 1;
+    while ((msg.Btime > t_start) && (msg.Btime <= t_end))
+    {    //只对本月内的日统计数据进行统计
+	d = getHisData(&msg, 3, t_day, 2, 4);       //查找日记录
+	if (d == 2)
+	{
+	    calc_save_accumulate(&msg);             //找到，统计
+	    cnt++;         //记录数
+	    if (cnt > 31) break;                            //每月最多31条记录
+	}
+	t_day = msg.Btime;    //2017.6.13，改进后的查询算法，可能会返回时间不对的记录
+	t_day -= 86400L;      //时间调整到前一天的最大值
+	if (++j > 31) break;   //最多31次就退出
+    }
+
+    for (j = 0; j < ALLADCHANNELS; j++) //统计完成，计算均值
+    {
+	onemsg_rd.AI_Val[j].Avg = onemsg_rd.AI_Val[j].Avg / cnt;
+	onemsg_rd.AI_Val[j].ZsAvg = onemsg_rd.AI_Val[j].ZsAvg / cnt;
+    }
+
+    for (j = 0; j < ALLADCHANNELS; j++)
+    {
+	if ((j != ch_flux) && (onemsg_wr.AI_Val[j].polIndex < BOCON_NO_OF_POL)) //通道在用
+	{
+	    p = onemsg_rd.AI_Val[j].polIndex;                    //PH值和色度没有累计值
+	    if (((p > 0) && (p < 3)) ||
+		((p > 100) && (p < 103)) ||
+		((p > 71) && (p < 80)) ||
+		((p > 171) && (p < 180)))
+	    {
+		onemsg_rd.AI_Val[j].Sum = onemsg_rd.AI_Val[j].Avg;
+		onemsg_rd.AI_Val[j].Total = onemsg_rd.AI_Val[j].Avg;
+	    }
+
+	}
+    }
+
+    onemsg_rd.type = 4;
+    onemsg_rd.Btime = t_end - 1; //存入本统计时段的最大时间值
+    onemsg_rd.sum = sampleSUM((char *)&onemsg_rd, MSGSIZE - 4);
+    DBG(printf("1M %ld, %d records\r\n", onemsg_rd.Btime, cnt);) //打出找到并处理了多少个数据
+
+    saveRecord(&onemsg_rd);
+}
+
+/*******************************************************************************
+onemsg_wr缓冲区正准备保存的是下一个小时的第一条纪录，在保存记录前
+先统计本月内的数据并保存一条月统计数据
+月统计总是在最后一天的日统计完成后马上进行，此时最后一个日统计数据
+还在onemsg_rd中，统计月数据时就不需要再读了
+mode	3 - 日
+    4 - 月
+*******************************************************************************/
+/*** BeginHeader calc_save_day_month */
+void calc_save_day_month(char mode);
+/*** EndHeader */
+void calc_save_day_month(char mode)
+{
+    auto ONEMSG_struct msg;
+    auto int cnt;
+    auto unsigned long t_start, t_end;
+    auto unsigned long t_day;
+    auto char j, d;
+    auto unsigned char p;    //临时编码值
+
+    t_start = mktime(&back_rtc); //取待统计的参考时间
+    if (mode == 3)
+    {
+	t_start = t_start - (t_start % 86400L);
+	t_end = t_start + 86399L;
+    }
+    else
+    {
+	t_start = adj_month_sec(t_start, 2) + 60L; //上月最大值，加一即为本月第一天
+	t_end = adj_month_sec(t_start, 0);      //本月最大值
+    }
+    t_day = t_start;
+
+    cnt = 0;
+    while (t_day <= t_end)
+    {    //只对本月内的日统计数据进行统计
+	d = getHisData(&msg, (mode - 1), 0L, 0L, t_day, 1, 4); //查找记录
+	if ((d > 1) && (msg.Btime > (t_start + 59L)) && (msg.Btime <= t_end))
+	{
+	    if (cnt == 0)
+	    {
+		memset(&onemsg_rd, 0x00, sizeof(onemsg_rd));    //清空统计用的缓冲区
+		memcpy(&onemsg_rd, &msg, sizeof(onemsg_rd));
+	    }
+	    else calc_save_accumulate(&msg);    //找到，统计
+	    cnt++;         //记录数
+	    t_start = msg.Btime;
+	}
+	if (msg.Btime > t_day) t_day = msg.Btime - 60L;
+	if (mode == 3) t_day += 3600L;
+	else t_day += 86400L;
+    }
+
+    for (j = 0; j < ALLADCHANNELS; j++) //统计完成，计算均值
+    {
+	onemsg_rd.AI_Val[j].Avg = onemsg_rd.AI_Val[j].Avg / cnt;
+	onemsg_rd.AI_Val[j].ZsAvg = onemsg_rd.AI_Val[j].ZsAvg / cnt;
+    }
+
+    for (j = 0; j < ALLADCHANNELS; j++)
+    {
+	if ((j != ch_flux) && (onemsg_wr.AI_Val[j].polIndex < BOCON_NO_OF_POL)) //通道在用
+	{
+	    p = onemsg_rd.AI_Val[j].polIndex;                    //PH值和色度没有累计值
+	    if (((p > 0) && (p < 3)) ||
+		((p > 100) && (p < 103)) ||
+		((p > 71) && (p < 80)) ||
+		((p > 171) && (p < 180)))
+	    {
+		onemsg_rd.AI_Val[j].Sum = onemsg_rd.AI_Val[j].Avg;
+		onemsg_rd.AI_Val[j].Total = onemsg_rd.AI_Val[j].Avg;
+	    }
+	}
+    }
+
+    onemsg_rd.type = mode;
+    onemsg_rd.Btime = t_end - 1; //存入本统计时段的最大时间值
+    onemsg_rd.sum = sampleSUM((char *)&onemsg_rd, MSGSIZE - 4);
+    DBG(
+	if (mode == 3) printf("1D");
+	else printf("1M");
+	printf(" %ld, %d records\r\n", onemsg_rd.Btime, cnt);
+       )
+
+    saveRecord(&onemsg_rd); //test,2017.06.19
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

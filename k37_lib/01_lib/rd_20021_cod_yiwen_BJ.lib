@@ -1,0 +1,72 @@
+/*** BeginHeader */
+#ifndef rd_20021_cod_yiwen_BJ_lib
+#define rd_20021_cod_yiwen_BJ_lib
+/*** EndHeader */ 
+
+/*******************************************************
+广州怡文 EST-2001B COD在线监测仪，北京地区的协议(和其他地区不同)              //20021---OK
+*******************************************************/
+/*** BeginHeader rd_cod_yiwen_BJ */
+int rd_cod_yiwen_BJ( char port );
+/*** EndHeader */
+int rd_cod_yiwen_BJ( char port )
+{
+   static int status;
+   auto long v;
+   auto char c;
+
+   costate
+   {
+      status = 0;
+      memset(com_tbuf, 0xff, 31);
+      com_tbuf[0] = 0x02;
+      com_tbuf[1] = 0x06;
+      com_tbuf[2] = 0x00;
+      com_tbuf[3] = 0x01;
+      com_tbuf[4] = 0x00;
+      com_tbuf[5] = 0x01;
+      //0xff
+      com_tbuf[28] = 0x0c;
+      com_tbuf[29] = 0x59;
+      com_tbuf[30] = 0x03;
+
+      com_tlen = 31;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+
+      if( (com_rlen >= 31) && (com_rbuf[0] == 0x02)
+         &&(com_rbuf[1] == 0x06)&&(com_rbuf[30]==0x03)
+         /*&&(chksum(&com_rbuf[1], 33) == com_rbuf[34])*/ )//暂不做校验
+      {
+         v = com_rbuf[15]*0x00000 + com_rbuf[16]*0x100 + com_rbuf[17];//不要最高位
+         if( (v == 0x8888)||(v == 0xcccc)||(v == 0xeeee)||(v == 0xdddd)||(v == 0xbbbb)
+            ||((v >= 0xaaa0)&&(v <= 0xaaa4)) )//错误数据
+         {
+            com_f[0] = 0.0;
+            status = 2;
+         }
+         else
+         {
+            com_f[0] = v;//即时值
+            status = 1;
+         }
+      }
+      else
+      {
+         //printf("COD Error = (dev:20021  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

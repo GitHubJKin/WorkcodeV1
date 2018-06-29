@@ -1,0 +1,70 @@
+
+/*** BeginHeader */
+#ifndef rd_2032_cod_xuedilong_lib
+#define rd_2032_cod_xuedilong_lib
+/*** EndHeader */
+
+
+/**************************************
+雪迪龙
+读寄存器30001-30009
+测量值在寄存器30003-30004数据格式3210
+**************************************/
+
+
+/*** BeginHeader rd_cod_xuedilong */
+int rd_cod_xuedilong( char port );
+/*** EndHeader */
+int rd_cod_xuedilong( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x04, 0x00, 0x09);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x04) )
+      {
+         f.ch[0] = com_rbuf[7];
+         f.ch[1] = com_rbuf[8];
+         f.ch[2] = com_rbuf[9];
+         f.ch[3] = com_rbuf[10];
+         com_f[0] = f.f;         //即时值
+
+         comTime.tm_year = com_rbuf[11] * 256 + com_rbuf[12] -1900;
+         comTime.tm_mon  = com_rbuf[14];
+         comTime.tm_mday = com_rbuf[16];
+         comTime.tm_hour = com_rbuf[18];
+         comTime.tm_min  = com_rbuf[20];
+         comTime.tm_sec  = 0;
+         com_sec = mktime(&comTime);//测量时间
+
+         #ifdef DEBUG_PRINTF
+            printf("%04d-%02d-%02d %02d:%02d:%02d \r\n",
+               comTime.tm_year+1900,comTime.tm_mon,comTime.tm_mday,comTime.tm_hour,comTime.tm_min,comTime.tm_sec);
+         #endif
+
+         status = 1;
+      }
+      else
+      {
+         //printf("COD Error = (dev:2001  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

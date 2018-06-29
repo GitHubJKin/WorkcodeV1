@@ -1,0 +1,54 @@
+/*** BeginHeader */
+#ifndef rd_1012_flux_jinyuan_lib
+#define rd_1012_flux_jinyuan_lib
+/*** EndHeader */
+
+
+/*******************************************************
+"金源协议"
+30H，30H，32H，33H，34H，35H，00H，ODH
+对应于：0023.45升/秒
+*******************************************************/
+/*** BeginHeader rd_flux_jinyuan */
+int rd_flux_jinyuan( char port );
+/*** EndHeader */
+int rd_flux_jinyuan( char port )
+{
+   static int status;
+
+   costate
+   {
+      status = 0;
+
+      com_putc(port, 0x11);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen == 8)
+      {
+         com_f[0] = (float)((com_rbuf[0] - 0x30) * 1000 + (com_rbuf[1] - 0x30) * 100 + (com_rbuf[2] - 0x30) * 10
+                  + (com_rbuf[3] - 0x30) + (com_rbuf[4] - 0x30) * 0.1 + (com_rbuf[5] - 0x30) * 0.01);
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();
+      if(status == 0)status = 1;
+   }
+   return status;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+

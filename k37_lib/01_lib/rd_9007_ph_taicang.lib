@@ -1,0 +1,46 @@
+
+/*** BeginHeader */
+#ifndef rd_9007_ph_taicang_lib
+#define rd_9007_ph_taicang_lib
+/*** EndHeader */
+
+
+/*******************************************************
+江苏太仓创造PH
+
+
+*******************************************************/
+
+/*** BeginHeader rd_ph_taicang */
+int rd_ph_taicang( char port );
+/*** EndHeader */
+int rd_ph_taicang( char port )
+{
+   static int status;
+
+   costate
+   {
+      status = 0;            //初始化通讯状态标志位
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));  //清空接收缓冲区
+      com_read(port);                            //调用接收函数,将数据放接收缓冲区中
+      if(com_rlen >= 6 && com_rbuf[0] == 0x0A && com_rbuf[com_rlen-1] == 0x0D)
+      {
+         com_f[0] = atof(&com_rbuf[1]) / 100.0;    //瞬时流量数据：××××××(共6个字节)  立方米/秒，5位小数
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();               //采样时间
+      if(status == 0) status = 1;
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

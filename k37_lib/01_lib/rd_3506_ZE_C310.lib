@@ -1,0 +1,52 @@
+
+/*** BeginHeader */
+#ifndef rd_3506_ZE_C310_lib
+#define rd_3506_ZE_C310_lib
+/*** EndHeader */
+
+
+/*******************************************************
+中兴ZE-C310(V2)对外通讯协议V1.0-1
+发送：Z0GRESULT
+返回：Z0,1.000,2011-10-12 16:36:06,000,00000000
+*******************************************************/
+
+/*** BeginHeader rd_ZE_C310 */
+int rd_ZE_C310( char port, char addr );
+/*** EndHeader */
+int rd_ZE_C310( char port, char addr ) {
+	static int status;
+	auto char *p;
+	auto char str[30];
+	auto char i;
+
+	costate {
+		status = 0;
+		sprintf(com_tbuf, "Z%dGRESULT\r", addr);
+		com_tlen = strlen(com_tbuf);
+		com_write(port);
+		waitfor(DelayMs(3000));
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+		memset(str, 0, sizeof(str));
+		sprintf(str, "Z%d,", addr);
+		p = strstr(com_rbuf, str);
+		if ((com_rlen >= 21) && p) {
+			p += strlen(str);
+			com_f[0] = atof(p);
+			status = 1;
+		} else
+		{
+
+			com_f[0] = 0.0;
+			status = 2;
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

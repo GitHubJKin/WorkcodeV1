@@ -1,0 +1,129 @@
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8069_wenyaliu_lib
+#define rd_8069_wenyaliu_lib
+/*** EndHeader */
+
+//广州世锦读取温压流，自动上报
+
+/*******************************************************************************
+读取温压流的值		                    --8069
+计算公式：
+（量程上限-量程下限）/(5-1)*（当前获取电压值-1）+量程下限
+温度	量程上限	300	量程下限	0	当前获取电压值	1.4382	温度值	32.865
+压力	量程上限	10000	量程下限	-10000	当前获取电压值	2.9984	压力值	-8
+流速	量程上限	40	量程下限	0	当前获取电压值	2.2808	流速值	12.808
+粉尘	量程上限	100	量程下限	0	当前获取电压值	2.2808	粉尘值	32.02
+>+2.0000+1.5000+2.5000+3.0000+2.0000+1.9126+2.9881+2.0000
+  |温度|  |压力|  |流速|  |粉尘| |...无效|
+*******************************************************************************/
+/*** BeginHeader rd_wenyaliu */
+int rd_wenyaliu( char port );
+/*** EndHeader */
+int rd_wenyaliu(char port)
+{
+	static int status;
+	auto char buf[1024];
+	static int len;
+	static char *point;
+	auto int i;
+
+	costate
+	{
+		status = 0;
+
+		waitfor(DelaySec(1));
+		memset(buf, 0x00, sizeof(buf));
+		len  = 0;
+		while(1)
+		{
+         	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         	com_read(port);
+         	if(com_rlen > 0)
+         	{
+            	if((len + com_rlen) >= 1024) break;
+            	memcpy(&buf[len], com_rbuf, com_rlen);
+            	len += com_rlen;
+         	}
+         	else break;
+		}
+      #ifdef DEBUG_PRINTF
+      printf("com_rlen=%d \n", len);
+      for (i = 0; i < len; i++)
+      {
+      	printf("%c", buf[i]);
+      }
+      printf(" \n");
+      #endif
+	  if((len > 0) && ((point = strstr(buf,">")) != NULL))
+	  {
+		point += 1;
+		com_f[0] = atof(point);//温度电压值
+		com_f[0] = (((300.0-0.0)/(5.0-1.0)) * (com_f[0] - 1.0) + 0.0);//根据公式得到温度值
+		old_com_f_18014[0] = com_f[0];
+		point += 7;
+		com_f[1] = atof(point);//压力值
+		com_f[1] = (((10000.0-(-10000.0))/(5.0-1.0)) * (com_f[1] - 1.0) + (-10000.0));//根据公式得到压力值
+		old_com_f_18014[1] = com_f[1];
+		point += 7;
+		com_f[2] = atof(point);//流速值
+		com_f[2] = (((40.0-0.0)/(5.0-1.0)) * (com_f[2] - 1.0) + 0.0);//根据公式得到流速值
+		old_com_f_18014[2] = com_f[2];
+		point += 7;
+		com_f[3] = atof(point);//粉尘值
+		com_f[3] = (((100.0-0.0)/(5.0-1.0)) * (com_f[3] - 1.0) + 0.0);//根据公式得到粉尘值
+		old_com_f_18014[3] = com_f[3];
+
+		deviceStatus = 0;
+		status = 1;
+	  }
+	  else
+	  {
+ 		if(deviceStatus < 150)		//保持150次读数
+ 		{
+			com_f[0] = 	old_com_f_18014[0];
+			com_f[1] = 	old_com_f_18014[1];
+			com_f[2] = 	old_com_f_18014[2];
+			com_f[3] = 	old_com_f_18014[3];
+			status = 1;
+			deviceStatus++;
+	    }
+	    else					//150次还不到数据，说明读不到数据。
+		{
+		  	status = 2;
+			com_f[0] = 0.0;
+			com_f[1] = 0.0;
+			com_f[2] = 0.0;
+			com_f[3] = 0.0;
+		}
+
+
+	  }
+	  com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

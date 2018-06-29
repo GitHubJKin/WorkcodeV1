@@ -1,0 +1,100 @@
+
+/*** BeginHeader */
+#ifndef rd_1037_flux_mbmag_lib
+#define rd_1037_flux_mbmag_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_flux_mbmag */
+int rd_flux_mbmag( char port );
+/*** EndHeader */
+/****************
+【瞬时流量】
+读数据：01 03 10 10 00 02 C1 0E
+返回：  01 03 04 43 0D 6B 85 90 E7		(141.420)
+【正向总量】
+读数据： 01 03 10 12 00 04 E0 CC
+返回：   01 03 08 00 09 FB F1 3D FB E7 6D 92 C9
+00 09 FB F1 转换为 long 数： 654321
+3D FB E7 6D 转换为 float 数： 0.123
+正向总量为： 654321.123
+******************/
+int rd_flux_mbmag( char port )
+{
+   static int status;
+   union  uf AI;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x1010, 0x02);
+      com_write(port);
+      waitfor(DelayMs(2000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 8)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03)&&(com_rbuf[2]==0x04))
+      {
+         AI.ch[3] = com_rbuf[3];
+         AI.ch[2] = com_rbuf[4];
+         AI.ch[1] = com_rbuf[5];
+         AI.ch[0] = com_rbuf[6];
+         com_f[0] = AI.f;           //瞬时流量
+
+		 pack_modbus_cmd(0x01, 0x03, 0x1012, 0x04);
+		 com_write(port);
+		 waitfor(DelayMs(2000));
+		 memset(com_rbuf, 0x00, sizeof(com_rbuf));
+       com_read(port);
+		 if((com_rlen >= 10)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x03)&&(com_rbuf[2]==0x08))
+		 {
+			AI.ch[3] = com_rbuf[7];
+			AI.ch[2] = com_rbuf[8];
+			AI.ch[1] = com_rbuf[9];
+			AI.ch[0] = com_rbuf[10];
+			com_f[1] = AI.f;			//累计流量小数部分
+
+			AI.ch[3] = com_rbuf[3];
+			AI.ch[2] = com_rbuf[4];
+			AI.ch[1] = com_rbuf[5];
+			AI.ch[0] = com_rbuf[6];
+			com_f[1] += AI.l;			//累计流量整数部分
+
+			status = 1;
+		 }
+      }
+      if(status == 0)
+      {
+         //printf("FLU Error = (dev:1007  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();         //时间
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

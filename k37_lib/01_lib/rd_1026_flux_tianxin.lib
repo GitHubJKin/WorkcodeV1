@@ -1,0 +1,86 @@
+
+/*** BeginHeader */
+#ifndef rd_1026_flux_tianxin_lib
+#define rd_1026_flux_tianxin_lib
+/*** EndHeader */
+
+
+/*******************************************************************************
+天信流量计    RS-232,9600bps,Modbus/A2协议    --1026   (2016-05-12)
+********************************************************************************/
+/*** BeginHeader rd_flux_tianxin */
+int rd_flux_tianxin( char port );
+/*** EndHeader */
+int rd_flux_tianxin( char port )
+{
+   static int status;
+   union uf f1;
+   union uf f2;
+
+	costate
+	{
+		status = 0;
+
+		pack_modbus_cmd(0x02, 0x03, 0x0001, 0x0004);//modbus构建命令包
+		com_write(port);	                          //串口发送modbus协议包
+		waitfor(DelayMs(1000)); 						  //等待1s
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));//清空串口接收缓冲区
+		com_read(port);
+		if((com_rlen > 8) && (com_rbuf[0] == 0x02)&& (com_rbuf[1] == 0x03)&& (com_rbuf[2] == 0x08))
+		{
+
+			f1.ch[3] = com_rbuf[3];
+			f1.ch[2] = com_rbuf[4];
+			f1.ch[1] = com_rbuf[5];
+			f1.ch[0] = com_rbuf[6];
+			f2.ch[3] = com_rbuf[7];
+			f2.ch[2] = com_rbuf[8];
+			f2.ch[1] = com_rbuf[9];
+			f2.ch[0] = com_rbuf[10];
+			com_f[0] = ((f1.f*1000000) + f2.f);   //标准总量
+
+			pack_modbus_cmd(0x02, 0x03, 0x0005, 0x0002);//modbus构建命令包
+			com_write(port);
+         waitfor(DelayMs(1000));
+
+			memset(com_rbuf, 0x00, sizeof(com_rbuf));//清空串口接收缓冲区
+			com_read(port);
+			if((com_rlen > 6) && (com_rbuf[0] == 0x02) && (com_rbuf[1] == 0x03) && (com_rbuf[2] == 0x04))
+			{
+				 f1.ch[3] = com_rbuf[3];
+				 f1.ch[2] = com_rbuf[4];
+				 f1.ch[1] = com_rbuf[5];
+				 f1.ch[0] = com_rbuf[6];
+				 com_f[1] = f1.f;              //标况流量
+				 //com_f[0] = f1.f;              //标况流量
+			}
+			status = 1;			//串口读取数据成功
+		}
+		if(status == 0)
+		{
+			status = 2;
+			com_f[0] = 0.0;
+			com_f[1] = 0.0;
+		}
+		com_sec = read_rtc();    //时间
+	}
+	return status;
+}
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+

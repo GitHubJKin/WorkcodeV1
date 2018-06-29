@@ -1,0 +1,104 @@
+
+/*** BeginHeader */
+#ifndef rd_9008_devicedriver_lihe_lib
+#define rd_9008_devicedriver_lihe_lib
+/*** EndHeader */
+
+
+/*******************************************************
+力合水质仪通信协议
+查询瞬时值
+1、如果需要设置"B01",那么B01必须设置在参数编号是1的地方，而且参数编号2不可以设置编码，
+2、其它可以自由设置
+*******************************************************/
+
+/*** BeginHeader calAddress*/
+char* calAddress(char* src);
+/*** EndHeader */
+char* calAddress(char* src)//代码显示的转换函数.
+{
+   auto int i;
+   for(i=0;;i+=2)
+   {
+      if(strcmp(src, addressList[i]) == 0)return addressList[i+1];//如果上述列表已找到,就返回新字符以代替原来的字符串以显示,
+      if(addressList[i][0] == 0x00)break;
+   }
+   return src;//如果上述列表没找到,就返回原来的字符串以显示
+}
+
+
+/*** BeginHeader rd_devicedriver_lihe */
+int rd_devicedriver_lihe( char port );
+/*** EndHeader */
+int rd_devicedriver_lihe( char port )
+{
+   static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto int regAddr;//寄存器地址
+   auto char portPosition;
+   auto char codePosition;
+   static char slaveAdd;
+   static int i;
+
+   costate
+   {
+      status = 0;
+
+      portPosition = port + 8;    //计算出是哪个通道的
+      codePosition = ai_param[portPosition].polIndex;  //取出污染物编码位置
+      slaveAdd = (char)atoi(calAddress(PolCode[codePosition])); //计算出MODBUS的寄存器地址
+      pack_modbus_cmd(slaveAdd, 0x03, 0x00, 0x02);
+      com_write(port);
+      waitfor(DelayMs(5000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+
+         for (i = 0; i < 20; i++)
+         {
+            if(ai_param_extend[i].port == port) //是同一个串口的
+            {
+               codePosition = ai_param_extend[i].polIndex;
+               if((codePosition >= 0) && (codePosition < BOCON_NO_OF_POL))
+               {
+                  slaveAdd = (char)atoi(calAddress(PolCode[codePosition])); //计算出MODBUS的寄存器地址
+                  pack_modbus_cmd(slaveAdd, 0x03, 0x00, 0x02);
+                  com_write(port);
+                  waitfor(DelayMs(5000));
+
+                  memset(com_rbuf, 0x00, sizeof(com_rbuf));
+                  com_read(port);
+                  if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+                  {
+                     f.ch[1] = com_rbuf[3];
+                     f.ch[0] = com_rbuf[4];
+                     f.ch[3] = com_rbuf[5];
+                     f.ch[2] = com_rbuf[6];
+                     com_f[i+1] = f.f;
+                  }
+               }
+            }
+         }//end of for
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+            com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

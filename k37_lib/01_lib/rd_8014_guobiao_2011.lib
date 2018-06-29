@@ -1,0 +1,267 @@
+
+/*** BeginHeader */
+#ifndef rd_8014_guobiao_2011_lib
+#define rd_8014_guobiao_2011_lib
+/*** EndHeader */
+/*** BeginHeader parseGuoBiaoValue*/
+float parseGuoBiaoValue(char *startoffset, char polIndex, char port);
+/*** EndHeader */
+float parseGuoBiaoValue(char *startoffset, char polIndex, char port)
+{
+    auto float value;
+    auto char polcode[32];
+    auto char *p;
+    auto char i;
+
+    value = 0.0;
+    if (!startoffset) goto RETURN_MARK;
+    if (polIndex >= BOCON_NO_OF_POL) goto RETURN_MARK;
+
+    memset(polcode, 0x00, sizeof(polcode));
+    if (polIndex >= 100)
+    {
+	if (modbusConfig[port].devAddr == 100)
+	{
+	    sprintf(polcode, ",%s-ZsRtd=", PolCode2017[polIndex - 100]);
+	}
+	else
+	{
+	    sprintf(polcode, ",%s-ZsRtd=", PolCode[polIndex - 100]);
+	}
+    }
+    else
+    {
+	if (modbusConfig[port].devAddr == 100)
+	{
+	    sprintf(polcode, ",%s-Rtd=", PolCode2017[polIndex]);
+	}
+	else
+	{
+	    sprintf(polcode, ",%s-Rtd=", PolCode[polIndex]);
+	}
+    }
+    p = strstr(startoffset, polcode);
+
+    if (p == NULL)
+    {
+	polcode[0] = ';';
+	p = strstr(startoffset, polcode);
+    }
+    if (p == NULL)
+    {
+	polcode[0] = ' ';
+	p = strstr(startoffset, polcode);
+    }
+
+    if (p == NULL)
+    {
+	for (i = 0; i < ALLADCHANNELS; i++)
+	{
+	    if (Savech[i].polIndex == polIndex)
+	    {
+		value = Savech[i].val;
+	    }
+	}
+    }
+    else
+    {
+	p += strlen(polcode);
+	value = atof(p);
+    }
+
+RETURN_MARK:
+    return value;
+}
+
+/*******************************************************
+这个串口程序是根据国标2011实时数据包来解释的，数据包是仪表
+自动上传上来的
+*******************************************************/
+/*** BeginHeader rd_guobiao_2011 */
+int rd_guobiao_2011(char port, unsigned delayTime, Rate rate);
+/*** EndHeader */
+int rd_guobiao_2011(char port, unsigned delayTime, Rate rate)
+{
+    static int status;
+    auto char portPosition;
+    auto char p;
+    auto char *point;
+    auto char *startoffset;
+    auto int i;
+    auto int len;
+
+    costate
+    {
+	status = 0;
+
+	waitfor(DelaySec(delayTime));
+	memset(deal_buf, 0x00, sizeof(deal_buf));
+	len = 0;
+
+	len = com_readV2(port, deal_buf, sizeof(deal_buf), 200);
+	if (len <= 0)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	point = strstr(deal_buf, "CN=2011");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	point = strstr(deal_buf, "CP=&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	point = strstr(point, "CP=&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+	startoffset = point;
+
+	point += 5;
+	point = strstr(point, "&&");
+	if (point == NULL)
+	{
+	    status = 2;
+	    goto RETURN_MARK;
+	}
+
+
+#ifdef DEBUG_PRINTF
+	printf("com_rlen=%d \n", len);
+	for (i = 0; i < len; i++)
+	{
+	    printf("%c", deal_buf[i]);
+	}
+	printf(" \n");
+#endif
+
+	portPosition = port + 8;    //计算出是哪个通道的
+	p = ai_param[portPosition].polIndex;  //取出污染物编码位置
+#ifdef SHANXIJINHUSHUINI
+	if (p == 75 || p == 79)
+	{
+	    com_f[0] = parseGuoBiaoValue(startoffset, p, port) / 1000000.0;
+	}
+	else
+#endif
+	{
+	    com_f[0] = parseGuoBiaoValue(startoffset, p, port);
+	    switch (rate)
+	    {
+	    case RATE_10:
+		com_f[0] *= 10;
+		break;
+	    case RATE_100:
+		com_f[0] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[0] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[0] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[0] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[0] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[0] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[0] /= 10000;
+		break;
+	    default:
+		break;
+	    }
+	}
+
+	//取同一串口其它参数编号数据。3次
+	for (i = 0; i < 20; i++)
+	{
+	    if (ai_param_extend[i].port != port) continue; //是同一个串口的
+	    p = ai_param_extend[i].polIndex;           //本参数通道污染物编码
+	    if (p >= BOCON_NO_OF_POL) continue;
+#ifdef SHANXIJINHUSHUINI
+	    if (p == 75 || p == 79)
+	    {
+		com_f[ai_param_extend[i].position] = parseGuoBiaoValue(startoffset, p, port) / 1000000.0;
+	    }
+	    else
+#endif
+	    {
+		com_f[ai_param_extend[i].position] = parseGuoBiaoValue(startoffset, p, port);
+		switch (rate)
+		{
+		case RATE_10:
+		    com_f[ai_param_extend[i].position] *= 10;
+		    break;
+		case RATE_100:
+		    com_f[ai_param_extend[i].position] *= 100;
+		    break;
+		case RATE_1000:
+		    com_f[ai_param_extend[i].position] *= 1000;
+		    break;
+		case RATE_10000:
+		    com_f[ai_param_extend[i].position] *= 10000;
+		    break;
+		case RATE_0_10:
+		    com_f[ai_param_extend[i].position] /= 10;
+		    break;
+		case RATE_0_100:
+		    com_f[ai_param_extend[i].position] /= 100;
+		    break;
+		case RATE_0_1000:
+		    com_f[ai_param_extend[i].position] /= 1000;
+		    break;
+		case RATE_0_10000:
+		    com_f[ai_param_extend[i].position] /= 10000;
+		    break;
+		default:
+		    break;
+		}
+	    }
+	}
+
+	status = 1;
+
+    RETURN_MARK:
+	com_sec = read_rtc();
+    }
+    return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,591 @@
+/*** BeginHeader */
+#ifndef __MODBUSPROTOCOLSTANDARD_LIB
+#define __MODBUSPROTOCOLSTANDARD_LIB
+/*** EndHeader */
+
+/*** BeginHeader */
+
+//数据类型
+typedef enum {
+	DT_INT,  			//整形
+	DT_UNSIGNED,		//无符号整形
+	DT_LONG,    		//长整形，排序：1032
+	DT_LONG_INVERSE,  //长整形，排序：3210
+	DT_LONG_0123,     //长整形，排序：0123
+	DT_FLOAT,         //浮点数，排序：1032
+	DT_FLOAT_INVERSE, //浮点数，排序：3210
+   DT_FLOAT_0123     //浮点数，排序：0123
+} DataType;
+
+typedef struct
+{
+   char devAddr;
+   unsigned  beginRegister;
+   unsigned  registerCounter;
+   DataType dataSort;
+   char map485;			// 0-232 , 1-485
+   char type;			// 0-RTU , 1-ACSII
+   unsigned crc;
+}modbusConfig_t;
+modbusConfig_t modbusConfig[8];
+
+/*** EndHeader */
+
+
+/************************modbus参数读写************************************/
+
+/*** BeginHeader rd_modbus_param*/
+nodebug void rd_modbus_param(char whichChip);
+/*** EndHeader */
+//将modbus配置复制到xmem内存
+//no：对应串口通道，范围是0至6
+nodebug void rd_modbus_param(char whichChip)
+{
+   auto unsigned crc;
+   auto char no;
+   for(no=0;no<8;no++)
+   {
+	   ReadFlashx(BOCON_K37_PARAM_ADDR + 1402 + no*11, (char *)&modbusConfig[no], sizeof(modbusConfig[no]), whichChip);
+	   crc = msrCRC((char *)&modbusConfig[no], sizeof(modbusConfig[no]) - 2);
+
+	   if (crc == modbusConfig[no].crc){
+	      return;
+	   }
+
+	   //复位
+	   modbusConfig[no].beginRegister = 0;
+	   modbusConfig[no].dataSort= 0;
+	   modbusConfig[no].devAddr = 1;
+	   modbusConfig[no].map485	= 0;
+	   modbusConfig[no].type	= 0;
+	   modbusConfig[no].registerCounter = 1;
+
+	   write_modbus_param(no, whichChip);   	
+   }
+
+}
+
+/*** BeginHeader write_modbus_param*/
+nodebug void write_modbus_param(char no, char whichChip);
+/*** EndHeader */
+//将modbus配置保存到userBlock
+nodebug void write_modbus_param(char no, char whichChip)
+{
+   _overwrite_bocon_param = 1;
+   modbusConfig[no].crc = msrCRC((char *)&modbusConfig[no], sizeof(modbusConfig[no]) - 2);
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1402 + no*11 , (char *)&modbusConfig[no], sizeof(modbusConfig[no]), whichChip);
+   _overwrite_bocon_param = 0;
+}
+/************************modbus参数读写************************************/
+
+/************************modbus菜单************************************/
+
+/*** BeginHeader dispModbusParamName*/
+int dispModbusParamName(char param, char no);
+/*** EndHeader */
+int dispModbusParamName(char param, char no)
+{
+	int status;
+
+   status = 1;
+ 	switch(param){
+      case 101:
+         glXPutBitmap ( 126,  60, 63, 15, devAddr_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].devAddr);
+      	break;
+      case 102:
+         glXPutBitmap ( 126,  60, 63, 16, dataSort_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].dataSort);
+      	break;
+      case 103:
+         glXPutBitmap ( 126, 60, 31, 16, begin_bmp);
+      	glXPutBitmap ( 126+32, 60, 47, 16, register_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", modbusConfig[aiCh].beginRegister);
+      	break;
+      case 104:
+         glXPutBitmap ( 126, 60,  47, 16, register_bmp);
+      	glXPutBitmap ( 126+48, 60, 31, 16, counter_bmp);
+         glPrintf( 116, 102, &fi12x16, "%u", modbusConfig[aiCh].registerCounter);
+      	break;
+      case 105:
+         glXPutBitmap ( 126, 60,  47, 16, register_bmp);
+         glPrintf( 116, 102, &fi12x16, "%d", modbusConfig[aiCh].map485);
+      	break;
+   	default:
+      	status = 0;
+         break;
+   }
+
+   return status;
+}
+
+/*** BeginHeader dispModbusData*/
+void dispModbusData(void);
+/*** EndHeader */
+void dispModbusData(void)
+{
+   glBuffLock();
+
+   glPrintf( 136, 67, &fi12x16, "%d", modbusConfig[aiCh].devAddr);
+
+   glPrintf( 136, 87, &fi12x16, "%d", modbusConfig[aiCh].dataSort);
+
+   if(modbusConfig[aiCh].dataSort == DT_INT) 				 glPrintf( 188, 87, &fi12x16, "int");
+   else if(modbusConfig[aiCh].dataSort == DT_UNSIGNED) 	 	 glPrintf( 188, 87, &fi12x16, "uint");
+   else if(modbusConfig[aiCh].dataSort == DT_LONG) 		 	 glPrintf( 188, 87, &fi12x16, "L-1-0-3-2");
+   else if(modbusConfig[aiCh].dataSort == DT_LONG_INVERSE) 	 glPrintf( 188, 87, &fi12x16, "L-3-2-1-0");
+   else if(modbusConfig[aiCh].dataSort == DT_LONG_0123) 	 glPrintf( 188, 87, &fi12x16, "L-0-1-2-3");
+   else if(modbusConfig[aiCh].dataSort == DT_FLOAT) 		 glPrintf( 188, 87, &fi12x16, "F-1-0-3-2");
+   else if(modbusConfig[aiCh].dataSort == DT_FLOAT_INVERSE)  glPrintf( 188, 87, &fi12x16, "F-3-2-1-0");
+   else 											 		 glPrintf( 188, 87, &fi12x16, "F-0-1-2-3");
+
+
+   if(modbusConfig[aiCh].map485 == 0) 				 glPrintf( 188, 147, &fi12x16, "232");
+   else if(modbusConfig[aiCh].map485 == 1) 	 		 glPrintf( 188, 147, &fi12x16, "485");
+
+   if(modbusConfig[aiCh].type == 0) 				 glPrintf( 188, 167, &fi12x16, "RTU");
+   else if(modbusConfig[aiCh].type == 1) 	 		 glPrintf( 188, 167, &fi12x16, "ASCII");
+   glPrintf( 151, 107, &fi12x16, "%u", modbusConfig[aiCh].beginRegister+65536);
+   glPrintf( 151, 127, &fi12x16, "%u", modbusConfig[aiCh].registerCounter);
+   glPrintf( 151, 147, &fi12x16, "%d", modbusConfig[aiCh].map485);
+   glPrintf( 151, 167, &fi12x16, "%d", modbusConfig[aiCh].type);
+
+   glPlotLine(136,  80, 172, 80);
+   glPlotLine(136, 100, 180, 100);
+   glPlotLine(151, 120, 180, 120);
+   glPlotLine(151, 140, 180, 140);
+   glPlotLine(151, 160, 180, 160);
+   glPlotLine(151, 180, 180, 180);
+   glBuffUnlock();
+}
+
+/*** BeginHeader dispModbusNo*/
+void dispModbusNo(char no);
+/*** EndHeader */
+void dispModbusNo(char no)
+{
+	auto int x, y;
+   x = 65;
+   y = 44 + no * 20;
+   glBuffLock();
+   _glBlankRegion( x, y, x, 18);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glXPutBitmap ( x, y, 63, 15, devAddr_bmp);
+         break;
+      case 2:
+      	glXPutBitmap ( x, y,  63, 16, dataSort_bmp);
+      	break;
+      case 3:
+      	glXPutBitmap ( x, y, 31, 16, begin_bmp);
+      	glXPutBitmap ( x+32, y, 47, 16, register_bmp);
+      	break;
+      case 4:
+      	glXPutBitmap ( x, y,  47, 16, register_bmp);
+      	glXPutBitmap ( x+48, y, 31, 16, counter_bmp);
+      	break;
+      case 5:
+      	glXPutBitmap ( x, y,  55, 16, Com485_BMP);
+      	break;
+      case 6:
+      	glXPutBitmap ( x, y,  31, 16, type_BMP);
+      	break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+/*** BeginHeader dispModbusSelect*/
+void dispModbusSelect(char no);
+/*** EndHeader */
+void dispModbusSelect(char no)
+{
+	auto int x;
+   x = 65;
+
+   if(no == 3 || no == 4)
+   {
+   	x = 80;
+   	disp_select(65, 44+no*20, x);
+   }
+   else
+   {
+   	x = 65;
+   	disp_select(x, 44+no*20, x);
+   }
+}
+
+/*** BeginHeader dispSetupModbus*/
+void dispSetupModbus( int no );
+/*** EndHeader */
+void dispSetupModbus( int no )
+{
+	auto char c;
+
+   if(no == 0)
+   {
+   	glBuffLock();
+   	_glBlankRegion( 0, 20, 320, 202);
+	   K37PUTNAME
+
+      c = 46;
+      glXPutBitmap (96, 34,  111, 16, modbusSet_BMP);
+	  glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+	  glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+	  glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+      glXPutBitmap ( c,128,  13, 11, BoconNo4_bmp);
+      glXPutBitmap ( c,148,  13, 11, BoconNo5_bmp);
+      glXPutBitmap ( c,168,  13, 11, BoconNo6_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<7;c++) dispModbusNo(c);
+	}
+	else if((no > 0) && (no < 7))
+   {
+   	if(menuNoOld > 0) dispModbusSelect(menuNoOld);
+      dispModbusSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   dispModbusData();
+}
+
+/*** Beginheader setupModbus */
+int setupModbus(void);
+/*** endheader */
+int setupModbus(void)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupModbus(menuNo);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if((menuNo>0)&&(menuNo<7)&&(userMode>1))
+               {
+               	waitfor(modifyParam(menuNo+100, 0));
+               }
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 6) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 6) || (menuNo < 1))	menuNo = 6;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey < '7'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+/************************modbus菜单************************************/
+
+
+/************************modbus_bmp************************************/
+
+/*** BeginHeader devAddr_bmp */
+extern unsigned long devAddr_bmp;
+/*** EndHeader */
+
+// Bitmap : devAddr_bmp
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 63 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,63,16,devAddr_bmp);
+
+xdata devAddr_bmp {
+'\x00','\x00','\x04','\x00','\x10','\x20','\x10','\x21',
+'\x21','\xF0','\x04','\x00','\x10','\x20','\x10','\x21',
+'\x11','\x10','\x0F','\xF0','\x10','\x20','\x10','\x21',
+'\x11','\x10','\x18','\x20','\x11','\x20','\x11','\x21',
+'\x01','\x10','\x64','\x40','\x11','\x2C','\x11','\x21',
+'\x02','\x0E','\x03','\x80','\xFD','\x34','\xFD','\x21',
+'\xF4','\x00','\x1C','\x70','\x11','\x64','\x11','\x3D',
+'\x13','\xF8','\xE0','\x0E','\x13','\xA4','\x11','\x21',
+'\x11','\x08','\x1F','\xF0','\x11','\x24','\x11','\x21',
+'\x11','\x10','\x11','\x10','\x11','\x34','\x11','\x21',
+'\x10','\x90','\x11','\x10','\x11','\x28','\x11','\x21',
+'\x14','\xA0','\x1F','\xF0','\x1D','\x22','\x1D','\x21',
+'\x18','\x40','\x11','\x10','\xE1','\x22','\xE1','\x21',
+'\x10','\xA0','\x11','\x10','\x41','\x02','\x41','\x21',
+'\x03','\x18','\x1F','\xF0','\x00','\xFE','\x07','\xFF',
+'\x0C','\x06','\x10','\x10','\x00','\x00','\x00','\x01'
+};
+
+
+/*** BeginHeader begin_bmp */
+extern unsigned long begin_bmp;
+/*** EndHeader */
+
+// Bitmap : begin_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 31 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,31,16,begin_bmp);
+
+xdata begin_bmp {
+'\x00','\x00','\x10','\x21',
+'\x7F','\xFC','\x10','\x21',
+'\x08','\x20','\x10','\x21',
+'\x08','\x20','\x10','\x41',
+'\x08','\x20','\xFC','\x49',
+'\x08','\x20','\x24','\x85',
+'\x08','\x20','\x25','\xFF',
+'\xFF','\xFE','\x24','\x83',
+'\x08','\x20','\x24','\x01',
+'\x08','\x20','\x48','\xFD',
+'\x08','\x20','\x28','\x85',
+'\x08','\x20','\x10','\x85',
+'\x10','\x20','\x28','\x85',
+'\x10','\x20','\x44','\x85',
+'\x20','\x20','\x80','\xFD',
+'\x40','\x20','\x00','\x85'
+};
+
+
+/*** BeginHeader register_bmp */
+extern unsigned long register_bmp;
+/*** EndHeader */
+
+// Bitmap : register_bmp
+// Buffer Size : 96
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 47 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,47,16,register_bmp);
+
+xdata register_bmp {
+'\x02','\x00','\x04','\x00','\x00','\x01',
+'\x01','\x00','\x04','\x00','\x3E','\x7D',
+'\x7F','\xFE','\xFF','\xFE','\x22','\x45',
+'\x42','\x02','\x08','\x00','\x22','\x45',
+'\x82','\x04','\x08','\x00','\x3E','\x7D',
+'\x3F','\xF8','\x13','\xF8','\x01','\x21',
+'\x04','\x80','\x10','\x10','\x01','\x11',
+'\x08','\x40','\x30','\x20','\xFF','\xFF',
+'\xFF','\xFE','\x50','\x40','\x02','\x81',
+'\x00','\x10','\x97','\xFE','\x0C','\x61',
+'\x1F','\x90','\x10','\x40','\x30','\x19',
+'\x10','\x90','\x10','\x40','\xC0','\x07',
+'\x10','\x90','\x10','\x40','\x3E','\x7D',
+'\x1F','\x90','\x10','\x40','\x22','\x45',
+'\x00','\x50','\x11','\x40','\x22','\x45',
+'\x00','\x20','\x10','\x80','\x3E','\x7D'
+};
+
+
+/*** BeginHeader counter_bmp */
+extern unsigned long counter_bmp;
+/*** EndHeader */
+
+// Bitmap : counter_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 31 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,31,16,counter_bmp);
+
+xdata counter_bmp {
+'\x08','\x20','\x00','\x01',
+'\x49','\x20','\x1F','\xF1',
+'\x2A','\x20','\x10','\x11',
+'\x08','\x3E','\x1F','\xF1',
+'\xFF','\x44','\x10','\x11',
+'\x2A','\x44','\xFF','\xFF',
+'\x49','\x44','\x00','\x01',
+'\x88','\xA4','\x1F','\xF1',
+'\x10','\x28','\x11','\x11',
+'\xFE','\x28','\x1F','\xF1',
+'\x22','\x10','\x11','\x11',
+'\x42','\x10','\x1F','\xF1',
+'\x64','\x28','\x01','\x01',
+'\x18','\x28','\x1F','\xF1',
+'\x34','\x44','\x01','\x01',
+'\xC2','\x82','\x7F','\xFD'
+};
+
+
+/*** BeginHeader dataSort_bmp */
+extern unsigned long dataSort_bmp;
+/*** EndHeader */
+
+// Bitmap : dataSort_bmp
+// Buffer Size : 128
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 63 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,63,16,dataSort_bmp);
+
+xdata dataSort_bmp {
+'\x08','\x20','\x20','\x00','\x10','\x90','\x01','\x01',
+'\x49','\x20','\x23','\xFC','\x10','\x90','\x00','\x81',
+'\x2A','\x20','\x22','\x04','\x10','\x90','\x3F','\xFF',
+'\x08','\x3E','\x22','\x04','\x17','\x9E','\x20','\x01',
+'\xFF','\x44','\xFB','\xFC','\xF8','\x90','\x23','\xF9',
+'\x2A','\x44','\x22','\x20','\x10','\x90','\x20','\x11',
+'\x49','\x44','\x22','\x20','\x10','\x90','\x20','\xA1',
+'\x88','\xA4','\x2B','\xFE','\x1B','\x9C','\x20','\x41',
+'\x10','\x28','\x32','\x20','\x30','\x90','\x2F','\xFF',
+'\xFE','\x28','\xE2','\x20','\xD0','\x90','\x20','\x43',
+'\x22','\x10','\x22','\xFC','\x10','\x90','\x20','\x45',
+'\x42','\x10','\x22','\x84','\x17','\x9E','\x20','\x41',
+'\x64','\x28','\x22','\x84','\x10','\x90','\x40','\x41',
+'\x18','\x28','\x24','\x84','\x10','\x90','\x40','\x41',
+'\x34','\x44','\xA4','\xFC','\x50','\x90','\x81','\x41',
+'\xC2','\x82','\x48','\x84','\x20','\x90','\x00','\x81'
+};
+
+
+/*** BeginHeader modbusSet_BMP */
+extern unsigned long modbusSet_BMP;
+/*** EndHeader */
+
+// Bitmap : modbusSet_BMP	modbus参数设置
+// Buffer Size : 224
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 112 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,112,16,modbusSet_BMP);
+
+xdata modbusSet_BMP {
+'\x00','\x00','\x00','\x00','\x00','\x00','\x02','\x00','\x08','\x20','\x00','\x00','\x7F','\xFC',
+'\x00','\x00','\x00','\x00','\x00','\x00','\x04','\x40','\x49','\x20','\x21','\xF0','\x44','\x44',
+'\x00','\x00','\x00','\x00','\x00','\x00','\x08','\x20','\x2A','\x20','\x11','\x10','\x7F','\xFC',
+'\xEE','\x00','\x06','\xF8','\x00','\x00','\x1F','\xF0','\x08','\x3E','\x11','\x10','\x01','\x00',
+'\x6C','\x00','\x02','\x44','\x00','\x00','\x02','\x00','\xFF','\x44','\x01','\x10','\x7F','\xFC',
+'\x6C','\x00','\x02','\x44','\x00','\x00','\x7F','\xFC','\x2A','\x44','\x02','\x0E','\x01','\x00',
+'\x6C','\x00','\x02','\x44','\x00','\x00','\x08','\x20','\x49','\x44','\xF4','\x00','\x1F','\xF0',
+'\x6C','\x3C','\x1E','\x78','\xC6','\x3E','\x10','\x90','\x88','\xA4','\x13','\xF8','\x10','\x10',
+'\x54','\x42','\x22','\x44','\x42','\x42','\x23','\x08','\x10','\x28','\x11','\x08','\x1F','\xF0',
+'\x54','\x42','\x42','\x42','\x42','\x40','\xCC','\x46','\xFE','\x28','\x11','\x10','\x10','\x10',
+'\x54','\x42','\x42','\x42','\x42','\x3C','\x01','\x80','\x22','\x10','\x10','\x90','\x1F','\xF0',
+'\x54','\x42','\x42','\x42','\x42','\x02','\x06','\x10','\x42','\x10','\x14','\xA0','\x10','\x10',
+'\x54','\x42','\x26','\x44','\x46','\x42','\x18','\x20','\x64','\x28','\x18','\x40','\x1F','\xF0',
+'\xD6','\x3C','\x1B','\xF8','\x3B','\x7C','\x00','\xC0','\x18','\x28','\x10','\xA0','\x10','\x10',
+'\x00','\x00','\x00','\x00','\x00','\x00','\x07','\x00','\x34','\x44','\x03','\x18','\xFF','\xFE',
+'\x00','\x00','\x00','\x00','\x00','\x00','\x78','\x00','\xC2','\x82','\x0C','\x06','\x00','\x00'
+};
+
+/*** BeginHeader Com485_BMP */
+extern unsigned long Com485_BMP;
+/*** EndHeader */
+
+// Bitmap : Com485_BMP		485映射
+// Buffer Size : 112
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 56 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,56,16,485_BMP);
+
+xdata Com485_BMP {
+'\x00','\x00','\x00','\x00','\x20','\x08','\x08',
+'\x00','\x00','\x00','\x00','\x20','\x10','\x08',
+'\x00','\x00','\x00','\x78','\x20','\x3E','\x08',
+'\x04','\x3C','\x7E','\x49','\xFC','\x22','\x08',
+'\x0C','\x42','\x40','\x49','\x24','\x3E','\xFE',
+'\x14','\x42','\x40','\x49','\x24','\x22','\x08',
+'\x24','\x42','\x40','\x79','\x24','\x3E','\x08',
+'\x24','\x24','\x58','\x49','\x24','\x22','\x08',
+'\x44','\x18','\x64','\x49','\x24','\x22','\x48',
+'\x44','\x24','\x02','\x4B','\xFE','\xFE','\x28',
+'\x7E','\x42','\x02','\x48','\x20','\x06','\x28',
+'\x04','\x42','\x42','\x78','\x50','\x0A','\x08',
+'\x04','\x42','\x44','\x48','\x50','\x12','\x08',
+'\x1E','\x3C','\x38','\x00','\x88','\x22','\x08',
+'\x00','\x00','\x00','\x01','\x04','\x4A','\x28',
+'\x00','\x00','\x00','\x02','\x02','\x04','\x10'
+};
+
+/*** BeginHeader type_BMP */
+extern unsigned long type_BMP;
+/*** EndHeader */
+
+// Bitmap : type_BMP	模式
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 32 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,32,16,type_BMP);
+
+xdata type_BMP {
+'\x11','\x10','\x00','\x48',
+'\x11','\x10','\x00','\x44',
+'\x17','\xFC','\x00','\x44',
+'\x11','\x10','\x00','\x40',
+'\xFC','\x00','\xFF','\xFE',
+'\x13','\xF8','\x00','\x40',
+'\x32','\x08','\x00','\x40',
+'\x3B','\xF8','\x3E','\x40',
+'\x56','\x08','\x08','\x40',
+'\x53','\xF8','\x08','\x40',
+'\x90','\x40','\x08','\x20',
+'\x17','\xFC','\x08','\x22',
+'\x10','\xA0','\x0F','\x12',
+'\x11','\x10','\x78','\x0A',
+'\x12','\x08','\x20','\x06',
+'\x14','\x06','\x00','\x02'
+};
+
+
+/************************modbus_bmp************************************/
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

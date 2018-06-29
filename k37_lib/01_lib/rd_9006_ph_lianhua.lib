@@ -1,0 +1,65 @@
+
+/*** BeginHeader */
+#ifndef rd_9006_ph_lianhua_lib
+#define rd_9006_ph_lianhua_lib
+/*** EndHeader */
+
+
+/*******************************************************
+连华，水中油
+发送命令
+02H,36H,34H(十六进制)。
+接收数据
+32H,  36H,34H,   30H,37H,31H,32H, 32H,35H,38H,   33H ;pH值固定两位小数
+开始    地址         pH值            温度       结束
+*******************************************************/
+
+/*** BeginHeader rd_ph_lianhua */
+int rd_ph_lianhua( char port );
+/*** EndHeader */
+int rd_ph_lianhua( char port )
+{
+   static int status;
+   auto  char tempBuf[6]; //临时变量
+   auto int i;
+
+   costate
+   {
+      status = 0;
+
+      memset(com_tbuf, 0x00, sizeof(com_tbuf));
+      com_tbuf[0] = 0x02;   //发送命令,02H,36H,34H(十六进制)。
+      com_tbuf[1] = 0x36;   //地址是100
+      com_tbuf[2] = 0x34;
+      com_tlen = 3;
+      com_write(port);
+      waitfor(DelaySec(1));
+
+      //32H,  36H,34H,   30H,37H,31H,32H, 32H,35H,38H,   33H ;pH值固定两位小数
+      //开始    地址         pH值            温度       结束
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 9 && com_rbuf[1] == 0x36 && com_rbuf[2] == 0x34)
+      {
+         memset(tempBuf, 0x00, sizeof(tempBuf));
+         strncpy(tempBuf, &com_rbuf[3], 4);
+         com_f[0] = atof(tempBuf);
+         com_f[0] = com_f[0] / 100.0;  //pH值固定两位小数
+         com_sec = read_rtc();               //时间--------
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

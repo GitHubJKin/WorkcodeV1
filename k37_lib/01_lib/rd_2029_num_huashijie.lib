@@ -1,0 +1,97 @@
+
+/*** BeginHeader */
+#ifndef rd_2029_num_huashijie_lib
+#define rd_2029_num_huashijie_lib
+/*** EndHeader */
+
+
+
+/**********************************
+华时捷在线监测仪
+取数指令： [23][30][31][30][0d]
+应答数据： [3e][30][31][30][41][38][37][2e][39][2b][31][36][30][34][0d]
+对应ASCII字符串为： >010A87.9+1604
+下机位返回
+	3EH
+	下机位地址
+	功能代码（30H）
+	通道代码
+	测量浓度或者故障代码（4个字符）
+	数据符号
+	测量时间（4个字符）
+	0DH
+
+
+***********************************/
+
+
+
+
+
+
+/*** BeginHeader rd_num_huashijie */      //case 2029://华时捷old
+int rd_num_huashijie( char port );
+/*** EndHeader */
+int rd_num_huashijie( char port ) {
+	static int status;
+	auto long templ;
+	auto char tempc[16];
+	auto struct tm comTime;
+	auto int i;
+	auto unsigned int v;
+
+	costate {
+		status = 0;
+		memset(com_tbuf, 0x00, sizeof(com_tbuf));
+		com_tbuf[0] = 0x23;  //报文开始符
+		com_tbuf[1] = 0x30;  //地址
+		com_tbuf[2] = 0x31;
+		com_tbuf[3] = 0x30;   //指令代码
+		com_tbuf[4] = 0x0d;  //报文结束符
+		com_tlen = 5;
+
+		com_write(port);
+		waitfor(DelayMs(3000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		com_read(port);
+
+		if((com_rlen >= 25)&&(com_rbuf[0] == 0x3e)&&(com_rbuf[1] == 0x30)&&(com_rbuf[2]==0x31)&&(com_rbuf[3]==0x30)) {
+			if(((com_rbuf[16] == 0x70)&&(com_rbuf[17] == 0x70)&&(com_rbuf[18] == 0x70)&&(com_rbuf[19] == 0x70))||
+			((com_rbuf[16] == 0x71)&&(com_rbuf[17] == 0x71)&&(com_rbuf[18] == 0x71)&&(com_rbuf[19] == 0x71))||
+			((com_rbuf[16] == 0x72)&&(com_rbuf[17] == 0x72)&&(com_rbuf[18] == 0x72)&&(com_rbuf[19] == 0x72))) {
+
+				status = 2;
+				com_f[0] = 0.0;
+				com_sec = read_rtc();
+			} else {
+				memset(tempc,0x00,sizeof(tempc));
+				strncpy(tempc, &com_rbuf[16], 4);
+				com_f[0] = atof(tempc);  //即时值
+				if(com_rbuf[20]==0x30) {
+					com_f[0] /= 1000.0;
+				} else if(com_rbuf[20]==0x32) {
+					com_f[0] *= 1000.0;
+				} else
+					{}
+				com_sec = read_rtc();
+
+				status = 1;
+			}
+		}
+      else
+		{
+				status = 2;
+				memset(com_f, 0x00, sizeof(com_f));
+
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

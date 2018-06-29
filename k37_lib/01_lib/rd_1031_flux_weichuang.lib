@@ -1,0 +1,58 @@
+/*** BeginHeader */
+#ifndef rd_flux_weichuang_lib
+#define rd_flux_weichuang_lib
+/*** EndHeader */
+
+/*** BeginHeader rd_flux_weichuang */
+int rd_flux_weichuang( char port);
+/*** EndHeader */
+int rd_flux_weichuang(char port)
+{
+	static int status;
+   auto char buf[15];
+   auto int i;
+
+   costate
+   {
+   	status = 0;
+      memset(com_tbuf,0x00,sizeof(com_tbuf));
+      com_tbuf[0] = 0x02;
+      com_tbuf[1] = 0x01;
+      com_tbuf[2] = 0x01;
+      com_tbuf[4] = 0x04;
+      com_tlen = 5;
+      com_write(port);
+      waitfor(DelaySec(1));
+
+      memset(com_rbuf,0x00,sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 26 && com_rbuf[0] == 0x02 && com_rbuf[1] == 0x01 && com_rbuf[com_rlen-1] == 0x04)
+      {
+      	status = 1;
+         memset(buf,0x00,sizeof(buf));
+         for(i = 0; i < 11; i++)
+         {
+         	buf[i] = com_rbuf[i+4];
+         }
+         com_f[0] = atof(buf);//
+         for(i = 0; i < 12; i++)
+         {
+         	buf[i] = com_rbuf[i+15];
+         }
+         com_f[1] = atof(buf)/100.0;
+
+      }
+      else
+      {
+      	com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         status = 1;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

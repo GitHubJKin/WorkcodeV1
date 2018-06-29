@@ -1,0 +1,126 @@
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8062_qijue_CEMS_lib
+#define rd_8062_qijue_CEMS_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+南京奇崛烟气    Modbus RTU-9600,N,8,1	         -8062
+*******************************************************************************/
+/*** BeginHeader rd_qijue_CEMS */
+int rd_qijue_CEMS( char port );
+/*** EndHeader */
+int rd_qijue_CEMS ( char port )
+{
+	static int status;
+	auto union uf f;
+	auto i;
+
+	costate
+	{
+		status = 0;
+
+		pack_modbus_cmd(0x01, 0x03, 0x00, 0x14);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) ){
+         f.ch[3] = com_rbuf[3];
+         f.ch[2] = com_rbuf[4];
+         f.ch[1] = com_rbuf[5];
+         f.ch[0] = com_rbuf[6];
+         com_f[0] = f.f;        //第一通道
+
+	      f.ch[3] = com_rbuf[7];
+         f.ch[2] = com_rbuf[8];
+         f.ch[1] = com_rbuf[9];
+         f.ch[0] = com_rbuf[10];
+         com_f[1] = f.f;        //第二通道
+
+	      f.ch[3] = com_rbuf[11];
+         f.ch[2] = com_rbuf[12];
+         f.ch[1] = com_rbuf[13];
+         f.ch[0] = com_rbuf[14];
+         com_f[2] = f.f;        //第三通道
+
+	      f.ch[3] = com_rbuf[15];
+         f.ch[2] = com_rbuf[16];
+         f.ch[1] = com_rbuf[17];
+         f.ch[0] = com_rbuf[18];
+         com_f[3] = f.f;        //第四通道
+
+	      f.ch[3] = com_rbuf[19];
+         f.ch[2] = com_rbuf[20];
+         f.ch[1] = com_rbuf[21];
+         f.ch[0] = com_rbuf[22];
+         com_f[4] = f.f;        //第五通道
+
+	      f.ch[3] = com_rbuf[23];
+         f.ch[2] = com_rbuf[24];
+         f.ch[1] = com_rbuf[25];
+         f.ch[0] = com_rbuf[26];
+         com_f[5] = f.f;        //第六通道
+
+	      f.ch[3] = com_rbuf[27];
+         f.ch[2] = com_rbuf[28];
+         f.ch[1] = com_rbuf[29];
+         f.ch[0] = com_rbuf[30];
+         com_f[6] = f.f;        //第七通道
+
+	      f.ch[3] = com_rbuf[31];
+         f.ch[2] = com_rbuf[32];
+         f.ch[1] = com_rbuf[33];
+         f.ch[0] = com_rbuf[34];
+         com_f[7] = f.f;        //第八通道
+
+	      f.ch[3] = com_rbuf[35];
+         f.ch[2] = com_rbuf[36];
+         f.ch[1] = com_rbuf[37];
+         f.ch[0] = com_rbuf[38];
+         com_f[8] = f.f;        //第九通道
+
+	      f.ch[3] = com_rbuf[39];
+         f.ch[2] = com_rbuf[40];
+         f.ch[1] = com_rbuf[41];
+         f.ch[0] = com_rbuf[42];
+         com_f[9] = f.f;        //第九通道
+
+         f.ch[3] = com_rbuf[43];
+         f.ch[2] = com_rbuf[44];
+         f.ch[1] = com_rbuf[45];
+         f.ch[0] = com_rbuf[46];
+         com_f[10] = f.f;        //第十通道
+
+         status = 1;       //数据正确
+      }
+      else{
+      	status = 2;       //数据不正确
+      	for(i=0;i<10;i++)  com_f[i] = 0.0;
+      }
+	   com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+

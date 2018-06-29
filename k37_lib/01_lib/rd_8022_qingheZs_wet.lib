@@ -1,0 +1,101 @@
+
+/*** BeginHeader */
+#ifndef rd_8022_qingheZs_wet_lib
+#define rd_8022_qingheZs_wet_lib
+/*** EndHeader */
+
+
+
+
+/*** BeginHeader rd_qingheZs_wet*/
+int rd_qingheZs_wet( char port );
+/*** EndHeader */
+int rd_qingheZs_wet( char port )
+{
+   	auto char ch;
+   	static float f1, f2, f3;
+   	auto float S01,S03,S05,S08;
+
+   	//查找折算值
+   	f3 = ai_param[13].alarm_H;   //测点实测的过量空气系数
+	if((getSampleChannel("S01", &ch, 1, &S01) == 1) &&
+	(getSampleChannel("S03", &ch, 1, &S03) == 1) &&
+	(getSampleChannel("S08", &ch, 1, &S08) == 1) &&
+	(getSampleChannel("S05", &ch, 1, &S05) == 1))
+    {
+     	if((f2 > 0.0) && (f3 > 0.0)&&(S05>0)&&(S01!=21))
+      	{
+            if(getSampleChannel("01", &ch, 1, &f1) == 1)
+            {
+				//f1=烟尘实测值	烟气温度			烟气压力					烟气湿度			氧含量
+  				com_f[0] = f1 * ((273+S03)/273) * (101300/(101300+(S08*1000))) * (100/(100-S05)) * (21/(1.4*(21-S01)));
+            }
+     		else
+      		{
+      			com_f[0] = 0.0;
+		   	}
+
+            if(getSampleChannel("02", &ch, 1, &f1) == 1)
+            {
+               //f1=SO2实测值	烟气温度			烟气压力					烟气湿度			氧含量
+  				com_f[1] = f1 * ((273+S03)/273) * (101300/(101300+(S08*1000))) * (100/(100-S05)) * (21/(1.4*(21-S01)));
+            }
+
+            if(getSampleChannel("03", &ch, 1, &f1) == 1)
+            {
+               //f1=NOx实测值	烟气温度			烟气压力					烟气湿度			氧含量
+  				com_f[2] = f1 * ((273+S03)/273) * (101300/(101300+(S08*1000))) * (100/(100-S05)) * (21/(1.4*(21-S01)));
+            }
+		}
+  		else
+    	{
+     		com_f[0] = 0.0;
+            com_f[1] = 0.0;
+            com_f[2] = 0.0;
+       	}
+	}
+ 	else
+  	{
+   		com_f[0] = 0.0;
+     	com_f[1] = 0.0;
+      	com_f[2] = 0.0;
+  	}
+   	com_sec = read_rtc();
+    return 1;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

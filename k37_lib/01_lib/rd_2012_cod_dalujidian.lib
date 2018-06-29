@@ -1,0 +1,142 @@
+
+/*** BeginHeader */
+#ifndef rd_2012_cod_dalujidian_lib
+#define rd_2012_cod_dalujidian_lib
+/*** EndHeader */
+
+
+/*******************************************************
+济南大陆机电股份有限公司   COD                          //2012
+COD仪器自动向采集器发送数据
+ST=32;CN=2011;PW=;MN=11111111111111;CP=&&DataTime=20090902123445; 011-Rtd=50.5,011-Flag=N&&
+*******************************************************/
+/*** BeginHeader rd_cod_dalujidian */
+int rd_cod_dalujidian( char port );
+/*** EndHeader */
+int rd_cod_dalujidian( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto char *p, *p1;
+   auto char str[8];
+
+   costate
+   {
+      status = 0;
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen > 0)printf("%s \n", com_rbuf);
+      if((com_rlen >= 0)&&(strstr(com_rbuf, "ST=")!=NULL) && (strstr(com_rbuf, "&&") != NULL))//&& (strncmp(com_rbuf, "&&", 2)==0)
+      {
+         //com_rbuf[2]是年的高两位,丢掉(时间都是压缩BCD码)
+         /*comTime.tm_year = (com_rbuf[3]>>4)*10 + (com_rbuf[3]&0x0f);
+         comTime.tm_mon = (com_rbuf[4]>>4)*10 + (com_rbuf[4]&0x0f);
+         comTime.tm_mday = (com_rbuf[5]>>4)*10 + (com_rbuf[5]&0x0f);
+         comTime.tm_hour = (com_rbuf[6]>>4)*10 + (com_rbuf[6]&0x0f);
+         comTime.tm_min = (com_rbuf[7]>>4)*10 + (com_rbuf[7]&0x0f);
+         comTime.tm_sec = 0;
+         com_sec = mktime(&comTime);         //时间
+
+         com_f[0] = *((float *)(&com_rbuf[8]));//即时值
+         status = 1;*/
+
+         status = 1;
+
+         p = strstr(com_rbuf, "011-Rtd="); //COD值
+         p1 = strchr(p, ',');
+         if((p != NULL) && (p1 != NULL))
+         {
+            p += 8;
+            memset(str, 0x00, sizeof(str));
+            strncpy(str, p, (int)(p1-p));
+            oldValue = atof(str);
+            //oldValue = com_f[0];
+         }
+         com_f[0] = oldValue;
+
+         p = strstr(com_rbuf, "DataTime="); //COD时间
+         if(p != NULL)
+         {
+            p += 11;
+            printf("%s \n", p);
+            if(chk_time(p) == 6)
+            {
+               com_sec = mktime(&rtc1);
+               printf("%04d-%02d-%02d %02d:%02d:%02d \n",
+                  rtc1.tm_year+1900, rtc1.tm_mon, rtc1.tm_mday, rtc1.tm_hour, rtc1.tm_min, rtc1.tm_sec);
+            }
+         }
+
+         p = strstr(com_rbuf, "SB1-RS=");      //仪器状态
+         p1 = strchr(p, ';');
+         if((p != NULL) && (p1 != NULL))
+         {
+            p += 7;
+            memset(str, 0x00, sizeof(str));
+            strncpy(str, p, (int)(p1-p));
+            //deviceStatus = (char)atoi(str);
+            if(atoi(str) > 0)status = 2;
+            printf("deveceStatus=%d \n", deviceStatus);
+         }
+         deviceStatus = 0;
+         //if(deviceStatus == 0)  //0表示正常,1表示故障
+            //status = 1;
+         //else
+            //status = 2;
+      }
+      else
+      {
+         /*if(deviceStatus == 0)
+            status = 1;
+         else
+            status = 2;
+         com_f[0] = oldValue;
+         com_sec = read_rtc();*/
+         if(deviceStatus < 150)
+         {
+            deviceStatus++;
+            status = 1;
+            com_f[0] = oldValue;
+            com_sec = read_rtc();
+         }
+         else
+         {
+            status = 2;
+            com_f[0] = 0.0;
+            com_sec = read_rtc();
+         }
+      }
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,67 @@
+/*** BeginHeader */
+#ifndef rd_2016_cod_aihua_lib
+#define rd_2016_cod_aihua_lib
+/*** EndHeader */
+
+/*******************************************************
+爱华COD
+*******************************************************/
+/*** BeginHeader rd_cod_aihua */
+int rd_cod_aihua( char port );
+/*** EndHeader */
+int rd_cod_aihua( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x1A98, 0x04);
+      com_write(port);
+      waitfor(DelaySec(10));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[3] = com_rbuf[3];
+         f.ch[2] = com_rbuf[4];
+         f.ch[1] = com_rbuf[5];
+         f.ch[0] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+
+         if(com_f[0] < 0.0)
+         {
+            com_f[0] = 0.0;
+         }
+
+         f.ch[3] = com_rbuf[7];
+         f.ch[2] = com_rbuf[8];
+         f.ch[1] = com_rbuf[9];
+         f.ch[0] = com_rbuf[10];
+         com_f[1] = f.f;         //即时值
+
+         if(com_f[1] < 0.0)
+         {
+            com_f[1] = 0.0;
+         }
+
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

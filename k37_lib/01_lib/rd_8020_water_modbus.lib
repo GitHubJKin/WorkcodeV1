@@ -1,0 +1,104 @@
+
+/*** BeginHeader */
+#ifndef rd_8020_guobiao_2011_8020_lib
+#define rd_8020_guobiao_2011_8020_lib
+/*** EndHeader */
+
+
+
+
+/*** BeginHeader rd_water_modbus*/
+int rd_water_modbus( char port );
+/*** EndHeader */
+int rd_water_modbus( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto unsigned long time;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0xC9, 0x03, 0x00, 6);
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0xC9)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[2] = f.f;
+
+         f.ch[1] = com_rbuf[7];
+         f.ch[0] = com_rbuf[8];
+         f.ch[3] = com_rbuf[9];
+         f.ch[2] = com_rbuf[10];
+         com_f[0] = f.f;
+         if(onemsg_wr.AI_Val[ch_flux].Sum < 0.0)
+         {
+            onemsg_wr.AI_Val[ch_flux].Sum = 0.0;
+         }
+         time = SEC_TIMER - backupTm;
+         com_f[1] = onemsg_wr.AI_Val[ch_flux].Sum + f.f * time / 1000.0;//流量为吨
+         backupTm = SEC_TIMER;
+         #ifdef DEBUG_PRINTF
+         printf("com_f[1]=%f \n", com_f[1]);
+         #endif
+
+         f.ch[1] = com_rbuf[11];
+         f.ch[0] = com_rbuf[12];
+         f.ch[3] = com_rbuf[13];
+         f.ch[2] = com_rbuf[14];
+         com_f[3] = f.f;
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

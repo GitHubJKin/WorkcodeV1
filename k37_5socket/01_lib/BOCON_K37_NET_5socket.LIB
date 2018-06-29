@@ -1,0 +1,539 @@
+/*** BeginHeader */
+#ifndef _bocon_k37_net_lib
+#define _bocon_k37_net_lib
+/*** EndHeader */
+/**************************************************************************
+	广 州 博 控 自 动 化 技 术 有 限 公 司
+	    2010-01-15
+说明：
+一、GPRS的系统配置和宏定义
+二、GPRS拨号的函数
+三、用到的变量
+四、服务器IP、端口、GPRS用户名和密码存储在bocon_config.lib
+五、Socket通信的函数在bocon_k37_tcp.lib
+六、同时支持以太网和GPRS通信
+**************************************************************************/
+
+/*** BeginHeader */
+#define TCPCONFIG 			0
+#define USE_ETHERNET			1
+#define USE_PPP_SERIAL 		4
+
+#ifndef BOCON_BAUDRATE
+#define BOCON_BAUDRATE		115200L//9600L//115200L
+#endif
+#define CINBUFSIZE			1023
+#define COUTBUFSIZE			1023
+
+#define TIMEZONE				-8
+#define LCP_TIMEOUT			5000
+#define TW_TO					0
+#define ETH_MAXBUFS			8//10
+#define ETH_MTU				(TCPGPRSBUF + 40)
+#define DNS_RETRY_TIMEOUT	4000
+
+#ifdef BOCON_UDP
+#define MAX_UDP_SOCKET_BUFFERS	SOCKET_NUMBER
+#define MAX_TCP_SOCKET_BUFFERS	0
+#else
+#define MAX_UDP_SOCKET_BUFFERS	0
+#define MAX_TCP_SOCKET_BUFFERS	SOCKET_NUMBER//2
+#endif
+
+#memmap xmem
+#define PKTDRV "ppp.lib"
+#use "dcrtcp.lib"
+
+#use "bocon_k37_modem.elib"
+
+unsigned long sysRstTm;     //system restart timer, 1 day
+unsigned char	temp[64];   //161 for SMS
+
+char gprsType;                  //GPRS模块型号，0 - 无，1 - 华为900A，2 - MC39i
+char simState;                  //SIM卡状态，0 - 无卡，1 - 有卡
+
+#ifdef BOCON_GPRS_PARAM
+char imei[32];          //Modem IMEI SN
+char imsi[24];          //SIM card IMSI SN
+char simid[24];     //SIM card ID
+#endif
+char rssi;              //RF signal strength
+/*** EndHeader */
+
+/*******************************************************************************
+函数功能：	Modem初始化函数
+结果：		1、初始化成功，可以拨号
+	2、初始化失败，Modem关闭，等待下次重试
+返回值：		1-成功，0-失败
+*******************************************************************************/
+/*** BeginHeader Modem_Init */
+scofunc int Modem_Init(void);
+/*** EndHeader */
+//nodebug
+scofunc int Modem_Init(void)
+{
+    static int rv;
+
+    gprsType = 0;
+    simState = 0;
+//如果系统上电时间超过1天，在重启GPRS之前强制复位
+    /*if(SEC_TIMER > (sysRstTm + 86400L)) //3H=10800, 1D=86400
+    {
+    save_before_reset();
+       sysRstTm = SEC_TIMER;
+       forceSoftReset();
+    } */
+
+    Modem_Pwr_On();      //Modem电源打开
+    if (detModemPwr() == 1) printf("Modem power up\n");
+    else
+    {
+	printf("Modem power error\n");
+	Modem_Pwr_Off();
+	return 0;
+    }
+
+    wfd //Modem on
+    {Modem_Igt();}
+    if (detModemState() != 1)
+    {
+	wfd
+	{Modem_Igt();}
+	if (detModemState() != 1)
+	{
+	    Modem_Pwr_Off();
+	    printf("Modem error\n");
+	    return 0;
+	}
+    }
+    printf("Modem up\n");
+
+    /* if(devNo == 9600)
+     {
+      ModemOpen(9600L);
+      }
+     else
+     {   */
+    ModemOpen(BOCON_BAUDRATE);
+    // }
+    wfd       //Modem初始化
+    {rv = CofModemInit();}
+    if (rv)
+    {
+	rssi = 31;
+	printf("Modem init OK\n");
+
+	//ModemSend("at\r");
+	//wfd {rv = CofModemExpect("OK", 1);}
+	//ModemSend("atz\r");
+	//wfd {CofModemExpect("OK", 5);}
+	//ModemSend("at&f0\r");
+	//wfd {CofModemExpect("OK", 5);}
+	ModemSend("at+qaccm=0,0\r");  //M35 0xa0转义字符关闭,DNS不能解析问题
+	wfd
+	{rv = CofModemExpect("OK", 2);}
+	ModemSend("at+cfun=1\r");    //全功能运行模式
+	wfd
+	{rv = CofModemExpect("OK", 2);}
+
+	ModemSend("at+ifc=2,2\r");    //flowcontrol on
+	wfd
+	{rv = CofModemExpect("OK", 2);}
+
+	ModemSend("at+ipr=115200\r"); //set baudrate
+	wfd
+	{rv = CofModemExpect("OK", 2);}
+
+	ModemSend("AT&W\r"); //save configure
+	wfd
+	{rv = CofModemExpect("OK", 2);}
+
+#ifdef BOCON_GPRS_PARAM
+	memset(imsi, '\0', sizeof(imsi));
+	memset(imei, '\0', sizeof(imei));
+	memset(simid, '\0', sizeof(simid));
+	wfd //读取GPRS模块的型号
+	{rv = read_gprs_model();}
+	wfd          //读取模块序列号
+	{rv = read_imei();}
+	//wfd {rv = read_sim_state();}	//查询是否有SIM卡
+	wfd          //读取SIM卡的IMSI序号
+	{rv = read_imsi();}
+#endif
+	return 1;
+    }
+    else
+    {
+	printf("Modem init fail\n");
+	ModemClose();
+	Modem_Pwr_Off();
+	return 0;
+    }
+}
+
+/*** BeginHeader setAPN*/
+scofunc int setAPN(void);
+/*** EndHeader */
+nodebug scofunc int setAPN(void)
+{
+    memset(temp, 0x00, sizeof(temp));
+    sprintf(temp, "at+cgdcont=1,\"ip\",\"%s\"\r", apn);
+    ModemSend(temp);
+
+    waitfor(DelaySec(2));      //at+cgsn G27AAA1811614657 OK
+    memset(temp, 0x00, sizeof(temp));
+    serCread(temp, sizeof(temp), 100);
+    if (strstr(temp, "OK") != NULL)
+    {
+	return 1;
+    }
+    else return 2;
+}
+
+/*** BeginHeader read_reg_state */
+scofunc int read_reg_state(void);
+/*** EndHeader */
+//网络注册标志，1和5正常，其他异常
+//读取网络注册信息，返回值：		1-成功，0-失败
+nodebug scofunc int read_reg_state(void)
+{
+    auto char *p;
+    auto int reg_flag;
+
+    ModemSend("at+creg ?\r");
+    waitfor(DelaySec(1));
+    memset(temp, 0x00, sizeof(temp));
+    serCread(temp, sizeof(temp), 100);
+    p = strchr(temp, ',');
+    if (p != NULL)
+    {
+	p ++;
+	reg_flag = atoi(p);
+	//printf("Net State = %d\n", reg_flag);
+	if ((reg_flag == 1) || (reg_flag == 5)) return 1;
+    }
+    return 0;
+}
+
+/*** BeginHeader */
+#ifdef BOCON_GPRS_PARAM
+/*** EndHeader */
+/*** BeginHeader read_gprs_model */
+scofunc int read_gprs_model(void);
+/*** EndHeader */
+//读取GPRS模块的型号，返回值：		1-成功，0-失败
+nodebug scofunc int read_gprs_model(void)
+{
+    auto char *p;
+
+    ModemSend("at+gmm\r");
+    memset(temp, 0x00, sizeof(temp));
+    serCread(temp, sizeof(temp), 1000);
+    printf("Modem is ");
+    p = strstr(temp, "M35");
+    if (p != NULL)
+    {
+	gprsType = 1;
+	printf("M35\n");
+	return 1;
+    }
+    else
+    {
+	gprsType = 0;
+	printf("Unknown\n");
+	return 0;
+    }
+}
+/*** BeginHeader read_imei */
+scofunc int read_imei(void);
+/*** EndHeader */
+//读取模块序列号，返回值：		1-成功，0-失败
+nodebug scofunc int read_imei(void)
+{
+    auto char *p;
+    auto char *p1;
+
+    ModemSend("at+cgsn\r");      //MC39i:gsn, GTM900-A:cgsn
+    waitfor(DelaySec(2));        //at+cgsn G27AAA1811614657 OK
+    memset(temp, 0x00, sizeof(temp));
+    serCread(temp, sizeof(temp), 100);
+    p1 = strstr(temp, "gsn");
+    p = strstr(p1, "\r\n");
+    if (p != NULL)
+    {
+	p += 2;
+	p1 = strstr(p, "\r\n");
+	memset(imei, 0x00, sizeof(imei));
+	strncpy(imei, p, (int)(p1 - p));
+	printf("IMEI=%s\n", imei);
+	return 1;
+    }
+    else return 0;
+}
+
+/*** BeginHeader read_imsi */
+scofunc int read_imsi(void);
+/*** EndHeader */
+//读取SIM卡的IMSI序号，返回值：		1-成功，0-失败
+nodebug scofunc int read_imsi(void)
+{
+    auto char *p;
+    auto char *p1;
+
+    if (simState == 1)
+    {
+	ModemSend("at+cimi\r");
+	waitfor(DelaySec(1));
+	memset(temp, 0x00, sizeof(temp));
+	serCread(temp, sizeof(temp), 100);
+	p1 = strstr(temp, "cimi");
+	p = strstr(p1, "\r\n");
+	if (p != NULL)
+	{
+	    p += 2;
+	    p1 = strstr(p, "\r\n");
+	    memset(imsi, 0x00, sizeof(imsi));
+	    strncpy(imsi, p, (int)(p1 - p));
+	    printf("IMSI=%s\n", imsi);
+	    return 1;
+	}
+    }
+    return 0;
+}
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+/*** BeginHeader read_rssi */
+scofunc int read_rssi(void);
+/*** EndHeader */
+//读取信号强度，返回值：		1-成功，0-失败
+nodebug scofunc int read_rssi(void)
+{
+    auto char *p;
+    auto int len;
+
+    ModemSend("at+csq\r");
+    waitfor(DelaySec(1));
+    memset(temp, 0x00, sizeof(temp));
+    len = serCread(temp, sizeof(temp), 100);
+
+    if (len)
+    {
+	printf("%s\n", temp);
+    }
+
+    p = strstr(temp, "CSQ:");
+    if (p != NULL)
+    {
+	p += 4;
+	rssi = atoi(p);
+	return 1;
+    }
+    else                    //0-31, 99 is unknown
+    {
+	ModemSend("at+csq\r");
+	waitfor(DelaySec(1));
+	memset(temp, 0x00, sizeof(temp));
+	len = serCread(temp, sizeof(temp), 100);
+
+	if (len)
+	{
+	    printf("%s\n", temp);
+	}
+
+	p = strstr(temp, "CSQ:");
+	if (p != NULL)
+	{
+	    p += 4;
+	    rssi = atoi(p);
+	    return 1;
+	}
+	else
+	{
+	    rssi = 31;
+	    return 0;
+	}
+    }
+}
+
+/*******************************************************************************
+函数功能：	GPRS关闭的接口函数，关闭PPP链路，关闭Modem
+结果：      PPP关闭，Modem关闭，GPRS_OK=0
+返回值：		1-成功，0-失败
+*******************************************************************************/
+/*** BeginHeader gprsClose */
+scofunc int gprsClose(void);
+/*** EndHeader */
+nodebug scofunc int gprsClose(void)
+{
+    static int c;
+
+    if (GPRS_OK)
+    {
+	GPRS_OK = 0;
+	ifconfig(IF_PPP2, IFS_DOWN, IFS_END);
+	c = 50;
+	while ((ifpending(IF_PPP2) & 1) && (c > 0))
+	{
+	    c --;
+	    tcp_tick(NULL);
+	    waitfor(DelayMs(100));
+	}
+	printf("PPP down\n");
+    }
+
+    wfd
+    {Modem_Igt();}
+    Modem_Pwr_Off();
+    //waitfor(DelaySec(5));
+    printf("Modem down\n");
+    return 1;
+}
+
+/*******************************************************************************
+函数功能：	GPRS拨号的接口函数，自动打开Modem，拨号
+结果：		1、拨号成功，得到IP，	GPRS_OK=1
+	2、拨号失败，关闭Modem，GPRS_OK=0
+返回值：		1-成功，0-失败
+*******************************************************************************/
+/*** BeginHeader gprsDial */
+scofunc int gprsDial(void);
+/*** EndHeader */
+nodebug scofunc int gprsDial(void)
+{
+    static int rv, c;
+    auto unsigned long t;
+    static char i;
+    auto char j, flag;
+    wfd
+    {rv = Modem_Init();}
+    if (rv == 0) return rv;       //Modem init fail
+    for (j = 0, flag = 0; j < SOCKET_NUMBER; j++)
+    {
+	if (serLink[j] == 2)
+	{
+	    flag = 1;
+	    break;
+	}
+    }
+    if (flag)
+    {
+	for (i = 0; i < 5; i++)
+	{
+	    printf("times=%d\r\n", i);
+	    wfd
+	    {rv = setAPN();}
+	    if (rv == 1) break;
+	}
+	waitfor(DelaySec(30));        //30
+	wfd       //读取信号强度
+	{rv = read_rssi();}
+	ModemSend("atd*99***1#\r");
+    }
+    else
+    {
+	waitfor(DelaySec(30));  //30	//8
+	wfd
+	{rv = read_rssi();}
+	ModemSend("ATDT#777\r");
+    }
+    printf("RSSI=%d, Dial\n", rssi);
+    wfd 
+    {
+	rv = CofModemExpect("CONNECT", 20);
+    }
+    if (rv == 0)   //Beijing 20s, others 10s
+    {
+	if (detModemState() == 0) return 0;  //Modem power down
+	ModemSend("+++");
+	wfd
+	{rv = CofModemExpect("OK", 2);}
+	if (rv == 0)
+	{
+	    ModemSend("+++");
+	    wfd
+	    {CofModemExpect("OK", 2);}
+	}
+	for (j = 0, flag = 0; j < SOCKET_NUMBER; j++)
+	{
+	    if (serLink[j] == 2)
+	    {
+		flag = 1;
+		break;
+	    }
+	}
+	if (flag)
+	{
+	    ModemSend("atd*99***1#\r");
+	}
+	else
+	{
+	    ModemSend("ATDT#777\r");
+	}
+	wfd //10000
+	{
+	    rv = CofModemExpect("CONNECT", 20);
+	}
+	if (rv == 0)
+	{
+	    printf("Dial fail\n");
+	    ModemClose();
+	    wfd
+	    {rv = gprsClose();}
+	    //glPrintf(1, 225, &fi6x8, "U");
+	    return 0;
+	}
+    }
+
+    printf("PPP start\n");
+    //glPrintf(1, 225, &fi6x8, "V");
+    ModemClose();
+    ifconfig(IF_PPP2,
+	     IFS_PPP_INIT,
+	     IFS_PPP_SPEED, BOCON_BAUDRATE,
+	     IFS_PPP_ACCEPTIP, 1,
+	     IFS_PPP_ACCEPTDNS, 1,
+	     IFS_PPP_REMOTEAUTH, dialName, dialPwd,
+	     //IFS_NAMESERVER_ADD, aton("221.179.38.7"),
+	     IFS_NAMESERVER_ADD, aton("211.136.20.203"),
+	     IFS_NAMESERVER_ADD, aton("211.136.192.6"),
+	     IFS_UP,
+	     IFS_END);
+
+    c = 1200; //Normal = 1200;
+    while ((ifpending(IF_PPP2) & 1) && (c > 0))
+    {
+	c --;
+	tcp_tick(NULL);
+	waitfor(DelayMs(100));
+    }
+/*
+   for(c=0;c<30;c++)		//Test Hebei VPDN
+   {
+    tcp_tick(NULL);
+    waitfor(DelaySec(1));
+   }
+*/
+    GPRS_OK = 1;
+    if (ifstatus(IF_PPP2))
+    {
+	//ifconfig(IF_PPP2, IFG_ROUTER_DEFAULT, &t, IFS_END);
+	//printf("Gateway = %s\n", inet_ntoa(myip, t));
+	ifconfig(IF_PPP2, IFG_IPADDR, &t, IFS_END);
+	printf("PPP OK, IP = %s\n", inet_ntoa(myip, t));
+	return 1;
+    }
+    else
+    {
+	printf("PPP fail\n");
+	wfd
+	{rv = gprsClose();}
+	return 0;
+    }
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

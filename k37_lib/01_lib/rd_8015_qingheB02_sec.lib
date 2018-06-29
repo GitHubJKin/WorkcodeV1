@@ -1,0 +1,68 @@
+
+/*** BeginHeader */
+#ifndef rd_8015_qingheB02_sec_lib
+#define rd_8015_qingheB02_sec_lib
+/*** EndHeader */
+
+
+
+
+
+/*** BeginHeader rd_qingheB02_sec*/
+int rd_qingheB02_sec( char port );
+/*** EndHeader */
+int rd_qingheB02_sec( char port )
+{
+   auto char ch;
+   auto float f1, S03, S08, S05;
+
+   if((getSampleChannel("S02", &ch, 1, &f1) == 1) &&
+      (getSampleChannel("S03", &ch, 1, &S03) == 1) &&
+      (getSampleChannel("S08", &ch, 1, &S08) == 1) &&
+      (getSampleChannel("S05", &ch, 1, &S05) == 1))
+   {
+      com_f[0] = 3600.0 * ai_param[15].alarm_H * f1;//得到工况流量 ，单位m3/h
+      #ifdef CEMS_PRESS_UNIT_KPA
+      com_f[0] = com_f[0] * (273.0 / (273.0 + S03)) * ((ai_param[12].alarm_H+(S08*1000))/101325) * (1-(S05/100.0));
+      #else
+      com_f[0] = com_f[0] * (273.0 / (273.0 + S03)) * ((ai_param[12].alarm_H+S08)/101325) * (1-(S05/100.0));
+      #endif
+	  com_f[0] = com_f[0] / 3600.0;//由于公式计算出来的废气单位为m3/h, 所以要除以3600,得出单位m3/s.
+   }
+   else
+   {
+      com_f[0] = 0.0;
+   }
+   com_sec = read_rtc();
+
+   return 1;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

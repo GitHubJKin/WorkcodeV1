@@ -1,0 +1,114 @@
+
+/*** BeginHeader */
+#ifndef rd_5001_metal_keze_lib
+#define rd_5001_metal_keze_lib
+/*** EndHeader */
+
+
+/*******************************************************
+德国科泽的重金属在线监测仪通信协议
+port     端口号
+no       仪器地址，0-氰化物(com_f[0])，1-镍(com_f[1])，2-铜(com_f[2])
+
+T:24 30 30 0d,
+R:30 30 33 3F 0D  -  0.63mg/l    -  NE
+R:30 31 33 35 0D  -  0.309mg/l   -  QING
+R:30 31 32 36 0D  -  0.294ml/g   -  QING
+
+*******************************************************/
+/*** BeginHeader chem_addr */
+int chem_addr(char port, char no);
+/*** EndHeader */
+int chem_addr(char port, char no)//错误返加5,正确返回1
+{//T:0a 30 30 0d, R:30 30 3D 31 0D
+   static int status;
+   static char chemNo[2];
+   auto char chemId[2];
+   auto char cNo, cId;
+   costate
+   {
+      status = 0;
+
+      memset(com_tbuf, '\0', sizeof(com_tbuf));
+      chemNo[0] = '0';
+      chemNo[1] = '0' + no;   //no为0代表氰 , no为1代表镍
+      com_tbuf[0] = 0x0a;
+      com_tbuf[1] = chemNo[0];
+      com_tbuf[2] = chemNo[1];
+      com_tbuf[3] = 0x0d;
+      com_tlen = 4;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 5)&&(com_rbuf[0] == chemNo[0])&&(com_rbuf[1] == chemNo[1])&&(com_rbuf[4] == 0x0d))
+      {
+         chemId[0] = com_rbuf[2];
+         chemId[1] = com_rbuf[3];
+         cNo = (chemNo[0]-0x30)*10 + (chemNo[1]-0x30);
+         cId = (chemId[0]-0x30)*10 + (chemId[1]-0x30);
+         status = 1;
+      }
+      else
+      {
+         status = 5;
+      }
+   }
+   return status;
+}
+
+
+/*** BeginHeader rd_5001_metal_keze */
+int rd_5001_metal_keze( char port, char no );
+/*** EndHeader */
+int rd_5001_metal_keze( char port, char no )
+{
+   static int status;
+   static char cya_err;
+
+   auto unsigned int val;
+   costate
+   {
+      status = 0;
+      waitfor(cya_err = chem_addr(port, no));
+      if(cya_err == 1)//正常,返回5为不正常
+      {
+         //cya_err = 5;    //Set Error Flag
+         memset(com_tbuf, '\0', sizeof(com_tbuf));
+         com_tbuf[0] = '$';
+         com_tbuf[1] = '0';
+         com_tbuf[2] = '0';
+         com_tbuf[3] = 0x0d;
+         com_tlen = 4;
+         com_write(port);
+         waitfor(DelayMs(1000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if((com_rlen >= 5)&&(com_rbuf[4] == 0x0d))
+         {
+            //cya_err = 1;
+            val = (com_rbuf[0]-0x30) * 0x1000 + (com_rbuf[1]-0x30) * 0x100
+                  +(com_rbuf[2]-0x30) * 0x10 + (com_rbuf[3]-0x30);
+            com_f[0] = val * 1.0;
+            com_f[0] /= 1000.0;//即时值
+            com_sec = read_rtc();//时间
+            status = 1;
+         }
+      }
+      if(status == 0)
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_sec = read_rtc();
+      }
+
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

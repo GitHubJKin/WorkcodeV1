@@ -1,0 +1,118 @@
+
+/*** BeginHeader */
+#ifndef rd_2030_cod_wumingCOD_lib
+#define rd_2030_cod_wumingCOD_lib
+/*** EndHeader */
+
+
+/*******************************************************
+通讯协议
+*******************************************************/
+/*** BeginHeader rd_cod_wumingCOD */
+int rd_cod_wumingCOD( char port, Rate rate );
+/*** EndHeader */
+int rd_cod_wumingCOD( char port, Rate rate )
+{
+   static int status;
+   auto char i;
+   auto struct tm comTime;
+
+   costate
+   {
+      status = 0;
+
+      strcpy(com_tbuf, "%01#RDD0030400307**");
+      com_tlen = strlen(com_tbuf);
+      com_tbuf[com_tlen] = 0x0d;
+      com_tlen ++;
+      com_tbuf[com_tlen] = 0x0a;
+      com_tlen ++;
+      com_write(port);
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);   //%01$RD460015070610260014
+      if( (com_rlen >= 22)&&(strncmp(com_rbuf, "%01$RD", 6) == 0) )
+      {//是有效数据
+         comTime.tm_sec = HexCharToDec(com_rbuf[6]) * 10 + HexCharToDec(com_rbuf[7]);
+         comTime.tm_min = HexCharToDec(com_rbuf[8]) * 10 + HexCharToDec(com_rbuf[9]);
+         comTime.tm_hour = HexCharToDec(com_rbuf[10]) * 10 + HexCharToDec(com_rbuf[11]);
+         comTime.tm_mday = HexCharToDec(com_rbuf[12]) * 10 + HexCharToDec(com_rbuf[13]);
+         comTime.tm_mon = HexCharToDec(com_rbuf[14]) * 10 + HexCharToDec(com_rbuf[15]);
+         comTime.tm_year = HexCharToDec(com_rbuf[16]) * 10 + HexCharToDec(com_rbuf[17]) + 100;
+         com_sec = mktime(&comTime);         //时间
+
+         com_f[0] = HexCharToDec(com_rbuf[18]) * 16 + HexCharToDec(com_rbuf[19]);
+         com_f[0] += (HexCharToDec(com_rbuf[20]) * 16 + HexCharToDec(com_rbuf[21])) * 0x100;
+
+	 switch (rate)
+	 {
+	    case RATE_10:
+		com_f[0] *= 10;
+		break;
+	    case RATE_100:
+		com_f[0] *= 100;
+		break;
+	    case RATE_1000:
+		com_f[0] *= 1000;
+		break;
+	    case RATE_10000:
+		com_f[0] *= 10000;
+		break;
+	    case RATE_0_10:
+		com_f[0] /= 10;
+		break;
+	    case RATE_0_100:
+		com_f[0] /= 100;
+		break;
+	    case RATE_0_1000:
+		com_f[0] /= 1000;
+		break;
+	    case RATE_0_10000:
+		com_f[0] /= 10000;
+		break;
+	    default:
+		break;
+	    }
+      }
+      else
+      {
+         com_f[0] = 0;
+         com_sec = read_rtc();      //时间
+      }
+      if(status == 0) status = 2;
+   }
+   return status;
+}
+
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

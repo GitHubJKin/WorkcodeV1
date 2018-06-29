@@ -1,0 +1,1318 @@
+/*** BeginHeader */
+#ifndef BOCON_K37_SMP_LIB
+#define BOCON_K37_SMP_LIB
+
+//#use "bocon_k37_driver.elib"
+/*** EndHeader */
+
+/*******************************************************************************
+    这个库是K37的实时采样任务的驱动库
+1、实时采样的任务：k37_sample_task();
+2、初始化NandFlash的存储接口
+3、根据设定的时间间隔自动保存记录
+*******************************************************************************/
+
+/*** BeginHeader */
+#define ALLADCHANNELS		36		//扩展后会多20个参数可用
+
+typedef struct
+{
+    unsigned long Btime;        //记录时间
+    char	type;                   //本记录类型，1-普通分钟数据，2-小时统计数据，3-日统计数据，4-月统计数据，5-报警记录（与分钟数据同）
+    struct {                      //每个通道的数据结构
+        unsigned long time;   //以下数据的时间因子,
+        unsigned char polIndex; //本通道污染物在编码表的位置，0-(BOCON_NO_OF_POL-1)，BOCON_NO_OF_POL表示未用
+        char  flag;          //N正常,D故障, M维护,T超测上限
+        float Total;          //到记录时间止采集器记录的累计排放总量
+        float Sum;              //一个记录周期内的排放总量
+        float Avg;            //一个记录周期内的平均值
+        float Min;              //采集时间的最小值
+        float Max;              //采集时间的最大值
+        char	ZsFlag;         //本通道是否有折算值的标志，1为有，0为无，在折算值赋值时自动置位，初始化为0
+        float ZsTotal;            //折算值的累计排放总量
+        float ZsSum;          //折算总量
+        float ZsAvg;          //折算平均值
+        float ZsMin;          //折算最小值
+        float ZsMax;          //折算最大值
+    } AI_Val[ALLADCHANNELS];
+    char  DI_Val;
+    float DI_Time[8];            //开关量有效的累计时间，即为设施运行时间，单位是小时
+    unsigned long sum;
+} ONEMSG_struct;
+ONEMSG_struct onemsg_wr;    //采样保存用的写缓冲区
+ONEMSG_struct onemsg_rd;    //查询历史记录用的读缓冲区
+#define MSGSIZE	sizeof(ONEMSG_struct)		//1734 bytes
+#ifdef WUHANHENXIN
+//char chongdian_hour;//电池充电的上一时刻，每小时检测一次是否需要充电
+#endif
+char runMode;               //系统的运行模式，1-污水，2-废气，0-未知
+char ch_flux;               //流量所在的通道
+char smp_alarm_flag;        //超标报警标志，1-处于报警状态，0-正常
+char Poldi;                 //DI
+struct {
+    unsigned char polIndex; //本通道污染物在编码表的位置，0-(BOCON_NO_OF_POL-1)，BOCON_NO_OF_POL表示未用
+    unsigned char zs_index;  //本通道折算值在数组里的位置，ALLADCHANNELS表示没有
+    char flag;
+    float val;                   //实时变量
+    unsigned long time;      //取得val值的时间参数
+}Savech[ALLADCHANNELS];     //前16个是物理端口的数据，后20个是扩展数据
+
+
+unsigned int sampletimes;       //采集的次数计数
+unsigned long sampleSEC;        //采样定时器
+unsigned long samplemsgSEC; //保存记录的定时器
+unsigned long smp_alarm_time;   //报警时间，也就是触发取样设备的时间
+float fluxSumbak;
+unsigned long fluxSumTmBackup;
+float fluxSumTemp,total_flux;
+char back_hour;                 //保存当前的小时数，如变化了就计算小时统计数据并保存
+char back_day;                      //保存当前的天数，如变化了就计算日统计数据并保存
+struct tm back_rtc;             //保存当前的日期
+struct tm smp_rtc;              //采样的日期
+unsigned long start_measuring_rtc;
+
+char output_port_flag;          //数据导出用的串口是否正在导出数据的标志，1-导出，0-采样
+char workmode[5];
+char comEorror[8];
+
+char yushuiAlarmFlag;           //苏州卫水
+char wushuiAlarmFlag;
+/*** EndHeader */
+
+
+/*** BeginHeader save_rdPtr_to_flash*/
+void save_rdPtr_to_flash(void);
+/*** EndHeader */
+/*******************************************************************************
+函数功能：将un_tx_page结构体保存到flash里面
+*******************************************************************************/
+void save_rdPtr_to_flash(void)
+{
+    onemsg_wr.AI_Val[15].Avg = un_tx_page.ptr[0];
+    onemsg_wr.AI_Val[15].Min = un_tx_page.ptr[1];
+    onemsg_wr.AI_Val[15].Max = un_tx_page.ptr[2];
+    onemsg_wr.AI_Val[15].Total = un_tx_page.crc;
+}
+
+/*** BeginHeader read_rdPtr_from_flash*/
+void read_rdPtr_from_flash(void);
+/*** EndHeader */
+void read_rdPtr_from_flash(void)
+{
+    auto UN_TX_PTR un_tx_page_L;
+    auto unsigned int crc;
+    auto char m_crc_state, f_crc_state;  //1-正常， 0-错误
+    auto rdP_state;  //1-正常 0-错误
+    auto char i;
+
+    m_crc_state = 1;
+    f_crc_state = 1;
+    rdP_state = 1;
+
+
+    un_tx_page_L.ptr[0] = (unsigned long)onemsg_rd.AI_Val[15].Avg;
+    un_tx_page_L.ptr[1] = (unsigned long)onemsg_rd.AI_Val[15].Min;
+    un_tx_page_L.ptr[2] = (unsigned long)onemsg_rd.AI_Val[15].Max;
+    un_tx_page_L.crc = (unsigned int)onemsg_rd.AI_Val[15].Total;
+
+    crc = CRC16((char *)&un_tx_page_L, sizeof(UN_TX_PTR) - 2);
+    if (crc != un_tx_page_L.crc)
+    {
+        f_crc_state = 0;
+    }
+
+    crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR) - 2);
+    if (crc != un_tx_page.crc)
+    {
+        m_crc_state = 0;
+    }
+
+    if (f_crc_state == 1 && m_crc_state == 1)
+    {
+        if (un_tx_page_L.ptr[0] > un_tx_page.ptr[0])
+        {
+            rdP_state = 0;
+        }
+    }
+    else
+    {
+        rdP_state = 0;
+    }
+
+    if (rdP_state == 0 && _check_Btime(SEC_TIMER) == 0)
+    {
+        for (i = 0; i < SOCKET_NUMBER; i++)
+        {
+            un_tx_page.ptr[i] = wrPtr; //标记为无未上传记录
+            un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR) - 2);
+        }
+    }
+
+    for (i = 0; i < SOCKET_NUMBER; i++)
+    {
+        if (un_tx_page.ptr[i] > wrPtr && _check_Btime(SEC_TIMER) == 0)
+        {
+            un_tx_page.ptr[i] = wrPtr;
+            un_tx_page.crc = CRC16((char *)&un_tx_page, sizeof(UN_TX_PTR) - 2);
+        }
+    }
+}
+
+/*******************************************************************************
+当通道的污染物编码变化后，调用本函数初始化存储缓冲区的数据
+*******************************************************************************/
+/*** BeginHeader init_ch_data */
+void init_ch_data(void);
+/*** EndHeader */
+void init_ch_data(void)
+{
+    auto char ch, i;
+    auto int rc;
+    auto unsigned long rdPtr_L;
+    auto char query_valid_data_flag; //查询到有效数据 0-没有  1-有
+
+
+    if (wrPtr == 0)
+    { //FLASH刚好写满了
+        rdPtr_L = nandFlash.pages - 1;
+    }
+    else
+    {
+        rdPtr_L = wrPtr - 1;
+    }
+
+    query_valid_data_flag = 0;
+    for (i = 1; i < 10; i++)
+    {
+        rc = read_nf_page(&onemsg_rd, rdPtr_L, 4);  //读取最新的一条历史记录
+
+        if ((rc == 0) && ((onemsg_rd.type == 1) || (onemsg_rd.type == 5)))
+        { //查询到一条有效的分钟历史数据
+            query_valid_data_flag = 1;
+            break;
+        }
+
+        if (rdPtr_L == 0)
+        {
+            rdPtr_L = nandFlash.pages - 1;
+        }
+        else
+        {
+            rdPtr_L--;
+        }
+    }
+
+    if (query_valid_data_flag)
+    {
+#ifdef DEBUG_PRINTF
+        printf("already query valid minute data \n");
+#endif
+        /*
+          mktm(&back_rtc, onemsg_rd.Btime);//每次都更新，防止修改时间后不能正确识别
+        
+        #ifdef DEBUG_PRINTF
+        printf("back_rtc %04d-%02d-%02d %02d:%02d:%02d \n",
+          back_rtc.tm_year+1900, back_rtc.tm_mon, back_rtc.tm_mday, back_rtc.tm_hour, back_rtc.tm_min, back_rtc.tm_sec);
+        #endif
+             */
+        for (ch = 0; ch < ALLADCHANNELS; ch++)
+        {
+            for (i = 0; i < ALLADCHANNELS; i++)
+            {
+                if (onemsg_wr.AI_Val[ch].polIndex == onemsg_rd.AI_Val[i].polIndex)
+                {   //如果原来的记录里有，则只是污染物位置调整，取原来的累计值
+                    onemsg_wr.AI_Val[ch].Total = onemsg_rd.AI_Val[i].Total;
+                    onemsg_wr.AI_Val[ch].ZsTotal = onemsg_rd.AI_Val[i].ZsTotal;
+                    break;
+                }
+            }
+            if (i == ALLADCHANNELS)   //原来的记录里没有，肯定是新的污染物，清0
+            {
+                onemsg_wr.AI_Val[ch].Total = 0;
+                onemsg_wr.AI_Val[ch].ZsTotal = 0;
+            }
+            if (onemsg_rd.AI_Val[ch].polIndex == 96 || onemsg_rd.AI_Val[ch].polIndex == 81)
+            {
+                total_flux = onemsg_rd.AI_Val[ch].Max;
+            }
+        }
+
+        read_rdPtr_from_flash();
+
+    }
+    else
+    {
+#ifdef DEBUG_PRINTF
+        printf("not query valid minute data \n");
+#endif
+    }
+}
+
+/*** BeginHeader sampleSUM */
+unsigned long sampleSUM(char *buf, int len);
+/*** EndHeader */
+unsigned long sampleSUM(char *buf, int len)
+{
+    auto unsigned long sum;
+    auto unsigned int j;
+
+    sum = 0L;
+    for (j = 0; j < len; j++)
+    {
+        sum += buf[j];
+    }
+
+    return sum;
+}
+
+/*** BeginHeader doCtrl*/
+void doCtrl(char c, char alarmState);
+/*** EndHeader */
+void doCtrl(char c, char alarmState)
+{
+    if (c >= ALLADCHANNELS) return;
+
+    if (Savech[c].polIndex == 27 || Savech[c].polIndex == 28)
+    {
+        if (alarmState)
+        {
+            yushuiAlarmFlag++;
+        }
+    }
+    else
+    {
+        if (alarmState)
+        {
+            wushuiAlarmFlag++;
+        }
+    }
+}
+
+/*******************************************************************************
+本函数检查指定的通道数据是否超标，并置通道标志
+将某通道的报警上下限都设为0.0就表示本通道不报警
+返回0表示正常，1表示新超标需要报警，2表示超标已处理
+*******************************************************************************/
+/*** BeginHeader check_ch_alarm */
+char check_ch_alarm(char c);
+/*** EndHeader */
+char check_ch_alarm(char c)
+{
+    auto char val;
+    auto float lo, hi;
+
+    if (c < 16)                   //首先取本通道的报警上下限
+    {
+        lo = ai_param[c].alarm_L;
+        hi = ai_param[c].alarm_H;
+    }
+    else
+    {
+        lo = ai_param_extend[c - 16].alarm_L;
+        hi = ai_param_extend[c - 16].alarm_H;
+    }
+
+    val = 0;                     //初始化为正常
+    Savech[c].flag = 'N';    //正常
+
+    if ((lo == 0.0) && (hi == 0.0)) return val;   //设置为不需要报警，直接返回正常
+
+    if ((Savech[c].val < lo) || (Savech[c].val > hi))
+    {
+        if (Savech[c].flag != 'T')
+        {
+            Savech[c].flag = 'T';   //超标
+            val = 1;                       //需要报警处理
+        }
+        else val = 2;
+    }
+#if (SUZHOUWEISHUI == 1 )
+    doCtrl(c, val);
+#endif
+    if (detMainPwr() == 0)
+    {
+        Savech[c].flag = 'P';
+    }
+    return val;
+}
+
+/*** BeginHeader getAI*/
+int getAI(char c, float *val, char *flag);
+/*** EndHeader */
+int getAI(char c, float *val, char *flag)
+{
+    auto float low, full;
+
+    if (c >= 8) return 0;
+    if (ai_param[c].parity == 1) *val = anaInAmpsAver(c); //电流
+    else if (ai_param[c].parity == 2) *val = anaInDiff(c); //差分，可为电压或者电流
+    else *val = anaInVoltsAver(c); //电压
+
+    if (ai_param[c].parity == 1)  //电流模式
+    {
+        low = 4.0;      //电流值下限
+        full = 16.0;  //电流值范围
+    }
+    else
+    {
+        low = 0.0;      //电压值下限
+        full = 5.0;       //电压值范围
+    }
+    if (*val < low) //20130116 modify  江山多娇要求
+    {
+        if (*val > 4)
+        {
+            *flag = 'N';
+        }
+        else
+        {
+            *flag = 'D';      //没有信号
+        }
+        *val = low;
+    }
+    else if (*val > (low + full))
+    {
+        *flag = 'T';        //超标
+        *val = (low + full);
+    }
+    else *flag = 'N';       //正常
+
+    *val = ((ai_param[c].range_H - ai_param[c].range_L) / full) * (*val - low) + ai_param[c].range_L; //转为量程值
+    *val *= ai_param[c].factor; //乘以通道系数
+
+    return 1;
+}
+
+/*******************************************************************************
+1、进行一次采样，由于模拟量和串口量属性问题，需要分别以不同的速度采样，待处理
+2、通道报警处理，如任一路产生报警，则R1闭合1S，R2常闭直到
+    所有通道都正常才断开
+3、如某个通道的报警上下限都为0，则表示本通道不报警
+4、如不希望报警，可将报警上下限设到量程范围之外，则肯定不会报警了
+*******************************************************************************/
+/*** BeginHeader get_sample */
+int get_sample(void);
+/*** EndHeader */
+int get_sample(void)
+{
+    static char c, j, i;
+    static char alarm_chs;   //超标的通道数
+    static char zs_alarm_chs;
+    static char liuyang_flag;
+    static int status;
+    static int rd_com_flag;
+    auto float low, full;
+    auto struct tm time;
+    auto float f;
+    auto char ch;
+
+    costate
+    {
+        status = 0;
+        alarm_chs = 0;
+        zs_alarm_chs = 0;
+
+#if (SUZHOUWEISHUI == 1 || JIANGXIBOYUAN == 1)
+        yushuiAlarmFlag = 0;
+        wushuiAlarmFlag = 0;
+#endif
+
+        //采集数字量
+        Poldi = (char)digInBank();
+
+        //采集8个模拟量通道的数据，如果设置为不用的通道，则数据清0
+        for (c = 0; c < 8; c++)
+        {
+//#if(CHANGSHAHUASHIJIE == 1)
+//            continue;
+//#endif
+
+            if ((Savech[c].polIndex >= 0) && (Savech[c].polIndex < BOCON_NO_OF_POL))
+            {
+                getAI(c, &Savech[c].val, &Savech[c].flag);
+                Savech[c].time = SEC_TIMER;   //读入时间
+
+                if (Savech[c].flag == 'N')       //如果已经标记为异常，就不需要判断了
+                {
+                    if (check_ch_alarm(c) > 0) alarm_chs++; //处理是否超标的标志
+                }
+                else alarm_chs++;
+            }
+            else
+            {
+                Savech[c].time = 0L;          //没用的通道，时间置0
+                Savech[c].val = 0.0;          //没用的通道，数据置0
+                Savech[c].flag = 'D';         //标记为没有信号
+            }
+            waitfor(DelayMs(120));
+        } //采集8个AI
+
+        //按照正常7个串口采集，如有多个参数，则在驱动里会读出所有的参数
+        for (c = 8; c < 16; c++)
+        {
+            if ((Savech[c].polIndex >= 0) && (Savech[c].polIndex < BOCON_NO_OF_POL))
+            {
+                if ((output_port_flag == 1) && (c == 8));
+                else waitfor(rd_com_flag = rd_com_dev(c - 8));
+
+                if (rd_com_flag != 1 && rd_com_flag != 3)          //串口数据有误
+                {
+                    if (comEorror[c - 8] > 30) //延时加长 30*5*2=300s
+                    {
+                        Savech[c].val = 0.0;
+                        Savech[c].time = 0L;
+                        Savech[c].flag = 'D';
+                        for (j = 0; j < 20; j++)               //如本通道有多个数据，还需要处理
+                        {
+                            if (ai_param_extend[j].port == (c - 8)) //有扩展参数关联到本串口
+                            {
+                                Savech[j + 16].val = 0.0; //未用的扩展通道没有初始化，需要留意
+                                Savech[j + 16].time = 0L;
+                                Savech[j + 16].flag = 'D';
+                            }
+                        }
+                    }
+                    else
+                    {
+                        comEorror[c - 8]++;
+                    }
+                }
+                else if (rd_com_flag == 3)
+                {
+                    Savech[c].flag = 'D';
+                }
+                else
+                {
+                    comEorror[c - 8] = 0;
+                    Savech[c].val = com_f[0];   //只读了第0个数据
+                    unitConverTask(c);
+                    if (check_ch_alarm(c) > 0) alarm_chs++; //处理是否超标的标志
+#if (ZHAOQINGLVTUO == 1)
+                    if (check_ch_alarm(c) > 0 && Savech[c].polIndex >= 100) zs_alarm_chs++;
+#endif
+                    if ((runMode == 1) && (c == ch_flux))
+                    { //如果是串口流量计，则直接从第二个参数读取累计流量
+                        if (modbusConfig[7].beginRegister <= 20 && modbusConfig[7].registerCounter == 0 && modbusConfig[7].devAddr == 100)
+                        {
+                            onemsg_wr.AI_Val[c].Total = com_f[modbusConfig[7].beginRegister];
+                        }
+                        else
+                        {
+                            onemsg_wr.AI_Val[c].Total = com_f[1];
+                        }
+                    }
+                    Savech[c].time = com_sec;    //读入时间
+
+
+                    //如本通道有多个数据，还需要处理，待完善
+                    for (j = 0; j < 20; j++)
+                    {
+                        if ((ai_param_extend[j].port == (c - 8))       //有扩展参数关联到本串口
+                            && (ai_param_extend[j].polIndex < BOCON_NO_OF_POL))   //而且是有效的参数
+                        { //需要确定存储位置，也就是Savech里的位置，以下的对应关系可能有问题
+                            Savech[j + 16].val = com_f[ai_param_extend[j].position];
+                            unitConverTask(j + 16);
+                            if (check_ch_alarm(j + 16) > 0) alarm_chs++; //处理是否超标的标志
+#if (ZHAOQINGLVTUO == 1)
+                            if (check_ch_alarm(j + 16) > 0 && ai_param_extend[j].polIndex >= 100) zs_alarm_chs++;
+#endif
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Savech[c].time = 0L;                //没用的通道，时间置0
+                Savech[c].val = 0.0;                //没用的通道，数据置0
+                Savech[c].flag = 'D';           //标记为没有信号
+            }
+
+        }
+
+        //采集7个串口
+
+#if (ZHAOQINGLVTUO == 1)
+        if (zs_alarm_chs > 0)
+        {
+            digOut(0, 1);
+        }
+        else
+        {
+            digOut(0, 0);
+        }
+
+        if (alarm_chs > 0 || zs_alarm_chs > 0)
+        {
+            for (c = 0; c < ALLADCHANNELS; c++)   //统计
+            {
+                if ((Savech[c].polIndex >= 2) && (Savech[c].polIndex < BOCON_NO_OF_POL))
+                {
+                    if (Savech[c].flag == 'T' && liuyang_flag == 0)
+                    {
+                        enable_liuyang_zhaoqing(0);
+                        liuyang_flag = 1;
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            liuyang_flag = 0;
+        }
+//      if (alarm_chs > 0 && Savech[8].polIndex >= BOCON_NO_OF_POL && ai_param[8].model == 10000)
+//      {
+//          enable_liuyang_zhaoqing(0);
+//      }
+//      enableSample_zhaoqing();
+
+#elif (DALIANHAOHAISHUI==1)	//大连浩海水处理
+
+        if (getSampleChannel("B01", &ch, 1, &f) == 1)   //流量大于2 m3/h,闭合继电器1
+        {
+            if (f > 2) digOut(0, 1);
+            else digOut(0, 0);
+        }
+        else digOut(0, 0);
+        if (getSampleChannel("028", &ch, 1, &f) == 1)   //总镍大于0.05mg/l 闭合继电器2
+        {
+            if (f > 0.05) digOut(1, 1);
+            else digOut(1, 0);
+        }
+        else digOut(1, 0);
+
+#elif (SUZHOUWEISHUI == 1)
+
+        if (yushuiAlarmFlag)
+        {
+            digOut(0, 1);
+        }
+        else
+        {
+            digOut(0, 0);
+        }
+
+        if (wushuiAlarmFlag)
+        {
+            digOut(1, 1);
+        }
+        else
+        {
+            digOut(1, 0);
+        }
+
+#elif (JIANGXIBOYUAN == 1)
+        if (alarm_chs > 0)
+        {
+            digOut(0, 0);
+            digOut(1, 1);
+        }
+        else
+        {
+            digOut(0, 1);
+            digOut(1, 0);
+        }
+#else
+        if (alarm_chs > 0)     //有报警
+        {
+            digOut(1, 1);     //如任一通道超标，则报警指示保持打开
+            if ((smp_alarm_flag == 0) && (SEC_TIMER > (smp_alarm_time + 300)))
+            {
+                smp_alarm_flag = 1; //延时5分钟后才出发留样器取样，防止在阀值附近震荡
+                smp_alarm_time = SEC_TIMER;
+                digOut(0, 1);   //只在新报警时取样一次，到恢复正常前不再取样
+                waitfor(DelaySec(1));
+                digOut(0, 0);   //连续超标时，是否隔一段时间就要再取样一次???
+            }
+        }
+        else
+        {
+            smp_alarm_flag = 0;
+            digOut(1, 0);
+        }
+#endif
+
+//	plc_ctrl_flag_show(0);
+
+
+
+        /*if(SEC_TIMER >= controlTimer + extendData[7]*3600 && )
+        {
+           controlTimer = SEC_TIMER;
+           memset(rtControlFlag,0x01,sizeof(rtControlFlag));
+        } */
+
+        status = 1;
+    }
+    return status;
+}
+
+/*******************************************************************************
+    1、按照设定的时间周期采样
+      2、同时计算各种均值、总量、最大最小值等
+      3、保存记录
+      4、写缓冲区的初始化处理，为下个采样周期的累计做准备
+*******************************************************************************/
+/*** BeginHeader k37_sample_task */
+void k37_sample_task(void);
+/*** EndHeader */
+void k37_sample_task(void)
+{
+    auto char c;
+    auto float f1;
+
+    costate
+    {
+        smp_alarm_flag = 0;         //初始化为没有超标报警
+        smp_alarm_time = SEC_TIMER; //报警取样时间
+        sampleSEC = SEC_TIMER;        //采样定时器
+        samplemsgSEC = SEC_TIMER / sampleInterval * sampleInterval + sampleInterval;   //保存定时器
+        sampletimes = 0;
+        init_ch_data();               //初始化写缓冲区
+        output_port_flag = 0;
+        memset(comEorror, 0xFF, sizeof(comEorror));
+        while (1)
+        {
+            if (SEC_TIMER >= sampleSEC + COLECTWATSEC)   //到了采样时间
+            {
+                sampleSEC = SEC_TIMER;
+                //onemsg_wr.Btime = sampleSEC;		//保存采样时间，当存储时就是最后一次采样的时间
+                waitfor(get_sample());              //采一次样
+
+                sampletimes++;
+                for (c = 0; c < ALLADCHANNELS; c++)   //统计
+                {
+                    if (onemsg_wr.AI_Val[c].polIndex < BOCON_NO_OF_POL)
+                    {
+                        onemsg_wr.AI_Val[c].time = Savech[c].time;
+                        onemsg_wr.AI_Val[c].Sum += Savech[c].val;   //此时累加是为了求平均值
+                        if (onemsg_wr.AI_Val[c].Max < Savech[c].val) onemsg_wr.AI_Val[c].Max = Savech[c].val;
+                        if (onemsg_wr.AI_Val[c].Min > Savech[c].val) onemsg_wr.AI_Val[c].Min = Savech[c].val;
+                        if ((onemsg_wr.AI_Val[c].flag == 'N') && (Savech[c].flag != 'N'))
+                        {
+                            onemsg_wr.AI_Val[c].flag = Savech[c].flag; //加入标记 N/D/M/T
+                        }
+                    }
+                }
+            }
+
+            if (SEC_TIMER >= (samplemsgSEC + sampleInterval) && sampletimes)   //到了保存时间
+            {
+                onemsg_wr.Btime = SEC_TIMER;        //保存采样时间，当存储时就是最后一次采样的时间
+
+                mktm(&smp_rtc, onemsg_wr.Btime);
+
+                //if(smp_rtc.tm_sec > 40) samplemsgSEC -= 20;//如果当前记录时间>40s，则下个保存周期调小20s
+                //samplemsgSEC += sampleInterval;//考虑时间补偿，减去本周期多消耗的时间
+                //if (sampletimes > 1)
+                save_1_record(); //进行统计，并保存一条记录
+                sampletimes = 0;                //采样次数清0
+
+                for (c = 0; c < ALLADCHANNELS; c++)  //初始化写缓冲区
+                {
+                    onemsg_wr.AI_Val[c].polIndex = Savech[c].polIndex;
+                    onemsg_wr.AI_Val[c].flag = 'N';
+                    onemsg_wr.AI_Val[c].ZsFlag = 0;
+                    onemsg_wr.AI_Val[c].time = SEC_TIMER;    //写入时间数据
+                    onemsg_wr.AI_Val[c].Sum  = 0.0;             //首次采集,对各通道的和值进行清0
+                    onemsg_wr.AI_Val[c].Max  = 0.0;             //第一次采集时,赋值.Max和.Min
+                    onemsg_wr.AI_Val[c].Min  = 1000000.0;       //第一次采集时,赋值.Max和.Min
+                }
+
+                samplemsgSEC = SEC_TIMER / sampleInterval * sampleInterval; //又准备开始下一个
+            }
+
+
+//#if (ZHAOQINGLVTUO == 1)
+//            enableSample_zhaoqing();
+//#endif
+
+#if (SUZHOUCHENSHUO == 1)
+            enableSample_suzhou();
+#endif
+            waitfor(DelayMs(200));
+        }
+    }
+}
+
+/*******************************************************************************
+进行最终的统计，并保存一条记录
+在保存之前首先检查是否需要保存小时记录、日记录、月记录，如需要就自动先保存
+*******************************************************************************/
+/*** BeginHeader save_1_record */
+void save_1_record(void);
+/*** EndHeader */
+void save_1_record(void)
+{
+    auto char i, f, c;
+    auto unsigned char p;    //临时编码值
+    auto ONEMSG_struct onemsgBuf;
+
+    f = 0;
+    for (i = 0; i < ALLADCHANNELS; i++)
+    {
+        onemsg_wr.AI_Val[i].polIndex = Savech[i].polIndex;
+        onemsg_wr.AI_Val[i].Avg = onemsg_wr.AI_Val[i].Sum / sampletimes;
+        onemsg_wr.AI_Val[i].ZsAvg = onemsg_wr.AI_Val[i].ZsSum / sampletimes;
+        if (onemsg_wr.AI_Val[i].flag == 'T') f++;
+
+        if (onemsg_wr.AI_Val[i].flag == 'C' || onemsg_wr.AI_Val[i].flag == 'M')
+        {
+            getHisData(&onemsgBuf, 2, SEC_TIMER - 3600L, 1, 1);
+            onemsg_wr.AI_Val[i].Avg = onemsgBuf.AI_Val[i].Avg;
+        }
+        if (onemsg_wr.AI_Val[i].Avg > 10000000.0 || onemsg_wr.AI_Val[i].ZsAvg > 10000000.0)
+        {
+            for (c = 0; c < ALLADCHANNELS; c++)  //初始化写缓冲区
+            {
+                onemsg_wr.AI_Val[c].polIndex = Savech[c].polIndex;
+                onemsg_wr.AI_Val[c].flag = 'N';
+                onemsg_wr.AI_Val[c].ZsFlag = 0;
+                onemsg_wr.AI_Val[c].time = SEC_TIMER;     //写入时间数据
+                onemsg_wr.AI_Val[c].Sum  = 0.0;           //首次采集,对各通道的和值进行清0
+                onemsg_wr.AI_Val[c].Max  = 0.0;           //第一次采集时,赋值.Max和.Min
+                onemsg_wr.AI_Val[c].Min  = 0.0;     //第一次采集时,赋值.Max和.Min
+                onemsg_wr.AI_Val[c].Avg = 0.0;
+                onemsg_wr.AI_Val[c].ZsAvg = 0.0;
+            }
+            break;
+        }
+    }
+
+    //DI只保存最后的一次采集结果，如果某通道有效，则表示本采集周期都有效，记下运行时间
+    onemsg_wr.DI_Val = Poldi;
+    for (i = 0; i < 8; i++)
+    {
+        if (onemsg_wr.DI_Val & (1 << i)) onemsg_wr.DI_Time[i] = sampleInterval / 3600.0;
+        else onemsg_wr.DI_Time[i] = 0.0;
+    }
+
+    k37_calc_sum();
+
+    //折算值的处理，将折算值存到对应的参数下，而折算值对应的通道数据清0，不需要保存
+    for (i = 0; i < ALLADCHANNELS; i++)
+    {
+        if (Savech[i].zs_index < ALLADCHANNELS)
+        {
+            onemsg_wr.AI_Val[i].ZsTotal = onemsg_wr.AI_Val[Savech[i].zs_index].Total;
+            onemsg_wr.AI_Val[i].ZsSum = onemsg_wr.AI_Val[Savech[i].zs_index].Sum;
+
+            onemsg_wr.AI_Val[i].ZsAvg = onemsg_wr.AI_Val[Savech[i].zs_index].Avg;
+            onemsg_wr.AI_Val[i].ZsMax = onemsg_wr.AI_Val[Savech[i].zs_index].Max;
+            onemsg_wr.AI_Val[i].ZsMin = onemsg_wr.AI_Val[Savech[i].zs_index].Min;
+            onemsg_wr.AI_Val[i].ZsFlag = 1;     //将对应的通道的折算标记置为有效
+            if (onemsg_wr.AI_Val[Savech[i].zs_index].flag == 'T') onemsg_wr.AI_Val[i].flag = 'T'; //如果折算值超标，则本记录也标记为超标
+
+            onemsg_wr.AI_Val[Savech[i].zs_index].polIndex = BOCON_NO_OF_POL;    //将原折算通道的标志置为不用
+        }
+    }
+
+    if (f == 0)	onemsg_wr.type = 1; //正常记录
+    else onemsg_wr.type = 5;         //超标报警记录，但是数据是一样的
+
+    save_rdPtr_to_flash();
+
+    onemsg_wr.sum = sampleSUM((char *)&onemsg_wr, MSGSIZE - 4);    //计算填入SUM
+
+    if (_check_Btime(onemsg_wr.Btime) == 0)   //检查记录时间是否为有效值
+    {
+        mktm(&smp_rtc, onemsg_wr.Btime);
+        if (smp_rtc.tm_hour != back_rtc.tm_hour)   //小时变化了，保存小时统计数据
+        {
+            calc_save_hour_day(2);
+            if (smp_rtc.tm_mday != back_rtc.tm_mday) //天变化了，保存日统计数据
+            {
+                calc_save_hour_day(3);
+                if (smp_rtc.tm_mon != back_rtc.tm_mon) //月变化了，保存月统计数据
+                {
+                    calc_save_month();
+                }
+            }
+        }
+        saveRecord(&onemsg_wr); //一页写入
+        mktm(&back_rtc, onemsg_wr.Btime); //每次都更新，防止修改时间后不能正确识别
+
+        if (dialFailCnt > 4) //
+        {
+            forceSoftReset();
+        }
+    }
+}
+
+/*** BeginHeader smp_init */
+void smp_init(void);
+/*** EndHeader */
+void smp_init(void)
+{
+    auto char ch;
+    //ver 4.0
+    for (ch = 0; ch < ALLADCHANNELS; ch++)  //在开机的时候，将变量初始化一次，不然会产生一些不确定的值
+    {
+        Savech[ch].val = 0.0;
+        Savech[ch].flag = 'D';
+        Savech[ch].time = read_rtc();
+    }
+
+    //ver 4.0
+    //初始化一些相关变量
+    for (ch = 0; ch < ALLADCHANNELS; ch++)
+    {
+        onemsg_wr.AI_Val[ch].time = SEC_TIMER;
+        onemsg_wr.AI_Val[ch].polIndex = Savech[ch].polIndex;
+        onemsg_wr.AI_Val[ch].flag = 'D';
+        onemsg_wr.AI_Val[ch].Sum = 0.0;
+        onemsg_wr.AI_Val[ch].Avg = 0.0;
+        onemsg_wr.AI_Val[ch].Min = 10000000.0;
+        onemsg_wr.AI_Val[ch].Max = -10000000.0;
+        onemsg_wr.AI_Val[ch].Total = 0.0;
+        onemsg_wr.AI_Val[ch].ZsFlag = 0;
+        onemsg_wr.AI_Val[ch].ZsSum = 0.0;
+        onemsg_wr.AI_Val[ch].ZsAvg = 0.0;
+        onemsg_wr.AI_Val[ch].ZsMin = 10000000.0;
+        onemsg_wr.AI_Val[ch].ZsMax = -10000000.0;
+        onemsg_wr.AI_Val[ch].ZsTotal = 0.0;
+    }
+
+    if ((runMode == 1) && (ch_flux > 7))
+    {    //污水模式下，如果是串口流量计，则Total就是流量计的累计流量
+        fluxSumbak = onemsg_wr.AI_Val[ch_flux].Total;
+    }
+    else
+    {
+        fluxSumbak = total_flux;
+//   fluxSumbak = 0.0;
+    }
+    fluxSumTemp = 0.0;
+//   total_flux = 0.0;
+    fluxSumTmBackup = SEC_TIMER;
+    if (extendData[9] > 0) start_measuring_rtc = SEC_TIMER - (unsigned long)(extendData[9] * 3600);
+
+    mktm(&smp_rtc, SEC_TIMER);
+    memcpy(&back_rtc, &smp_rtc, sizeof(struct tm));
+
+    memset(workmode, 0x00, sizeof(workmode));
+}
+
+/*** BeginHeader writeRecordToFlash*/
+void writeRecordToFlash(void);
+/*** EndHeader */
+void writeRecordToFlash(void)
+{
+    auto char i, f;
+    auto unsigned char p;    //临时编码值
+    auto struct tm rtcL;
+    static unsigned long SEC_TIMER_L;
+    auto char ch, c;
+    auto int rc;
+
+
+    rc = read_nf_page(&onemsg_rd, wrPtr - 1, 4);   //读取最新的一条历史记录
+    if (rc == 0)
+    {
+        SEC_TIMER_L = onemsg_rd.Btime;
+        SEC_TIMER_L += sampleInterval;
+    }
+    else
+    {
+        rtcL.tm_year = 2013 - 1900;
+        rtcL.tm_mon = 5;
+        rtcL.tm_mday = 25;
+        rtcL.tm_hour = 0;
+        rtcL.tm_min = 0;
+        rtcL.tm_sec = 0;
+        SEC_TIMER_L = mktime(&rtcL);
+        mktm(&back_rtc, SEC_TIMER_L);
+    }
+
+    mktm(&rtcL, SEC_TIMER_L);
+    printf("%04d-%02d-%02d %02d:%02d:%02d",
+           rtcL.tm_year + 1900, rtcL.tm_mon, rtcL.tm_mday, rtcL.tm_hour, rtcL.tm_min, rtcL.tm_sec);
+
+    while (1)
+    {
+        onemsg_wr.Btime = SEC_TIMER_L;
+        for (ch = 0; ch < ALLADCHANNELS; ch++)
+        {
+            if ((Savech[ch].polIndex >= 0) && (Savech[ch].polIndex < BOCON_NO_OF_POL))
+            {
+                onemsg_wr.AI_Val[ch].time = SEC_TIMER_L;
+                onemsg_wr.AI_Val[ch].polIndex = Savech[ch].polIndex;    //编码已经更新了
+                onemsg_wr.AI_Val[ch].flag = 'N';
+                onemsg_wr.AI_Val[ch].Sum = (ch + 1) * 1000.0;
+                onemsg_wr.AI_Val[ch].Avg = (ch + 1) * 1000.0;
+                onemsg_wr.AI_Val[ch].Min = (ch + 1) * 1000.0;
+                onemsg_wr.AI_Val[ch].Max = (ch + 1) * 1000.0;
+                onemsg_wr.AI_Val[ch].ZsFlag = 0;
+                onemsg_wr.AI_Val[ch].ZsSum = 0;
+                onemsg_wr.AI_Val[ch].ZsAvg = 0;
+                onemsg_wr.AI_Val[ch].ZsMin = 1000000.0;
+                onemsg_wr.AI_Val[ch].ZsMax = 0;
+            }
+        }
+
+        //DI只保存最后的一次采集结果，如果某通道有效，则表示本采集周期都有效，记下运行时间
+        onemsg_wr.DI_Val = 0;
+        //onemsg_wr.DI_Time[i] = 0.0;
+
+        k37_calc_sum();
+
+        //折算值的处理，将折算值存到对应的参数下，而折算值对应的通道数据清0，不需要保存
+        for (i = 0; i < ALLADCHANNELS; i++)
+        {
+            if (Savech[i].zs_index < ALLADCHANNELS)
+            {
+                onemsg_wr.AI_Val[i].ZsTotal = onemsg_wr.AI_Val[Savech[i].zs_index].Total;
+                onemsg_wr.AI_Val[i].ZsSum = onemsg_wr.AI_Val[Savech[i].zs_index].Sum;
+
+                onemsg_wr.AI_Val[i].ZsAvg = onemsg_wr.AI_Val[Savech[i].zs_index].Avg;
+                onemsg_wr.AI_Val[i].ZsMax = onemsg_wr.AI_Val[Savech[i].zs_index].Max;
+                onemsg_wr.AI_Val[i].ZsMin = onemsg_wr.AI_Val[Savech[i].zs_index].Min;
+                onemsg_wr.AI_Val[i].ZsFlag = 1;     //将对应的通道的折算标记置为有效
+                if (onemsg_wr.AI_Val[Savech[i].zs_index].flag == 'T') onemsg_wr.AI_Val[i].flag = 'T'; //如果折算值超标，则本记录也标记为超标
+
+                onemsg_wr.AI_Val[Savech[i].zs_index].polIndex = BOCON_NO_OF_POL;    //将原折算通道的标志置为不用
+            }
+        }
+
+        onemsg_wr.type = 1; //正常记录
+        onemsg_wr.sum = sampleSUM((char *)&onemsg_wr, MSGSIZE - 4);   //计算填入SUM
+
+        if (_check_Btime(onemsg_wr.Btime) == 0)  //检查记录时间是否为有效值
+        {
+            mktm(&smp_rtc, onemsg_wr.Btime);
+            if (smp_rtc.tm_hour != back_rtc.tm_hour) //小时变化了，保存小时统计数据
+            {
+                calc_save_hour_day(2);
+                if (smp_rtc.tm_mday != back_rtc.tm_mday) //天变化了，保存日统计数据
+                {
+                    calc_save_hour_day(3);
+                    if (smp_rtc.tm_mon != back_rtc.tm_mon) //月变化了，保存月统计数据
+                    {
+                        calc_save_month();
+                    }
+                }
+            }
+            saveRecord(&onemsg_wr); //一页写入
+            mktm(&back_rtc, onemsg_wr.Btime); //每次都更新，防止修改时间后不能正确识别
+        }
+
+        SEC_TIMER_L += sampleInterval;
+        while (read_rtc() <= SEC_TIMER_L);
+
+        for (c = 0; c < ALLADCHANNELS; c++)    //初始化写缓冲区
+        {
+            onemsg_wr.AI_Val[c].polIndex = Savech[c].polIndex;
+            onemsg_wr.AI_Val[c].flag = 'N';
+            onemsg_wr.AI_Val[c].ZsFlag = 0;
+            onemsg_wr.AI_Val[c].time = SEC_TIMER;    //写入时间数据
+            onemsg_wr.AI_Val[c].Sum  = 0.0;             //首次采集,对各通道的和值进行清0
+            onemsg_wr.AI_Val[c].Max  = 0.0;             //第一次采集时,赋值.Max和.Min
+            onemsg_wr.AI_Val[c].Min  = 1000000.0;       //第一次采集时,赋值.Max和.Min
+        }
+
+    }
+}
+
+/*污染物控制前端仪表作样*/
+//串口8的报警上限作为周期性的循环判断是否作样
+//串口8的报警下限值作为判断是否启动作样
+/*** BeginHeader b01_smp_ctrl_task */
+void b01_smp_ctrl_task(void);
+/*** EndHeader */
+void b01_smp_ctrl_task(void)
+{
+    auto char channel;
+    auto float value;
+    auto unsigned char i;
+    static int b01_cntl_smp_state;          //瞬时流量控制作样状态标志
+    static unsigned long b01_cntl_smp_SEC;  //瞬时流量控制作样计数器
+    static unsigned long contl_SEC;
+    costate
+    {
+        b01_cntl_smp_state = 0;
+        b01_cntl_smp_SEC = SEC_TIMER;
+        while (1)
+        {
+            switch (b01_cntl_smp_state)
+            {
+            case 0:
+                if ((getSampleChannel("B01", &channel, 1, &value) == 1))
+                {
+                    if (value > ai_param[15].alarm_L)
+                    {
+                        for (i = 8; i < 15; i++)
+                        {
+#if(HAERBINGJIEYUAN == 1)		//科盛留样器
+                            if (ai_param[i].model == 9211) start_com_dev(i - 8);
+#elif(NANJINGHONGLI == 1)		//南京弘礼
+                            if (ai_param[i].model == 9998) start_com_dev(i - 8);
+#else
+                            if ((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL))
+                            {
+                                start_com_dev(i - 8);
+                            }
+#endif
+                        }
+                        b01_cntl_smp_state++;
+                        b01_cntl_smp_SEC = SEC_TIMER;
+                    }
+                }
+                break;
+            case 1:
+                contl_SEC = b01_cntl_smp_SEC + (unsigned long)ai_param[15].alarm_H;
+                if (SEC_TIMER > contl_SEC)
+                {
+                    b01_cntl_smp_state = 0;
+                }
+                break;
+
+            default:
+                break;
+            }
+            waitfor(DelayMs(1000));
+        }
+    }
+}
+
+/*** BeginHeader b01_smp_ctrl_task_zhaoqing */
+void b01_smp_ctrl_task_zhaoqing(void);
+/*** EndHeader */
+void b01_smp_ctrl_task_zhaoqing(void)
+{
+    auto char channel;
+    auto float value;
+    auto unsigned char i;
+    static int b01_cntl_smp_state;          //瞬时流量控制作样状态标志
+    static unsigned long b01_cntl_smp_SEC;  //瞬时流量控制作样计数器
+    static unsigned long contl_SEC;
+    static unsigned long triggerTm;
+    costate
+    {
+        b01_cntl_smp_state = 0;
+        b01_cntl_smp_SEC = SEC_TIMER;
+        triggerTm = SEC_TIMER;
+        while (1)
+        {
+            switch (b01_cntl_smp_state)
+            {
+            case 0:
+                if ((getSampleChannel("B01", &channel, 1, &value) == 1))
+                {
+                    if ((value > ai_param[15].alarm_L) || (at_once_test_flag == 1))
+                    {
+                        if (SEC_TIMER > triggerTm + 600) //600
+                        {
+                            digOut(1, 0);
+                            for (i = 8; i < 15; i++)
+                            {
+                                if ((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL))
+                                {
+                                    start_com_dev(i - 8);
+                                }
+                            }
+                            at_once_test_flag = 0;
+
+                            b01_cntl_smp_state++;
+                            b01_cntl_smp_SEC = SEC_TIMER;
+                        }
+                        else
+                        {
+                            digOut(1, 1);
+                        }
+                    }
+                    else
+                    {
+                        triggerTm = SEC_TIMER;
+                    }
+                }
+                break;
+            case 1:
+                contl_SEC = b01_cntl_smp_SEC +(unsigned long)ai_param[15].alarm_H;
+                if (SEC_TIMER > contl_SEC)
+                {
+                    b01_cntl_smp_state = 0;
+                    triggerTm = SEC_TIMER;
+                }
+                break;
+            default:
+                break;
+            }
+            waitfor(DelayMs(1000));
+        }
+    }
+}
+
+/*** BeginHeader enableSample*/
+void enableSample(void);
+/*** EndHeader */
+void enableSample(void)
+{
+    auto int i;
+    auto char ch;
+    auto float f1;
+    static char smp_state;
+    struct tm T;
+
+    mktm(&T, read_rtc());
+
+    if (getSampleChannel("B01", &ch, 1, &f1) == 1)
+    {
+        if ((f1 >= ai_param[ch].alarm_H && (T.tm_hour % 2 == 0)) || (at_once_test_flag == 1)) //2 判断标准为流量大于一定值
+        {
+            if ((smp_state == 0) || (at_once_test_flag == 1))
+            {
+                for (i = 8; i < 15; i++)
+                {
+                    start_com_dev(i - 8);
+                }
+                if (at_once_test_flag == 0) smp_state++;
+                at_once_test_flag = 0;
+            }
+        }
+    }
+    if (T.tm_hour % 2 != 0) smp_state = 0;
+}
+
+
+/*** BeginHeader enable_liuyang_zhaoqing*/
+void enable_liuyang_zhaoqing(char port);
+/*** EndHeader */
+void enable_liuyang_zhaoqing(char port)
+{
+    if (ai_param[port + 8].model != 8014)
+    {
+        com_open(port, ai_param[port + 8].baudrate); //用指定的波特率打开串口
+        com_databits(port, PARAM_8BIT);           //8个数据位，PARAM_7BIT
+        com_parity(port, ai_param[port + 8].parity); //校验位，0,1,2,3
+    }
+    msDelay(20);
+
+//AA 34 30 30 33 30 30 30 31 BB
+    com_tbuf[0]= 0xAA;
+    com_tbuf[1]= 0x34;
+    com_tbuf[2]= 0x30;
+    com_tbuf[3]= 0x30;
+    com_tbuf[4]= 0x33;
+    com_tbuf[5]= 0x30;
+    com_tbuf[6]= 0x30;
+    com_tbuf[7]= 0x30;
+    com_tbuf[8]= 0x31;
+    com_tbuf[9]= 0xBB;
+    com_tlen = 10;
+    com_write(port);
+
+    msDelay(100);
+    if (ai_param[port + 8].model != 8014)
+    {
+        com_read(port);
+        com_close(port);     //完成命令发送，关闭串口
+        msDelay(10);         //延时50ms，等待串口底层驱动完全关闭
+    }
+}
+
+/*** BeginHeader enableSample_zhaoqing*/
+void enableSample_zhaoqing(void);
+/*** EndHeader */
+void enableSample_zhaoqing(void)
+{
+    auto int i;
+    auto char ch;
+    auto float f1;
+    static char smp_state;
+    static unsigned long triggerTm;
+    struct tm T;
+
+    static char liuyang_flag;
+
+//  mktm(&T, read_rtc());
+
+//  if (getSampleChannel("B01", &ch, 1, &f1) == 1)
+//  {
+//      if ((f1 >= ai_param[ch].alarm_H && (T.tm_hour % 2 == 0)) || (at_once_test_flag == 1))
+//      {
+//          if (SEC_TIMER > triggerTm + 600) //600
+//          {
+//              digOut(1, 0);
+//              if ((smp_state == 0) || (at_once_test_flag == 1))
+//              {
+//                  for (i = 8; i < 15; i++)
+//                  {
+//                      if ((Savech[i].polIndex >= 0) && (Savech[i].polIndex < BOCON_NO_OF_POL))
+//                      {
+//                          start_com_dev(i - 8);
+//                      }
+//                  }
+//                  if (at_once_test_flag == 0)
+//                  {
+//                      smp_state++;
+//                  }
+//                  at_once_test_flag = 0;
+//              }
+//          }
+//          else
+//          {
+//              digOut(1, 1);
+//          }
+//      }
+//      else
+//      {
+//          smp_state = 0;
+//          triggerTm = SEC_TIMER;
+//      }
+//  }
+
+    for (i = 8; i < 15; i++)
+    {
+        if ((Savech[i].polIndex >= 2) && (Savech[i].polIndex < BOCON_NO_OF_POL))
+        {
+            if (Savech[i].val > ai_param[i].alarm_H)
+            {
+                if (Savech[8].polIndex >= BOCON_NO_OF_POL && ai_param[8].model == 10000 && liuyang_flag == 0)
+                {
+                    enable_liuyang_zhaoqing(0);
+                    liuyang_flag = 1;
+                }
+            }
+            else
+            {
+                liuyang_flag = 0;
+            }
+        }
+    }
+}
+
+/*** BeginHeader enableSample_suzhou*/
+void enableSample_suzhou(void);
+/*** EndHeader */
+void enableSample_suzhou(void)
+{
+    auto int i;
+    auto char ch;
+    auto float f1;
+    static char smp_state;
+    struct tm T;
+
+    mktm(&T, read_rtc());
+
+    if (getSampleChannel("B01", &ch, 1, &f1) == 1)
+    {
+        if ((f1 >= ai_param[ch].alarm_H && (T.tm_hour % 2 == 0)) || (at_once_test_flag == 1)) //2 判断标准为流量大于一定值
+        {
+            if ((smp_state == 0) || (at_once_test_flag == 1))
+            {
+                for (i = 8; i < 15; i++)
+                {
+                    start_com_dev(i - 8);
+                }
+                if (at_once_test_flag == 0) smp_state++;
+                at_once_test_flag = 0;
+            }
+        }
+    }
+    if (T.tm_hour % 2 != 0) smp_state = 0;
+}
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

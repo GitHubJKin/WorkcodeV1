@@ -1,0 +1,145 @@
+
+/*** BeginHeader */
+#ifndef rd_2020_cod_tethys_lib
+#define rd_2020_cod_tethys_lib
+/*** EndHeader */
+
+/**************************************************************
+TETHYS环保设备串口通讯协议
+
+主呼指令为: 01 03 00 1C 00 04 85 CF
+从设备响应: 01 03 08 A5 2E 40 94 00 00 00 00 FA 33
+A5 2E 40 94 为4字节浮点数 COD值,
+00 00 00 00  为4字节浮点数 NH4-N值 
+
+2. (5参数)现场设备第一通道为PH, 
+第二通道为电导率, 
+第三通道为溶解氧, 
+第四通道为浊度,
+第五道为温度,采集五个通道的数据. 
+主呼指令为: 01 03 00 1C 00 0A 04 0B
+从设备响应: 01 03 08 A5 2E 40 94 00 00 00 00 A4 23 55 66 11 22 33 44 55 66 77 88 AA BB
+A5 2E 40 94 为4字节浮点数 PH值,
+00 00 00 00  为4字节浮点数 电导率值
+A4 23 55 66  为4字节浮点数 溶解氧值
+11 22 33 44  为4字节浮点数 浊度值
+55 66 77 88  为4字节浮点数 温度值
+AA BB  为CRC 校验码
+
+数据格式1032
+**************************************************************/
+
+
+/*** BeginHeader rd_cod_tethys*/
+int rd_cod_tethys( char port );
+/*** EndHeader */
+int rd_cod_tethys( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf杩欏湪K36鐨勯┍鍔ㄥ簱閲屽凡瀹氫箟
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x1C, 0x04);
+      com_write(port);
+      waitfor(DelayMs(4000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 13)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //COD鍗虫椂鍊?
+         if(com_f[0] < 0.0)
+         {
+            com_f[0] = 0.0;
+         }
+
+         f.ch[1] = com_rbuf[7];
+         f.ch[0] = com_rbuf[8];
+         f.ch[3] = com_rbuf[9];
+         f.ch[2] = com_rbuf[10];
+         com_f[1] = f.f;         //COD鍗虫椂鍊?
+         if(com_f[1] < 0.0)
+         {
+            com_f[1] = 0.0;
+         }
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader rd_cod_tethys_v1*/
+int rd_cod_tethys_v1( char port );
+/*** EndHeader */
+/**************************************************************
+TETHYS环保设备串口通讯协议
+读取开始的地址修改了
+**************************************************************/
+int rd_cod_tethys_v1( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 36, 0x04);
+      com_write(port);
+      waitfor(DelayMs(4000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 13)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //COD即时值
+         if(com_f[0] < 0.0)
+         {
+            com_f[0] = 0.0;
+         }
+
+         f.ch[1] = com_rbuf[7];
+         f.ch[0] = com_rbuf[8];
+         f.ch[3] = com_rbuf[9];
+         f.ch[2] = com_rbuf[10];
+         com_f[1] = f.f;         //COD即时值
+         if(com_f[1] < 0.0)
+         {
+            com_f[1] = 0.0;
+         }
+         status = 1;
+      }
+      else
+      {
+            status = 2;
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

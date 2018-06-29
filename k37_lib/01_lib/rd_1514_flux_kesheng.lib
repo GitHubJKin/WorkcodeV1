@@ -1,0 +1,44 @@
+/************************************
+科盛流量计
+1、仪表型号是1514
+2、发送命令：!1
+3、接收数据：#123456789 1234.567
+************************************/
+/*** BeginHeader rd_flux_kesheng*/
+int rd_flux_kesheng( char port );
+/*** EndHeader */
+int rd_flux_kesheng( char port )
+{
+    static int status;
+    auto char *p;
+    costate
+    {
+        status = 0;
+        memset(com_tbuf, 0x00, sizeof(com_tbuf));
+        com_tbuf[0] = '!';
+        com_tbuf[1] = '1';
+        com_tlen = 2;
+        com_write(port);
+
+        waitfor(DelaySec(1));
+        memset(com_rbuf,0x00,sizeof(com_rbuf));
+        com_read(port);
+        if(com_rlen > 8 && ((p = strstr(com_rbuf, "#")) != 0))
+        {
+            p ++;
+            com_f[1] = atol(p); //累计流量
+           // p += 10;
+            p = strstr(p, " ");
+            com_f[0] = atof(p);  //瞬时流量
+            status = 1;
+        }
+        else
+        {
+            com_f[0] = 0.0;
+            com_f[1] = 0.0;
+            status = 2;
+        }
+        com_sec = read_rtc();
+    }
+    return status;
+}

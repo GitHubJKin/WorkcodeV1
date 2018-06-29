@@ -1,0 +1,60 @@
+
+/*** BeginHeader */
+#ifndef rd_4008_ph_lvjie_lib
+#define rd_4008_ph_lvjie_lib
+/*** EndHeader */
+
+
+/*******************************************************
+杭州绿洁PH计：Modbus-RTU协议                   
+发送值：
+地址	功能码	首地址高		首地址低		寄存器个数高	寄存器个数低	CRC校验
+0x01	0x03			0x00			0x00			0x00					0x02			XXXX
+返回值：
+地址	功能码	长度	          数据	   		  CRC校验
+0x01	0x03		0x04	  0xXX 0xXX 0xXX 0xXX      XXXX
+*******************************************************/
+
+/*** BeginHeader rd_ph_lvjie */
+int rd_ph_lvjie( char port );
+/*** EndHeader */
+int rd_ph_lvjie( char port )
+{
+	static int status;
+	auto union uf f;
+
+	costate
+	{
+		status = 0;
+		pack_modbus_cmd(0x01,0x03,0x00,0x02);
+		com_write(port);
+		waitfor(DelayMs(1000));
+
+		//memset(com_rbuf,0x00,sizeof(com_rbuf));
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+		//com_read(port);
+		com_read(port);
+		if((com_rlen >= 6) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+		{
+			f.ch[3] = com_rbuf[3];
+			f.ch[2] = com_rbuf[4];
+			f.ch[1] = com_rbuf[5];
+			f.ch[0] = com_rbuf[6];
+			com_f[0] = f.f;		//PH值
+
+			status = 1;
+		}
+		else
+		{
+			status = 2;
+			com_f[0] = 0.0;
+		}
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

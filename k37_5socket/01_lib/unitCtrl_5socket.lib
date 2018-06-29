@@ -1,0 +1,646 @@
+/*** BeginHeader */
+#ifndef __UNITCTRL_LIB
+#define __UNITCTRL_LIB
+/*** EndHeader */
+
+/*** BeginHeader */
+typedef enum{
+ 	UNIT_CTRL_DATA,
+   UNIT_CTRL_SAMPLE
+}unitCtrl_t;
+
+typedef enum{
+ 	S08_UNIT_PA,
+ 	S08_UNIT_KPA,
+ 	S08_UNIT_MPA
+}s08Unit_t;
+
+typedef enum{
+ 	B01_UNIT_LS,
+ 	B01_UNIT_M3H
+}b01Unit_t;
+
+typedef enum{
+ 	B02_UNIT_M3S,
+ 	B02_UNIT_M3H
+}b02Unit_t;
+
+typedef struct{
+	char s08;
+   char b01;
+   char b02;
+   unsigned crc;
+}unit_t;
+
+unit_t sampleUnit;
+unit_t dataUnit;
+/*** EndHeader */
+
+/************************采集单位读写************************************/
+
+/*** BeginHeader rd_sample_unit_param*/
+void rd_sample_unit_param(char whichChip);
+/*** EndHeader */
+//将modbus配置复制到xmem内存
+//no：对应串口通道，范围是0至6
+void rd_sample_unit_param(char whichChip)
+{
+   auto unsigned crc;
+
+//	ReadFlashx(BOCON_K37_PARAM_ADDR + 1537, (char *)&sampleUnit, sizeof(unit_t), whichChip);
+	ReadFlashx(BOCON_K37_PARAM_ADDR + 1553, (char *)&sampleUnit, sizeof(unit_t), whichChip);
+	crc = msrCRC((char *)&sampleUnit, sizeof(unit_t) - 2);
+
+	if (crc == sampleUnit.crc){
+		return;
+	}
+
+	//复位
+	sampleUnit.s08 = S08_UNIT_PA;
+	sampleUnit.b01 = B01_UNIT_LS;
+	sampleUnit.b02 = B02_UNIT_M3S;
+   printf("rd_sample_unit_param reset\r\n");
+
+	write_sample_unit_param(whichChip);
+}
+
+/*** BeginHeader write_sample_unit_param*/
+void write_sample_unit_param(char whichChip);
+/*** EndHeader */
+//将modbus配置保存到userBlock
+void write_sample_unit_param(char whichChip)
+{
+   _overwrite_bocon_param = 1;
+   sampleUnit.crc = msrCRC((char *)&sampleUnit, sizeof(unit_t) - 2);
+//   WriteFlashx(BOCON_K37_PARAM_ADDR + 1537, (char *)&sampleUnit, sizeof(unit_t), whichChip);
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1553, (char *)&sampleUnit, sizeof(unit_t), whichChip);
+   _overwrite_bocon_param = 0;
+}
+/************************数据单位读写************************************/
+
+
+/*** BeginHeader rd_data_unit_param*/
+void rd_data_unit_param(char whichChip);
+/*** EndHeader */
+//将modbus配置复制到xmem内存
+//no：对应串口通道，范围是0至6
+void rd_data_unit_param(char whichChip)
+{
+   auto unsigned crc;
+
+//	ReadFlashx(BOCON_K37_PARAM_ADDR + 1542, (char *)&dataUnit, sizeof(unit_t), whichChip);
+	ReadFlashx(BOCON_K37_PARAM_ADDR + 1558, (char *)&dataUnit, sizeof(unit_t), whichChip);
+	crc = msrCRC((char *)&dataUnit, sizeof(unit_t) - 2);
+
+	if (crc == dataUnit.crc){
+		return;
+	}
+
+	//复位
+	dataUnit.s08 = S08_UNIT_PA;
+	dataUnit.b01 = B01_UNIT_LS;
+	dataUnit.b02 = B02_UNIT_M3S;
+   printf("rd_data_unit_param reset\r\n");
+
+	write_data_unit_param(whichChip);
+}
+
+/*** BeginHeader write_data_unit_param*/
+void write_data_unit_param(char whichChip);
+/*** EndHeader */
+//将modbus配置保存到userBlock
+void write_data_unit_param(char whichChip)
+{
+   _overwrite_bocon_param = 1;
+   dataUnit.crc = msrCRC((char *)&dataUnit, sizeof(unit_t) - 2);
+//   WriteFlashx(BOCON_K37_PARAM_ADDR + 1542 , (char *)&dataUnit, sizeof(unit_t), whichChip);
+   WriteFlashx(BOCON_K37_PARAM_ADDR + 1558 , (char *)&dataUnit, sizeof(unit_t), whichChip);
+   _overwrite_bocon_param = 0;
+}
+/************************数据单位读写************************************/
+
+/*** BeginHeader S08UnitConvert*/
+float S08UnitConvert(char ch);
+/*** EndHeader */
+float S08UnitConvert(char ch)
+{
+	auto float retValue, sample, data;
+
+   retValue = 1.0;
+   if(Savech[ch].polIndex != 79) goto RETURN_MARK;
+   if(sampleUnit.s08 == dataUnit.s08) goto RETURN_MARK;
+
+   if(sampleUnit.s08 == S08_UNIT_PA){
+   	sample = 1.0;
+   }
+   else if(sampleUnit.s08 == S08_UNIT_KPA){
+   	sample = 1000.0;
+   }
+   else{
+  		sample = 1000000.0;
+   }
+
+   if(dataUnit.s08 == S08_UNIT_PA){
+   	data = 1.0;
+   }
+   else if(dataUnit.s08 == S08_UNIT_KPA){
+   	data = 1000.0;
+   }
+   else{
+  		data = 1000000.0;
+   }
+
+   retValue = sample / data;
+   Savech[ch].val *= retValue;
+
+RETURN_MARK:
+	return retValue;
+}
+
+/*** BeginHeader B02UnitConvert*/
+float B02UnitConvert(char ch);
+/*** EndHeader */
+float B02UnitConvert(char ch)
+{
+	auto float retValue, sample, data;
+
+   retValue = 1.0;
+   if(Savech[ch].polIndex != 34) goto RETURN_MARK;
+   if(sampleUnit.b02 == dataUnit.b02) goto RETURN_MARK;
+
+   if(sampleUnit.b02 == B02_UNIT_M3S){
+   	sample = 1.0;
+   }
+   else{
+  		sample = 1.0 / 3600.0;
+   }
+
+   if(dataUnit.b02 == B02_UNIT_M3S){
+   	data = 1.0;
+   }
+   else{
+  		data = 1.0 / 3600.0;
+   }
+
+   retValue = sample / data;
+   Savech[ch].val *= retValue;
+
+RETURN_MARK:
+	return retValue;
+}
+
+/*** BeginHeader B01UnitConvert*/
+float B01UnitConvert(char ch);
+/*** EndHeader */
+float B01UnitConvert(char ch)
+{
+	auto float retValue, sample, data;
+
+   retValue = 1.0;
+   if(Savech[ch].polIndex != 0) goto RETURN_MARK;
+   if(sampleUnit.b01 == dataUnit.b01) goto RETURN_MARK;
+
+   if(sampleUnit.b01 == B01_UNIT_LS){
+   	sample = 1.0;
+   }
+   else{
+  		sample = 1.0 / 3.6;
+   }
+
+   if(dataUnit.b01 == B01_UNIT_LS){
+   	data = 1.0;
+   }
+   else{
+  		data = 1.0 / 3.6;
+   }
+
+   retValue = sample / data;
+   Savech[ch].val *= retValue;
+
+RETURN_MARK:
+	return retValue;
+}
+
+/*** BeginHeader unitConverTask*/
+void unitConverTask(char ch);
+/*** EndHeader */
+void unitConverTask(char ch)
+{
+	B02UnitConvert(ch);
+	B01UnitConvert(ch);
+	S08UnitConvert(ch);
+}
+
+/*** BeginHeader dispUnitCtrlParamName*/
+int dispUnitCtrlParamName(char param, char no);
+/*** EndHeader */
+int dispUnitCtrlParamName(char param, char no)
+{
+	int status;
+	auto unit_t *unit;
+
+   if(param >= 111 && param <= 113){
+   	unit = &dataUnit;
+	}
+   else{
+   	unit = &sampleUnit;
+   }
+
+   status = 1;
+ 	switch(param){
+      case 111:
+      case 121:
+         glDispPol(126, 60, 79);
+         glPrintf( 116, 102, &fi12x16, "%d", unit->s08);
+      	break;
+      case 112:
+      case 122:
+         glDispPol(126, 60, 34);
+         glPrintf( 116, 102, &fi12x16, "%d", unit->b02);
+      	break;
+      case 113:
+      case 123:
+         glDispPol(126, 60, 0);
+         glPrintf( 116, 102, &fi12x16, "%d", unit->b01);
+      	break;
+   	default:
+      	status = 0;
+         break;
+   }
+   return status;
+}
+
+/*** BeginHeader saveUnitCtrlParam*/
+char saveUnitCtrlParam(char param, char no);
+/*** EndHeader */
+char saveUnitCtrlParam(char param, char no)
+{
+   auto float f;
+   auto unsigned long p;
+   auto unsigned long l;
+   auto char flag, i;
+   auto unsigned char index;
+	auto unit_t *unit;
+
+   if(param >= 111 && param <= 113){
+   	unit = &dataUnit;
+	}
+   else{
+   	unit = &sampleUnit;
+   }
+
+   flag = 0;
+   switch(param){
+      case 111:		//
+      case 121:		//
+         p = atol(keyBuf);
+         if(p == S08_UNIT_PA || p == S08_UNIT_KPA || p == S08_UNIT_MPA)
+         {
+         	unit->s08 = (unsigned int)p;
+         	flag = 1;
+         }
+      	break;
+      case 112:		//
+      case 122:		//
+         p = atol(keyBuf);
+         if(p == B02_UNIT_M3S || p == B02_UNIT_M3H)
+         {
+         	unit->b02 = (unsigned int)p;
+         	flag = 1;
+         }
+      	break;
+      case 113:		//
+      case 123:
+         p = atol(keyBuf);
+         if(p == B01_UNIT_LS || p == B01_UNIT_M3H)
+         {
+         	unit->b01 = (unsigned int)p;
+         	flag = 1;
+         }
+      	break;
+    	default:
+      flag = 0;
+      break;
+   }
+
+   if(flag){
+      if(param >= 111 && param <= 113){
+         write_data_unit_param(CONFIG_IN_FLASH);
+		}
+   	else{
+         write_sample_unit_param(CONFIG_IN_FLASH);
+   	}
+   }
+
+   return flag;
+}
+
+/*** BeginHeader dispUnitCtrlData*/
+void dispUnitCtrlData(unitCtrl_t unitCtrl);
+/*** EndHeader */
+void dispUnitCtrlData(unitCtrl_t unitCtrl)
+{
+	auto unit_t *unit;
+
+   if(unitCtrl == UNIT_CTRL_DATA){
+   	unit = &dataUnit;
+	}
+   else{
+   	unit = &sampleUnit;
+   }
+
+   glBuffLock();
+
+   glPrintf( 136, 67, &fi12x16, "%d", unit->s08);
+   if(unit->s08 == S08_UNIT_PA) glPrintf( 188, 67, &fi12x16, "Pa");
+   else if(unit->s08 == S08_UNIT_KPA) glPrintf( 188, 67, &fi12x16, "KPa");
+   else glPrintf( 188, 67, &fi12x16, "MPa");
+
+   glPrintf( 136, 87, &fi12x16, "%d", unit->b02);
+   if(unit->b02 == B02_UNIT_M3S) glPrintf( 188, 87, &fi12x16, "m /s");
+   else glPrintf( 188, 87, &fi12x16, "m /h");
+   glPrintf(188+12,  87, &fi6x8, "3");
+
+   glPrintf( 136, 107, &fi12x16, "%d", unit->b01);
+   if(unit->b01 == B01_UNIT_LS) glPrintf( 188, 107, &fi12x16, "L/s");
+   else{
+      glPrintf(188,  107, &fi12x16, "m /h");
+      glPrintf(188+12,  107, &fi6x8, "3");
+   }
+
+   glPlotLine(136, 80, 180, 80);
+   glPlotLine(136, 100, 180, 100);
+   glPlotLine(136, 120, 180, 120);
+   glBuffUnlock();
+}
+
+/*** BeginHeader dispUnitCtrlNo*/
+void dispUnitCtrlNo(char no);
+/*** EndHeader */
+void dispUnitCtrlNo(char no)
+{
+	auto int x, y;
+   x = 65;
+   y = 44 + no * 20;
+   glBuffLock();
+   _glBlankRegion( x, y, x, 18);
+   ++ x;
+   ++ y;
+   switch(no)
+   {
+   	case 1:
+			glDispPol(x, y, 79);
+         break;
+      case 2:
+      	glDispPol(x, y, 34);
+      	break;
+      case 3:
+         glDispPol(x, y, 0);
+      	break;
+      default:
+      	break;
+   }
+   glBuffUnlock();
+}
+
+/*** BeginHeader dispUnitCtrlSelect*/
+void dispUnitCtrlSelect(char no);
+/*** EndHeader */
+void dispUnitCtrlSelect(char no)
+{
+	auto int x;
+   x = 65;
+
+   disp_select(x, 44+no*20, x);
+}
+
+/*** BeginHeader dispSetupUnitCtrl*/
+void dispSetupUnitCtrl( int no, unitCtrl_t unitCtrl );
+/*** EndHeader */
+void dispSetupUnitCtrl( int no, unitCtrl_t unitCtrl )
+{
+	auto char c;
+
+   if(no == 0)
+   {
+   	glBuffLock();
+   	_glBlankRegion( 0, 20, 320, 202);
+	   K37PUTNAME
+
+      c = 46;
+      if(unitCtrl == UNIT_CTRL_DATA){
+      	dispDataUnit(129, 34);
+      }
+      else{
+      	dispSampleUnit(129, 34);
+      }
+	   glXPutBitmap ( c, 68,  13, 11, BoconNo1_bmp);
+	   glXPutBitmap ( c, 88,  13, 11, BoconNo2_bmp);
+	   glXPutBitmap ( c,108,  13, 11, BoconNo3_bmp);
+      glBuffUnlock();
+
+      for(c=1;c<4;c++) dispUnitCtrlNo(c);
+	}
+	else if((no > 0) && (no < 4))
+   {
+   	if(menuNoOld > 0) dispUnitCtrlSelect(menuNoOld);
+      dispUnitCtrlSelect(menuNo);
+		menuNoOld = menuNo;
+   }
+   dispUnitCtrlData(unitCtrl);
+}
+
+/*** Beginheader setupUnitCtrl */
+int setupUnitCtrl(unitCtrl_t unitCtrl);
+/*** endheader */
+int setupUnitCtrl(unitCtrl_t unitCtrl)
+{
+   static int status;
+
+	costate
+   {
+   	status = 0;
+		menuNo = 0;
+      menuNoOld = menuNo;
+      menuFlag = 0;
+      tm_ts = SEC_TIMER;
+
+      while((status == 0)&&(SEC_TIMER < (tm_ts + 120)))
+      {
+      	if(menuFlag == 0)	dispSetupUnitCtrl(menuNo, unitCtrl);
+      	waitfor ( (wKey = keyGet()) ||(SEC_TIMER > (tm_ts + 120)) );
+         if((menuNo > 0) && (menuNo == (wKey - '0')))	menuFlag = 1;	//重复按键
+			else menuFlag = 0;
+         switch(wKey)
+         {
+         	case 'E':	//Enter key
+               if((menuNo>0)&&(menuNo<5)&&(userMode>1))
+               {
+               	if(unitCtrl == UNIT_CTRL_DATA){
+               		waitfor(modifyParam(menuNo+110, 0));
+                  }
+                  else{
+                  	waitfor(modifyParam(menuNo+120, 0));
+                  }
+               }
+               else menuFlag = 1;		//其他键不响应
+               menuNo = 0;
+               menuNoOld = menuNo;
+               tm_ts = SEC_TIMER;
+            	break;
+
+         	case 'C':	//Cencal key
+         		menuNo = 0;
+               status = 1;
+            	break;
+
+         	case 'D':	//Down key
+         		menuNo ++;
+            	if((menuNo > 3) || (menuNo < 1))	menuNo = 1;
+               tm_ts = SEC_TIMER;
+               break;
+
+         	case 'U':	//Up key
+            	menuNo --;
+            	if((menuNo > 3) || (menuNo < 1))	menuNo = 3;
+               tm_ts = SEC_TIMER;
+               break;
+
+            default:
+            	if((wKey > '0') && (wKey < '4'))
+               {
+                  menuNo = wKey - '0';
+               	tm_ts = SEC_TIMER;
+               }
+               else
+               {
+               	menuFlag = 1;	//其他键不响应
+               }
+            	break;
+         }
+      }
+      wKey = 0;
+      status = 1;
+   }
+   return status;
+}
+
+/*** BeginHeader dispDataUnit*/
+void dispDataUnit(int x, int y);
+/*** EndHeader */
+void dispDataUnit(int x, int y)
+{
+   glXPutBitmap ( x, y, 31, 16, data_bmp);
+   glXPutBitmap ( x+32, y, 31, 16, unit_bmp);
+}
+
+/*** BeginHeader dispSampleUnit*/
+void dispSampleUnit(int x, int y);
+/*** EndHeader */
+void dispSampleUnit(int x, int y)
+{
+   glXPutBitmap ( x, y, 31, 16, sample_bmp);
+   glXPutBitmap ( x+32, y, 31, 16, unit_bmp);
+}
+
+/*** BeginHeader data_bmp */
+extern unsigned long data_bmp;
+/*** EndHeader */
+
+// Bitmap : data_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 31 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,31,16,data_bmp);
+
+xdata data_bmp {
+'\x08','\x20','\x20','\x01',
+'\x49','\x20','\x23','\xFD',
+'\x2A','\x20','\x22','\x05',
+'\x08','\x3E','\x22','\x05',
+'\xFF','\x44','\xFB','\xFD',
+'\x2A','\x44','\x22','\x21',
+'\x49','\x44','\x22','\x21',
+'\x88','\xA4','\x2B','\xFF',
+'\x10','\x28','\x32','\x21',
+'\xFE','\x28','\xE2','\x21',
+'\x22','\x10','\x22','\xFD',
+'\x42','\x10','\x22','\x85',
+'\x64','\x28','\x22','\x85',
+'\x18','\x28','\x24','\x85',
+'\x34','\x44','\xA4','\xFD',
+'\xC2','\x82','\x48','\x85'
+};
+
+
+/*** BeginHeader sample_bmp */
+extern unsigned long sample_bmp;
+/*** EndHeader */
+
+// Bitmap : sample_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 31 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,31,16,sample_bmp);
+
+xdata sample_bmp {
+'\x08','\x80','\x01','\x01',
+'\x08','\x48','\x01','\x01',
+'\x0A','\x48','\x7F','\xFD',
+'\x12','\x08','\x01','\x01',
+'\x12','\x08','\x01','\x01',
+'\x31','\x10','\x3F','\xF9',
+'\x31','\x10','\x01','\x01',
+'\x51','\x10','\x01','\x01',
+'\x90','\xA0','\xFF','\xFF',
+'\x10','\xA0','\x05','\x01',
+'\x10','\x40','\x08','\x89',
+'\x10','\x40','\x18','\x51',
+'\x10','\xA0','\x28','\x21',
+'\x11','\x10','\xC9','\x19',
+'\x12','\x08','\x0A','\x07',
+'\x14','\x06','\x0C','\x01'
+};
+
+
+
+/*** BeginHeader unit_bmp */
+extern unsigned long unit_bmp;
+/*** EndHeader */
+
+// Bitmap : unit_bmp
+// Buffer Size : 64
+// Monochrome  : Black Foreground, White Background
+// Mode   : Landscape
+// Height : 16 pixels.
+// Width  : 31 pixels.
+// Init   : glXPutBitmap (leftedge,topedge,31,16,unit_bmp);
+
+xdata unit_bmp {
+'\x10','\x10','\x08','\x81',
+'\x08','\x20','\x08','\x41',
+'\x04','\x40','\x08','\x41',
+'\x3F','\xF8','\x10','\x01',
+'\x21','\x08','\x17','\xFD',
+'\x21','\x08','\x30','\x01',
+'\x3F','\xF8','\x30','\x09',
+'\x21','\x08','\x52','\x09',
+'\x21','\x08','\x92','\x09',
+'\x3F','\xF8','\x11','\x11',
+'\x01','\x00','\x11','\x11',
+'\x01','\x00','\x11','\x11',
+'\xFF','\xFE','\x11','\x21',
+'\x01','\x00','\x10','\x21',
+'\x01','\x00','\x1F','\xFF',
+'\x01','\x00','\x10','\x01'
+};
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

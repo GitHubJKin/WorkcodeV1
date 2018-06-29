@@ -1,0 +1,67 @@
+/*** BeginHeader */
+#ifndef rd_1017_flux_folang_lib
+#define rd_1017_flux_folang_lib
+/*** EndHeader */
+
+
+
+/*******************************************************************************
+大连弗朗 电磁流量计  Modbus RTU协议
+*******************************************************************************/
+/*** BeginHeader rd_flux_folang */
+int rd_flux_folang( char port );
+/*** EndHeader */
+int rd_flux_folang( char port )
+{
+   static int status;
+   union  uf AI;
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x04, 4112, 0x0A);
+      com_write(port);
+      waitfor(DelayMs(2000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if((com_rlen >= 25)&&(com_rbuf[0]==0x01)&&(com_rbuf[1]==0x04)&&(com_rbuf[2]==0x14)/*&&(com_rbuf[3]==0x02)*/)
+      {
+         AI.ch[3] = com_rbuf[3];
+         AI.ch[2] = com_rbuf[4];
+         AI.ch[1] = com_rbuf[5];
+         AI.ch[0] = com_rbuf[6];
+         com_f[0] = AI.f;           //瞬时流量
+
+   		 AI.ch[3] = com_rbuf[19];
+         AI.ch[2] = com_rbuf[20];
+         AI.ch[1] = com_rbuf[21];
+         AI.ch[0] = com_rbuf[22];
+         com_f[1] = AI.l;           //累积流量
+
+         status = 1;
+
+      }
+      if(status == 0)
+      {
+         //printf("FLU Error = (dev:1007  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+      com_sec = read_rtc();         //时间
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+

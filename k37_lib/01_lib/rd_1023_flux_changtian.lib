@@ -1,0 +1,72 @@
+
+/*** BeginHeader */
+#ifndef rd_1023_flux_changtian_lib
+#define rd_1023_flux_changtian_lib
+/*** EndHeader */
+
+
+
+/*******************************************************
+西安交大长天流量计
+查询瞬时值
+*******************************************************/
+/*** BeginHeader rd_flux_changtian */
+int rd_flux_changtian( char port );
+/*** EndHeader */
+int rd_flux_changtian( char port )
+{
+   static int status;
+   auto char i;
+   char buff[32];
+
+   costate
+   {
+      status = 0;
+
+  	  memset(com_tbuf,0x00,sizeof(com_tbuf));
+      strcpy(com_tbuf, "!010102;");
+      com_tlen = strlen(com_tbuf);
+      com_write(port);
+      waitfor(DelayMs(1500));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);   //%01$RD442809130507C9046B
+      if( (com_rlen >= 29)&&(strncmp(com_rbuf, "!0101", 5) == 0))
+      {//是有效数据
+      	memset(buff,0x00,sizeof(buff));
+		strncpy(buff,&com_rbuf[5],8);
+		com_f[0] = atof(buff);//瞬时流量
+		memset(buff,0x00,sizeof(buff));
+		strncpy(buff,&com_rbuf[14],12);
+		com_f[1] = atof(buff);//累积流量
+		status=1;
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+       	 status=2;
+      }
+		com_sec = read_rtc();      //时间
+
+      if(status == 0) status = 2;
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+

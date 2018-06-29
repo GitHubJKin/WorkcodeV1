@@ -1,0 +1,137 @@
+/*** BeginHeader */
+#ifndef rd_8033_belfort_lib
+#define rd_8033_belfort_lib
+
+/*** EndHeader */
+
+/*** BeginHeader offsetChar*/
+int offsetChar(char *buf, char c, char count, float *fval);
+/*** EndHeader */
+int offsetChar(char *buf, char c, char count, float *fval) //offsetChar(com_rbuf, ',', 3, &com_f[0]))  8034
+{
+ 	static int result;
+   char *p1, *p2;
+   char k;
+   static char cnt;
+   static char ch;
+   cnt = count;
+   ch = c;
+   result = 0;
+
+   if(!buf)
+   {
+   //	result = 0;
+      return result;//goto RETURN_MARK;
+   }
+
+   k = 0;
+   p1 = buf;
+   while(1)
+   {
+   	p2 = strchr(p1, ch);//c);
+      if(p2 != NULL)
+      {
+       	p1 = p2 + 1;
+         k++;
+         if(k == cnt)//count)
+         {
+            *fval = atof(p1);
+         	result = 1;
+            break;
+         }
+      }
+      else
+      {
+      	result = 0;
+         break;
+      }
+   }
+
+//RETURN_MARK:
+   return result;
+}
+/*** BeginHeader rd_belfort_nengjiandu*/
+int rd_belfort_nengjiandu( char port );
+/*** EndHeader */
+int rd_belfort_nengjiandu( char port )
+{
+	static int status;
+   auto char *p;
+   auto char *p1;
+   auto float fval;
+   static unsigned char deviceSt;
+   costate
+   {
+   	status = 0;
+
+      waitfor(DelayMs(70000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      //P,01417,  0, 4,   6.2805,   6.0311,   0.2494,19638,  7.05138,Km, 0.425357,
+		if( (com_rlen >= 50) )
+      {
+      	p1 = strstr(com_rbuf, "Km,");
+      	p = strstr(com_rbuf, "P,");
+
+         if(p == NULL) p = strstr(com_rbuf, "F,");
+      	if((p != NULL)&&(p1 != NULL))
+         {
+         	if(offsetChar(com_rbuf, ',', 8, &fval))
+         	{
+            	if(fval > 0.0)
+               {
+                	com_f[0] = fval;
+                  old_com_f[0] = com_f[0];
+                  status = 1;
+                  deviceSt = 0x55;
+               }
+         		else status = 2;
+         	}
+         	else
+            {
+            	status = 2;
+            }
+         }
+         else
+         {
+         	status = 2;
+         }
+         deviceStatus = 0;
+      }
+      else
+      {
+       	if(deviceSt == 0x55)
+         {
+         	if(deviceStatus < 30)
+            {
+            	deviceStatus++;
+   	         com_f[0] = old_com_f[0];
+	            status = 1;
+            }
+            else
+            {
+            	deviceSt = 0;
+               status = 2;
+           		com_f[0] = 0.0;
+            }
+
+         }
+         else
+         {
+         	status = 2;
+         	com_f[0] = 0.0;
+         }
+
+      }
+
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

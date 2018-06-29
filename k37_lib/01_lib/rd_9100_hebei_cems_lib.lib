@@ -1,0 +1,229 @@
+
+/*** BeginHeader */
+#ifndef rd_9100_hebei_cems_lib
+#define rd_9100_hebei_cems_lib
+/*** EndHeader */
+
+
+/*******************************************************
+河北烟气                 
+发送:020600010101FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF3B5A03
+接收:
+*******************************************************/
+
+/*** BeginHeader rd_hebei_cems */
+int rd_hebei_cems( char port, char flag );
+/*** EndHeader */
+int rd_h{
+   static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto int regAddr;//寄存器地址
+   auto char portPosition;
+   auto char codePosition;
+   static int registerAddr;
+   static int i;
+
+   costate
+   {
+      status = 0;
+
+      portPosition = port + 8;    //计算出是哪个通道的
+      codePosition = ai_param[portPosition].polIndex;  //取出污染物编码位置
+      registerAddr = CalculateRegisterAddress(codePosition); //计算出MODBUS的寄存器地址
+      if(codePosition >= 100) registerAddr += 4;//如果是折算值的，调整一个地址
+      pack_modbus_cmd(0x01, 0x03, registerAddr, 0x02);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+
+         if(registerAddr == 0)  //如果是水的，需要读一下累计流量
+         {
+
+            pack_modbus_cmd(0x01, 0x03, 0x10, 0x02);
+            com_write(port);
+            waitfor(DelayMs(1000));
+
+            memset(com_rbuf, 0x00, sizeof(com_rbuf));
+            com_read(port);
+            if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+            {
+               f.ch[1] = com_rbuf[3];
+               f.ch[0] = com_rbuf[4];
+               f.ch[3] = com_rbuf[5];
+               f.ch[2] = com_rbuf[6];
+               com_f[1] = f.f;         //累计流量
+            }
+         }
+
+         for (i = 0; i < 20; i++)
+         {
+            if(ai_param_extend[i].port == port) //是同一个串口的
+            {
+               codePosition = ai_param_extend[i].polIndex;
+               if((codePosition >= 0) && (codePosition < BOCON_NO_OF_POL))
+               {
+                  registerAddr = CalculateRegisterAddress(codePosition);
+                  if(codePosition >= 100) registerAddr += 4;//如果是折算值的，调整一个地址
+                  pack_modbus_cmd(0x01, 0x03, registerAddr, 0x02);
+                  com_write(port);
+                  waitfor(DelayMs(1000));
+
+                  memset(com_rbuf, 0x00, sizeof(com_rbuf));
+                  com_read(port);
+                  if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+                  {
+                     f.ch[1] = com_rbuf[3];
+                     f.ch[0] = com_rbuf[4];
+                     f.ch[3] = com_rbuf[5];
+                     f.ch[2] = com_rbuf[6];
+                     com_f[i+1] = f.f;
+                  }
+               }
+            }
+         }//end of for
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}ebei_cems( char port, char flag )
+{
+//完成20110226 flag请输入控制位为1
+   static int status;
+   static unsigned long tmpt;
+   auto int i;
+   auto long tmpl;
+   costate
+   {
+      status = 0;
+
+      if(flag == 1)
+      {
+         memset(com_tbuf, 0x00, sizeof(com_tbuf));
+         for(i=0;i<31;i++)com_tbuf[i] = 0xFF;//先31个字符全部填入0xFF
+         com_tbuf[0] = 0x02;//数据头
+         com_tbuf[1] = 0x06;//数据头
+         com_tbuf[2] = 0x00;//00为指令,01为数据
+         com_tbuf[3] = 0x01;//厂家ID(例如01)
+         com_tbuf[4] = 0x01;//类别ID,00为水,01为气
+         com_tbuf[5] = 0x01;//功能码,01为立即回传数据,,其余22字节为无用字节,用0xff填充
+         com_tbuf[28] = 0x3B;//CRC
+         com_tbuf[29] = 0x5A;//CRC
+         com_tbuf[30] = 0x03;//结束
+         com_tlen = 31;
+         com_write(port);
+      }
+
+      tmpt = SEC_TIMER;
+      while(SEC_TIMER < (tmpt + 1))//(tmpt + 70))
+      {
+         waitfor(DelayMs(1500));
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if(com_rlen >= 31) break;
+      }
+      if(com_rlen >= 31 && com_rbuf[0]==0x02 && com_rbuf[1]==0x06 && /*com_rbuf[4]==0x01 &&//00是水的,01是气的 */
+         com_rbuf[27]==0x00 && com_rbuf[30]==0x03)//[27]0值就是无故障.
+      {
+         tmpl = 0;               //[5][6][7]//long
+         tmpl |= com_rbuf[5];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[6];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[7];
+         com_f[0] = tmpl;        //烟气流量
+         if((com_rbuf[5]==0xFF)&&(com_rbuf[6]==0xFF)&&(com_rbuf[7]==0xFF))com_f[0] = 0.0;//全FF清0
+
+         tmpl = 0;               //[8][9]//long
+         tmpl |= com_rbuf[8];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[9];
+         com_f[1] = tmpl;        //烟尘浓度
+         if((com_rbuf[8]==0xFF)&&(com_rbuf[9]==0xFF))com_f[1] = 0.0;//全FF清0
+
+         tmpl = 0;               //[10][11]//long
+         tmpl |= com_rbuf[10];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[11];
+         com_f[2] = tmpl;        //SO2
+         if((com_rbuf[10]==0xFF)&&(com_rbuf[11]==0xFF))com_f[2] = 0.0;//全FF清0
+
+         tmpl = 0;               //[12][13]//long
+         tmpl |= com_rbuf[12];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[13];
+         com_f[3] = tmpl;        //NOx
+         if((com_rbuf[12]==0xFF)&&(com_rbuf[13]==0xFF))com_f[3] = 0.0;//全FF清0
+
+         tmpl = 0;               //[14][15]//long
+         tmpl |= com_rbuf[14];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[15];
+         com_f[4] = tmpl;        //CO
+         if((com_rbuf[14]==0xFF)&&(com_rbuf[15]==0xFF))com_f[4] = 0.0;//全FF清0
+
+         tmpl = 0;               //[16][17]//long
+         tmpl |= com_rbuf[16];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[17];
+         com_f[5] = tmpl;        //O2
+         if((com_rbuf[16]==0xFF)&&(com_rbuf[17]==0xFF))com_f[5] = 0.0;//全FF清0
+
+         tmpl = 0;               //[18][19][20]//long  //最高位是1就表示负值.
+         tmpl |= (com_rbuf[18]&0x7F);//屏最高位
+         tmpl <<= 8;
+         tmpl |= com_rbuf[19];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[20];
+         if(com_rbuf[18]&0x80)tmpl = 0-tmpl;//是负值.
+         com_f[6] = tmpl;        //大气压
+         if((com_rbuf[18]==0xFF)&&(com_rbuf[19]==0xFF)&&(com_rbuf[20]==0xFF))com_f[6] = 0.0;//全FF清0
+
+         tmpl = 0;               //[21][22]//long  //最高位是1就表示负值.
+         tmpl |= (com_rbuf[21]&0x7F);//屏最高位
+         tmpl <<= 8;
+         tmpl |= com_rbuf[22];
+         if(com_rbuf[21]&0x80)tmpl = 0-tmpl;//是负值.
+         com_f[7] = tmpl;        //温度
+         if((com_rbuf[21]==0xFF)&&(com_rbuf[22]==0xFF))com_f[7] = 0.0;//全FF清0
+
+         tmpl = 0;               //[23][24]//long
+         tmpl |= com_rbuf[23];
+         tmpl <<= 8;
+         tmpl |= com_rbuf[24];
+         com_f[8] = tmpl;        //湿度
+         if((com_rbuf[23]==0xFF)&&(com_rbuf[24]==0xFF))com_f[8] = 0.0;//全FF清0
+
+                                 //[25][26]空余,[27]0值表示无故障,[28][29]CRC,[30]结束
+         status = 1;
+      }
+      if(status == 0)
+      {
+         memset(com_f, 0x00, sizeof(com_f));
+         status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

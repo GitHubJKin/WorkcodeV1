@@ -1,0 +1,78 @@
+/*** BeginHeader */
+#ifndef rd_1017_flux_boersi_lib
+#define rd_1017_flux_boersi_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_flux_boersi */
+int rd_flux_boersi( char port );
+/*** EndHeader */
+/***
+博克斯流量计
+*/
+int rd_flux_boersi( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      //0x01,0x03,0x00,0x01,0x00,0x30,0x1e,0x14
+      //pack_modbus_cmd(0x01, 0x03, 0x01, 0x30);
+      com_tbuf[0] = 0x01;
+      com_tbuf[1] = 0x03;
+      com_tbuf[2] = 0x00;
+      com_tbuf[3] = 0x01;
+      com_tbuf[4] = 0x00;
+      com_tbuf[5] = 0x30;
+      com_tbuf[6] = 0x1e;
+      com_tbuf[7] = 0x14;
+      com_tlen = 8;
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[0] = com_rbuf[3];
+         f.ch[1] = com_rbuf[4];
+         f.ch[2] = com_rbuf[5];
+         f.ch[3] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+
+         f.ch[0] = com_rbuf[43];
+         f.ch[1] = com_rbuf[44];
+         f.ch[2] = com_rbuf[45];
+         f.ch[3] = com_rbuf[46];
+         com_f[1] = (float)f.l;        //即时值
+         com_f[1] /= 10.0;
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+

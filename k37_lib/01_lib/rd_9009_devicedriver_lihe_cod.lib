@@ -1,0 +1,127 @@
+
+/*** BeginHeader */
+#ifndef rd_9009_devicedriver_lihe_cod_lib
+#define rd_9009_devicedriver_lihe_cod_lib
+/*** EndHeader */
+
+
+/*******************************************************
+  湖南力合COD协议
+                     
+COD地址为：1
+PH地址为：2
+流量地址为：5
+累计流量地址为：6
+*******************************************************/
+
+/*** BeginHeader rd_devicedriver_lihe_cod */
+int rd_devicedriver_lihe_cod( char port );
+/*** EndHeader */
+int rd_devicedriver_lihe_cod( char port )
+{
+   static int status;
+   auto union uf f;//uf这在K36的驱动库里已定义
+   auto int regAddr;//寄存器地址
+   auto char portPosition;
+   auto char codePosition;
+   static char slaveAdd;
+   static int i;
+
+   costate
+   {
+      status = 0;
+
+      pack_modbus_cmd(0x05, 0x03, 0x00, 0x02);
+      com_write(port);
+      waitfor(DelayMs(5000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[0] = f.f;         //流量
+
+         pack_modbus_cmd(0x06, 0x03, 0x00, 0x02);
+         com_write(port);
+         waitfor(DelayMs(5000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+         {
+            f.ch[1] = com_rbuf[3];
+            f.ch[0] = com_rbuf[4];
+            f.ch[3] = com_rbuf[5];
+            f.ch[2] = com_rbuf[6];
+            com_f[1] = f.f;         //累计流量
+         }
+
+         pack_modbus_cmd(0x01, 0x03, 0x00, 0x02);
+         com_write(port);
+         waitfor(DelayMs(5000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+         {
+            f.ch[1] = com_rbuf[3];
+            f.ch[0] = com_rbuf[4];
+            f.ch[3] = com_rbuf[5];
+            f.ch[2] = com_rbuf[6];
+            com_f[2] = f.f;         //COD
+         }
+
+         pack_modbus_cmd(0x02, 0x03, 0x00, 0x02);
+         com_write(port);
+         waitfor(DelayMs(5000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+         {
+            f.ch[1] = com_rbuf[3];
+            f.ch[0] = com_rbuf[4];
+            f.ch[3] = com_rbuf[5];
+            f.ch[2] = com_rbuf[6];
+            com_f[3] = f.f;         //PH
+         }
+
+         pack_modbus_cmd(0x03, 0x03, 0x00, 0x02);
+         com_write(port);
+         waitfor(DelayMs(5000));
+
+         memset(com_rbuf, 0x00, sizeof(com_rbuf));
+         com_read(port);
+         if( (com_rlen >= 9)&&(com_rbuf[1] == 0x03) )
+         {
+            f.ch[1] = com_rbuf[3];
+            f.ch[0] = com_rbuf[4];
+            f.ch[3] = com_rbuf[5];
+            f.ch[2] = com_rbuf[6];
+            com_f[4] = f.f;         //PH
+         }
+
+         status = 1;
+      }
+      else
+      {
+         status = 2;
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+         com_f[2] = 0.0;
+         com_f[3] = 0.0;
+         com_f[4] = 0.0;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

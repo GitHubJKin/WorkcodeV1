@@ -1,0 +1,215 @@
+
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8066_xinjiang_lib
+#define rd_8066_xinjiang_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_xinjiang*/
+int rd_xinjiang( char port );
+/*** EndHeader */
+/*******************************************************************************
+新疆环保在线监测设备RS232串行口通讯协议
+*******************************************************************************/
+int rd_xinjiang( char port )
+{
+	static int status;
+	auto char portPosition;
+	auto char p;
+	auto char *point;
+	auto int i,j;
+	auto char str[16];
+	auto char buf[512];
+	auto int len;
+	auto float val;
+	auto union uf data;
+
+	costate
+	{
+		status =0;
+
+		waitfor(DelaySec(1));
+		memset(buf,0x00,sizeof(buf));
+		len = 0;
+		while(1)
+		{
+			memset(com_rbuf,0x00,sizeof(com_rbuf));
+			com_read(port);
+			if(com_rlen>0)
+			{
+				if((len+com_rlen)>=512)	break;
+				memcpy(&buf[len],com_rbuf,com_rlen);
+				len += com_rlen;
+			}
+			else	break;
+		}
+		#if 1
+		printf("com_rlen=%d\n",len);
+		for(i=0;i<len;i++)
+		{
+			printf("%02x ",buf[i]);
+		}
+		printf("\n");
+		#endif
+
+		if((len>3)&&(buf[0]==0x24)&&(buf[2]==0x54))
+		{
+			portPosition = port+8;//计算出是哪个通道
+			p = ai_param[portPosition].polIndex;//取出污染物编码位置
+			memset(str,0x00,sizeof(str));
+
+			if(p >= 100)
+			{
+				if(strlen(PolCode[p-100])<3)
+				{
+					sprintf(str," %s",PolCode[p-100]);
+				}
+				else
+				{
+					sprintf(str,"%s",PolCode[p-100]);
+				}
+
+			}
+			else
+			{
+				if(strlen(PolCode[p])<3)
+				{
+					sprintf(str," %s",PolCode[p]);
+				}
+				else
+				{
+					sprintf(str,"%s",PolCode[p]);
+				}
+			}
+
+			for(j=0;j<len-7;j++)
+			{
+				if((str[0]==buf[j])&&(str[1]==buf[j+1])&&(str[2]==buf[j+2]))
+				{
+					data.ch[3] = buf[j+3];
+					data.ch[2] = buf[j+4];
+					data.ch[1] = buf[j+5];
+					data.ch[0] = buf[j+6];
+					com_f[0] = data.f;
+					if(p==34)//废气单位: m3/h => m3/s
+					{
+						com_f[0] /= 3600;
+					}
+					else if(p==79)//压力单位: Pa => kPa
+					{
+						com_f[0] /= 1000;
+					}
+					old_com_f[0] = com_f[0];
+					break;
+				}
+			}
+
+			for(i=0;i<20;i++)
+			{
+				if(ai_param_extend[i].port == port)//同一串口下
+				{
+					p=ai_param_extend[i].polIndex;
+					if((p>0)&&(p<BOCON_NO_OF_POL))
+					{
+						memset(str,0x00,sizeof(str));
+						if(p >= 100)
+						{
+							if(strlen(PolCode[p-100])<3)
+							{
+								sprintf(str," %s",PolCode[p-100]);
+							}
+							else
+							{
+								sprintf(str,"%s",PolCode[p-100]);
+							}
+						}
+						else
+						{
+							if(strlen(PolCode[p])<3)
+							{
+								sprintf(str," %s",PolCode[p]);
+							}
+							else
+							{
+								sprintf(str,"%s",PolCode[p]);
+							}
+						}
+
+						for(j=0;j<len-7;j++)
+						{
+							if((str[0]==buf[j])&&(str[1]==buf[j+1])&&(str[2]==buf[j+2]))
+							{
+								data.ch[3] = buf[j+3];
+								data.ch[2] = buf[j+4];
+								data.ch[1] = buf[j+5];
+								data.ch[0] = buf[j+6];
+								com_f[ai_param_extend[i].position] = data.f;
+								if(p==34)//废气单位: m3/h => m3/s
+								{
+									com_f[ai_param_extend[i].position] /= 3600;
+								}
+								else if(p==79)//压力单位: Pa => kPa
+								{
+									com_f[ai_param_extend[i].position] /= 1000;
+								}
+								old_com_f[ai_param_extend[i].position] = com_f[ai_param_extend[i].position];
+								break;
+							}
+						}
+
+					}
+				}
+			}
+
+			deviceStatus = 0;
+			status = 1;
+		}
+		else
+		{
+			if(deviceStatus <100)
+			{
+				for(i=0;i<20;i++)
+				{
+					com_f[i] = old_com_f[i];
+				}
+				status =1;
+				deviceStatus++;
+			}
+			else
+			{
+				for(i=0;i<20;i++)
+				{
+					com_f[i] = 0.0;
+					old_com_f[i] = 0.0;
+				}
+				status =2;
+			}
+		}
+
+		com_sec = read_rtc();
+	}
+	return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+

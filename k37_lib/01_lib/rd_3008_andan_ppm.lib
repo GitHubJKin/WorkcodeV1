@@ -1,0 +1,79 @@
+
+
+/*** BeginHeader */
+#ifndef rd_3008_andan_ppm_lib
+#define rd_3008_andan_ppm_lib
+/*** EndHeader */
+
+
+/*** BeginHeader rd_andan_ppm*/
+int rd_andan_ppm( char port );
+/*** EndHeader */
+/********
+				--3008
+********/
+int rd_andan_ppm( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+      pack_modbus_cmd(0x01, 0x03, 0x00, 0x1E);
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 65)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[39];
+         f.ch[0] = com_rbuf[40];
+         f.ch[3] = com_rbuf[41];
+         f.ch[2] = com_rbuf[42];
+         com_f[0] = f.f;         //瞬时值
+
+         status = 1;
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         status = 2;
+         com_sec = read_rtc();
+      }
+   }
+   return status;
+}
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,244 @@
+
+/*** BeginHeader */
+#ifndef rd_8056_hebei_V2_lib
+#define rd_8056_hebei_V2_lib
+/*** EndHeader */
+
+
+/*** BeginHeader parseHebeiPacket*/
+int parseHebeiPacket(char com_rbuf[], char *codeStr, float *value, int paramterCount);
+/*** EndHeader */
+int parseHebeiPacket(char com_rbuf[], char *codeStr, float *value, int paramterCount)
+{
+	auto int count;
+   auto char *p1, *p2;
+   auto char str[16];
+   auto int len;
+   auto union uf data;
+   auto int status;
+
+   len = strlen(codeStr);
+   p1 = &com_rbuf[13];
+   count = 1;
+   status = 0;
+   while(count <= paramterCount)
+   {
+   	if(strncmp(p1, codeStr, len) == 0)
+      {
+         p1 = p1 + len + 1;//指向数据
+         data.ch[3] = *p1++;
+         data.ch[2] = *p1++;
+         data.ch[1] = *p1++;
+         data.ch[0] = *p1++;
+         *value = data.f;
+         status = 1;
+         break;//数据已经找到解释出来
+
+         *p1++; //;
+      }
+      else
+      {
+   		p1 = strchr(p1, '-');
+      	if(p1 != NULL)
+      	{
+          	p1 += 8;
+      	}
+      }
+
+      count++;
+   }
+
+   return status;
+}
+
+/*******************************************************
+ 河北省环保在线监测设备RS232串行口通讯协议V2.0－2010
+发送:0x23,0x23,0x01,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x11,0x22,0x26,0x26
+接收:
+*******************************************************/
+//
+/*** BeginHeader rd_hebei_V2*/
+int rd_hebei_V2( char port, char flag, unsigned delayTime );
+/*** EndHeader */
+/*******************************************************************************
+河北省环保在线监测设备RS232串行口通讯协议V2.0－2010
+*******************************************************************************/
+int rd_hebei_V2( char port, char flag, unsigned delayTime)
+{
+	static int status;
+   auto char portPosition;
+   auto char p;
+   auto char *point;
+   auto int i;
+   auto char str[16];
+   auto char buf[512];
+   auto int len;
+   auto int paramterCount;//参数个数
+   auto float fval;
+
+   costate
+   {
+   	status = 0;
+
+      //////////////////////////////////读取动态管理数据//////////////////////////////////
+      /* memset(com_tbuf, 0xff, sizeof(com_tbuf));
+      com_tbuf[0] = 0x23;
+      com_tbuf[1] = 0x23;
+      com_tbuf[2] = 0x0b;
+      com_tbuf[13] = 0x11;
+      com_tbuf[14] = 0x22;
+      com_tbuf[15] = 0x26;
+      com_tbuf[16] = 0x26;
+      com_tlen = 17;
+      com_write(port);
+
+      waitfor(DelaySec(3));
+      memset(buf, 0x00, sizeof(buf));
+      len = 0;
+      while(1)
+      {
+      	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      	com_read(port);
+			if(com_rlen > 0)
+         {
+         	if((len + com_rlen) >= 1024) break;
+         	memcpy(&buf[len], com_rbuf, com_rlen);
+            len += com_rlen;
+         }
+         else break;
+      } */
+
+      //////////////////////////////////读取实时数据//////////////////////////////////
+      //0x23,0x23,0x01,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x11,0x22,0x26,0x26
+      memset(com_tbuf, 0xff, sizeof(com_tbuf));
+      com_tbuf[0] = 0x23;
+      com_tbuf[1] = 0x23;
+      com_tbuf[2] = 0x01;
+      com_tbuf[13] = 0x11;
+      com_tbuf[14] = 0x22;
+      com_tbuf[15] = 0x26;
+      com_tbuf[16] = 0x26;
+      com_tlen = 17;
+      com_write(port);
+
+      waitfor(DelaySec(delayTime));
+      memset(buf, 0x00, sizeof(buf));
+      len = 0;
+      while(1)
+      {
+      	memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      	com_read(port);
+			if(com_rlen > 0)
+         {
+         	if((len + com_rlen) >= 1024) break;
+         	memcpy(&buf[len], com_rbuf, com_rlen);
+            len += com_rlen;
+         }
+         else break;
+      }
+      #ifdef DEBUG_PRINTF
+         printf("com_rlen=%d \n", len);
+         for (i = 0; i < len; i++)
+         {
+         	printf("%02X", buf[i]);
+         }
+         printf(" \n");
+      #endif
+      if((len > 4) && buf[0] == 0x23 && buf[1] == 0x23 &&
+          buf[len-2] == 0x26 && buf[len-1] == 0x26)
+      {
+         paramterCount = buf[6];  //参数个数
+
+
+      	portPosition = port + 8;    //计算出是哪个通道的
+      	p = ai_param[portPosition].polIndex;  //取出污染物编码位置
+      	memset(str, 0x00, sizeof(str));
+      	//if(p >= 100) sprintf(str, "%s-Z", PolCode[p-100]);
+      	//else sprintf(str, "%s-R", PolCode[p]);
+
+         if(p >= 100)
+         {
+         	if(strlen(PolCode[p-100]) < 3 && flag)
+            {
+            	sprintf(str, "%s -Z", PolCode[p-100]);
+            }
+            else
+            {
+            	sprintf(str, "%s-Z", PolCode[p-100]);
+            }
+         }
+      	else
+         {
+         	if(strlen(PolCode[p]) < 3&& flag)
+            {
+            	sprintf(str, "%s -R", PolCode[p]);
+            }
+            else
+            {
+            	sprintf(str, "%s-R", PolCode[p]);
+            }
+         }
+
+         if(parseHebeiPacket(buf, str, &fval, paramterCount) == 1)
+         {
+         	if((p  == 29) && (fval < 0.0 || fval >= 1000.0)){
+            	fval = 0.0;
+            }
+            else{
+         		com_f[0] = fval;
+            }
+         }
+
+         for (i = 0; i < 20; i++)
+         {
+         	if(ai_param_extend[i].port == port) //是同一个串口的
+            {
+         		p = ai_param_extend[i].polIndex;
+            	if((p >= 0) && (p < BOCON_NO_OF_POL))
+            	{
+               	memset(str, 0x00, sizeof(str));
+                  if(p >= 100)
+                  {
+                  	if(strlen(PolCode[p-100]) < 3&& flag)
+                     {
+                  		sprintf(str, "%s -Z", PolCode[p-100]);
+                     }
+                     else
+                     {
+                     	sprintf(str, "%s-Z", PolCode[p-100]);
+                     }
+                  }
+      				else
+                  {
+                  	if(strlen(PolCode[p]) < 3&& flag)
+                     {
+                     	sprintf(str, "%s -R", PolCode[p]);
+                     }
+                     else
+                     {
+                  		sprintf(str, "%s-R", PolCode[p]);
+                     }
+                  }
+
+                  if(parseHebeiPacket(buf, str, &fval, paramterCount) == 1)
+         			{
+         				com_f[ai_param_extend[i].position] = fval;
+         			}
+            	}
+            }
+         }
+         status = 1;
+      }
+      else
+      {
+      	status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

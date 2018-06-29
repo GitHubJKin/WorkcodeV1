@@ -1,0 +1,119 @@
+
+
+/*** BeginHeader */
+#ifndef rd_20010_cod_andan_flux_lib
+#define rd_20010_cod_andan_flux_lib
+/*** EndHeader */
+
+
+
+/*** BeginHeader rd_cod_andan_flux */
+int rd_cod_andan_flux( char port );
+/*** EndHeader */
+int rd_cod_andan_flux( char port )
+{
+   static int status;
+   auto struct tm comTime;
+   auto union uf f;//uf这在K36的驱动库里已定义
+
+   costate
+   {
+      status = 0;
+
+      pack_modbus_cmd(0x03, 0x03, 0x00, 0x07);
+      com_write(port);
+
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x03)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[3] = com_rbuf[3];
+         f.ch[2] = com_rbuf[4];
+         f.ch[1] = com_rbuf[5];
+         f.ch[0] = com_rbuf[6];
+         com_f[0] = f.f;         //即时值
+
+         f.ch[3] = com_rbuf[9];
+         f.ch[2] = com_rbuf[10];
+         f.ch[1] = com_rbuf[11];
+         f.ch[0] = com_rbuf[12];
+         com_f[1] = f.l;
+
+         f.ch[3] = com_rbuf[13];
+         f.ch[2] = com_rbuf[14];
+         f.ch[1] = com_rbuf[15];
+         f.ch[0] = com_rbuf[16];
+         com_f[1] += f.f;
+      }
+      else
+      {
+         com_f[0] = 0.0;
+         com_f[1] = 0.0;
+      }
+
+      pack_modbus_cmd(0x02, 0x03, 0x00, 0x02);
+      com_write(port);
+
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x02)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[2] = f.f;         //即时值
+      }
+      else
+      {
+         com_f[2] = 0.0;         //即时值
+      }
+
+      pack_modbus_cmd(0x01, 0x03, 0x00, 0x02);
+      com_write(port);
+
+      waitfor(DelayMs(1000));
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if( (com_rlen >= 9)&&(com_rbuf[0] == 0x01)&&(com_rbuf[1] == 0x03) )
+      {
+         f.ch[1] = com_rbuf[3];
+         f.ch[0] = com_rbuf[4];
+         f.ch[3] = com_rbuf[5];
+         f.ch[2] = com_rbuf[6];
+         com_f[3] = f.f;         //即时值
+      }
+      else
+      {
+         com_f[3] = 0.0;
+      }
+
+      status = 1;
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

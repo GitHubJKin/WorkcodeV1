@@ -1,0 +1,110 @@
+
+
+	
+
+/*** BeginHeader */
+#ifndef rd_8068_modbus_slave_lib
+#define rd_8068_modbus_slave_lib
+/*** EndHeader */
+
+
+//读modbus从机，地址从499开始，湖北中碧用
+
+/*******************************************************************************
+读取modbus从机数据		                    --8068
+*******************************************************************************/
+/*** BeginHeader rd_modbus_slave */
+int rd_modbus_slave( char port );
+/*** EndHeader */
+int rd_modbus_slave( char port )
+{
+	static int status;
+	auto union uf f;
+	auto int i;
+
+	costate
+	{
+		status = 0;
+
+		pack_modbus_cmd(0x01, 0x03, 0x01F4, 0x000A);  //从500开始读10个寄存器
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      #ifdef DEBUG_PRINTF
+      for (i = 0; i < com_rlen; i++)
+      {
+         printf("%02X ", com_rbuf[i]);
+      }
+      printf(" \n");
+      #endif
+      if((com_rlen >= 9) && (com_rbuf[0] == 0x01) && (com_rbuf[1] == 0x03))
+      {
+      	f.ch[1] = com_rbuf[3];
+      	f.ch[0] = com_rbuf[4];
+      	f.ch[3] = com_rbuf[5];
+      	f.ch[2] = com_rbuf[6];
+      	com_f[0] = f.f;
+
+      	f.ch[1] = com_rbuf[7];
+      	f.ch[0] = com_rbuf[8];
+      	f.ch[3] = com_rbuf[9];
+      	f.ch[2] = com_rbuf[10];
+      	com_f[1] = f.f;
+
+      	f.ch[1] = com_rbuf[11];
+      	f.ch[0] = com_rbuf[12];
+      	f.ch[3] = com_rbuf[13];
+      	f.ch[2] = com_rbuf[14];
+      	com_f[2] = f.f;
+
+      	f.ch[1] = com_rbuf[15];
+      	f.ch[0] = com_rbuf[16];
+      	f.ch[3] = com_rbuf[17];
+      	f.ch[2] = com_rbuf[18];
+      	com_f[3] = f.f;
+
+      	f.ch[1] = com_rbuf[19];
+      	f.ch[0] = com_rbuf[20];
+      	f.ch[3] = com_rbuf[21];
+      	f.ch[2] = com_rbuf[22];
+      	com_f[4] = f.f;
+
+      	status = 1;
+      }
+      else
+      {
+      	status = 2;
+      	com_f[0] = 0.0;
+      	com_f[1] = 0.0;
+      	com_f[2] = 0.0;
+      	com_f[3] = 0.0;
+      	com_f[4] = 0.0;
+      }
+		com_sec = read_rtc();
+	}
+
+	return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+

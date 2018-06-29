@@ -1,0 +1,57 @@
+
+/*** BeginHeader */
+#ifndef rd_6006_metal_lihe_lib
+#define rd_6006_metal_lihe_lib
+/*** EndHeader */
+
+/*** BeginHeader rd_metal_lihe */
+int rd_metal_lihe( char port );                       //6006
+/*** EndHeader */
+int rd_metal_lihe( char port )//湖南力合  6价铬 地址22(0x16)
+{
+   static int status;
+   auto unsigned int comcrc;
+   costate
+   {
+      status = 0;
+
+      com_tbuf[0] = 0x01;//总锰 地址24(0x18)
+      com_tbuf[1] = 0x03;//取测量结果命令
+      com_tbuf[2] = 0x00;//共0个数据
+      com_tbuf[3] = 0x00;//CRC H
+      com_tbuf[4] = 0x00;//CRC L
+      comcrc = CRC16_LH(com_tbuf, 5);
+      com_tbuf[3] = (char)(comcrc>>8); //CRC H
+      com_tbuf[4] = (char)comcrc;      //CRC L
+      com_tlen = 5;
+      com_write(port);
+      waitfor(DelayMs(3000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+      if(com_rlen >= 5)
+      {
+         if( (com_rlen==(com_rbuf[2]+5)) && (com_rbuf[0]==0x01)
+         && (CRC16_LH(com_rbuf, com_rlen)==0x0000) )
+         {
+            com_f[0] = *( (float *)(&(com_rbuf[3])) );   //测量值
+            status = 1;
+         }
+      }
+      if(status == 0)
+      {
+         //printf("GE Error = (dev:6007  ,  com:%02d)\n", port+1);
+         status = 2;
+         com_f[0] = 0.0;
+      }
+      com_sec = read_rtc();      //采样时间
+   }
+   return status;
+}
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+

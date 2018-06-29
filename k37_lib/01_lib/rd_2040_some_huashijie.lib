@@ -1,0 +1,125 @@
+
+/*** BeginHeader */
+#ifndef rd_2040_some_huashijie_lib
+#define rd_2040_some_huashijie_lib
+/*** EndHeader */
+
+
+/*
+2040:华时捷二代在线监测仪器通讯协议
+485口接多个仪表,地址位为01,..., 13-03-09
+*/
+/*** BeginHeader rd_some_huashijie */
+int rd_some_huashijie( char port );
+/*** EndHeader */
+int rd_some_huashijie( char port )
+{
+	static int status;
+   auto long templ;
+   auto char tempc[16];
+   auto struct tm comTime;
+   auto int i;
+   auto unsigned int v;
+   static int someAdd;
+   auto char *point;
+   auto int k;
+
+   costate
+   {
+       status = 0;
+
+       for(someAdd = 0; someAdd < ai_param[15].alarm_L;someAdd++)
+       {
+       		memset(com_tbuf, 0x00, sizeof(com_tbuf));
+       		com_tbuf[0] = 0x23;  //报文开始符
+       		com_tbuf[1] = 0x30;  //地址码
+       		com_tbuf[2] = (0x30+someAdd+1);
+       		com_tbuf[3] = 0x30;   //指令代码
+       		com_tbuf[4] = 0x0d;  //报文结束符
+       		com_tlen = 5;
+
+       		com_write(port);
+       		waitfor(DelayMs(2000));
+
+       		memset(com_rbuf, 0x00, sizeof(com_rbuf));
+       		com_read(port);
+
+       		if((com_rlen >= 25)&&(com_rbuf[0] == 0x3e)&&(com_rbuf[1] == 0x30)&&(com_rbuf[2]==(0x30+someAdd+1)))//&&(com_rbuf[3]==0x30))
+       		{
+            	//if((v == 0x0000)||(v == 0x1111)||(v == 0x2222))   //错误数据
+     		  	if(((com_rbuf[16] == 0x70)&&(com_rbuf[17] == 0x70)&&(com_rbuf[18] == 0x70)&&(com_rbuf[19] == 0x70))||
+               		((com_rbuf[16] == 0x71)&&(com_rbuf[17] == 0x71)&&(com_rbuf[18] == 0x71)&&(com_rbuf[19] == 0x71))||
+               		((com_rbuf[16] == 0x72)&&(com_rbuf[17] == 0x72)&&(com_rbuf[18] == 0x72)&&(com_rbuf[19] == 0x72)))
+				{
+                	printf("Data Error \n");
+	             	com_f[someAdd] = 0.0;
+	         	}
+	         	else
+	         	{
+  		       		point = strchr(com_rbuf,'.');
+					k = point - &com_rbuf[16];
+					k = k+2;
+                	memset(tempc,0x00,sizeof(tempc));
+                	strncpy(tempc, &com_rbuf[16], k);
+                	com_f[someAdd] = atof(tempc);  //即时值
+                	if(com_rbuf[16+k]==0x30)
+                	{
+                		com_f[someAdd] /= 1000.0;
+					}
+					else if(com_rbuf[16+k]==0x32)
+					{
+						com_f[someAdd] *= 1000.0;
+					}
+					else
+					{}
+                	com_sec = read_rtc();
+	         	}
+       		}
+       		else
+       		{
+            	com_f[someAdd] = 0.0;
+	   		}
+	   		waitfor(DelayMs(2000));
+	   }
+
+      status = 1;
+   	com_sec = read_rtc();
+   	if(status == 0) status = 1;
+   }
+
+   return status;
+}
+
+
+
+
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

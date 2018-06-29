@@ -1,0 +1,62 @@
+
+/*** BeginHeader */
+#ifndef rd_6011_hangzhou_fuming_lib
+#define rd_6011_hangzhou_fuming_lib
+/*** EndHeader */
+
+
+
+
+/******************************************
+杭州富铭 仪表协议. Modbus-ASCII
+******************************************/
+/*** BeginHeader rd_hangzhou_fuming */
+int rd_hangzhou_fuming( char port ,char addr);
+/*** EndHeader */
+int rd_hangzhou_fuming( char port ,char addr)
+{
+	static int status;
+   auto union uf ascii_f;
+
+   costate
+   {
+   	status = 0;
+
+		modbusAsciiPacket(addr, 3, 0, 2);
+      com_write(port);
+      waitfor(DelayMs(1000));
+
+      memset(com_rbuf, 0x00, sizeof(com_rbuf));
+      com_read(port);
+		if( (com_rlen >= 9)&&(com_rbuf[0] == ':')&&(com_rbuf[com_rlen-2] == '\r')&&(com_rbuf[com_rlen-1] == '\n') )
+      {
+			//com_f[0] = asciiToFloat(&com_rbuf[7]);
+         ascii_f.ch[3] = ((strhexToHex(com_rbuf[7])) << 4) | (strhexToHex(com_rbuf[8]));
+   		ascii_f.ch[2] = ((strhexToHex(com_rbuf[9])) << 4) | (strhexToHex(com_rbuf[10]));
+   		ascii_f.ch[1] = ((strhexToHex(com_rbuf[11])) << 4) | (strhexToHex(com_rbuf[12]));
+   		ascii_f.ch[0] = ((strhexToHex(com_rbuf[13])) << 4) | (strhexToHex(com_rbuf[14]));
+			com_f[0] = ascii_f.f;
+         status = 1;
+      }
+      else
+      {
+      	com_f[0] = 0.0;
+         status = 2;
+      }
+      com_sec = read_rtc();
+   }
+   return status;
+}
+
+
+
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */
+
+
+
+
+
+
